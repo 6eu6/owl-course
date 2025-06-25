@@ -1,0 +1,301 @@
+{% extends "merged_base.html" %}
+
+{% block title %}FAQ - {{ settings.site_title or 'OWL COURSE' }}{% endblock %}
+
+{# Hero Section Variables #}
+{% set hero_count = 'FAQ' %}
+{% set hero_title = 'Frequently Asked Questions' %}
+{% set hero_description = 'Find answers to common questions about our platform' %}
+
+{% block extra_css %}
+<style>
+.faq-item {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    background: #fff;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    transition: all 0.3s ease;
+}
+
+.faq-item:hover {
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.faq-question {
+    padding: 20px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.3s ease;
+}
+
+.faq-question:hover {
+    background: #f8f9fa;
+}
+
+.faq-question h4 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.faq-question .fas.fa-plus {
+    transition: transform 0.3s ease;
+    color: #8B4513;
+}
+
+.faq-question[aria-expanded="true"] .fas.fa-plus {
+    transform: rotate(45deg);
+}
+
+.faq-answer {
+    border-top: 1px solid #e0e0e0;
+}
+
+.answer-content {
+    padding: 20px;
+    background: #f8f9fa;
+}
+
+.answer-content p {
+    margin-bottom: 0;
+    line-height: 1.6;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-5 pt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="admin-card">
+                <div class="text-center mb-4">
+                    <h1 class="admin-title">
+                        <i class="fas fa-question-circle me-2" style="color: #8B4513;"></i>
+                        Frequently Asked Questions
+                    </h1>
+                    <p class="text-muted">Common Questions and Answers</p>
+                </div>
+
+                <div class="mb-4">
+                    <div class="faq-item">
+                        <div class="faq-question" data-bs-toggle="collapse" data-bs-target="#faq1" aria-expanded="false" aria-controls="faq1">
+                            <h4>
+                                <i class="fas fa-info-circle" style="color: #8B4513;"></i>
+                                What is {{ settings.site_title or 'OWL COURSE' }}?
+                            </h4>
+                            <i class="fas fa-plus"></i>
+                        </div>
+                        <div class="collapse faq-answer" id="faq1">
+                            <div class="answer-content">
+                                <p>{{ settings.site_title or 'OWL COURSE' }} is a free educational platform that aggregates and displays information about free online courses from various educational platforms like Udemy, helping learners discover quality educational opportunities with smart content discovery.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <div class="faq-question" data-bs-toggle="collapse" data-bs-target="#faq2" aria-expanded="false" aria-controls="faq2">
+                            <h4>
+                                <i class="fas fa-gift" style="color: #8B4513;"></i>
+                                Are the courses really free?
+                            </h4>
+                            <i class="fas fa-plus"></i>
+                        </div>
+                        <div class="collapse faq-answer" id="faq2">
+                            <div class="answer-content">
+                                <p>Yes! All courses listed on {{ settings.site_title or 'OWL COURSE' }} are available for free. However, these are often limited-time promotional offers, so we recommend enrolling quickly when you find a course you're interested in.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <div class="faq-question" data-bs-toggle="collapse" data-bs-target="#faq3" aria-expanded="false" aria-controls="faq3">
+                            <h4>
+                                <i class="fas fa-user" style="color: #8B4513;"></i>
+                                Do I need to create an account?
+                            </h4>
+                            <i class="fas fa-plus"></i>
+                        </div>
+                        <div class="collapse faq-answer" id="faq3">
+                            <div class="answer-content">
+                                <p>No account is needed to browse {{ settings.site_title or 'OWL COURSE' }}. However, you'll need to create an account on the course platform (like Udemy) to enroll in courses.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <div class="faq-question" data-bs-toggle="collapse" data-bs-target="#faq4" aria-expanded="false" aria-controls="faq4">
+                            <h4>
+                                <i class="fas fa-clock" style="color: #8B4513;"></i>
+                                How often are new courses added?
+                            </h4>
+                            <i class="fas fa-plus"></i>
+                        </div>
+                        <div class="collapse faq-answer" id="faq4">
+                            <div class="answer-content">
+                                <p>We add new courses daily! Our automated systems work 24/7 to find the latest free course offers and update our listings regularly.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <div class="faq-question" data-bs-toggle="collapse" data-bs-target="#faq5" aria-expanded="false" aria-controls="faq5">
+                            <h4>
+                                <i class="fas fa-certificate" style="color: #8B4513;"></i>
+                                Do I get a certificate?
+                            </h4>
+                            <i class="fas fa-plus"></i>
+                        </div>
+                        <div class="collapse faq-answer" id="faq5">
+                            <div class="answer-content">
+                                <p>Certificate availability depends on the course platform's policies. Most Udemy courses provide certificates upon completion when you're enrolled for free.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <div class="faq-question" data-bs-toggle="collapse" data-bs-target="#faq6" aria-expanded="false" aria-controls="faq6">
+                            <h4>
+                                <i class="fas fa-dollar-sign" style="color: #8B4513;"></i>
+                                Why did a course become paid?
+                            </h4>
+                            <i class="fas fa-plus"></i>
+                        </div>
+                        <div class="collapse faq-answer" id="faq6">
+                            <div class="answer-content">
+                                <p>Free course offers are typically time-limited promotions. If a course shows as paid, the free promotion has likely ended. We recommend checking back regularly for new free offerings.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <div class="faq-question" data-bs-toggle="collapse" data-bs-target="#faq7" aria-expanded="false" aria-controls="faq7">
+                            <h4>
+                                <i class="fas fa-search" style="color: #8B4513;"></i>
+                                Can I request specific courses?
+                            </h4>
+                            <i class="fas fa-plus"></i>
+                        </div>
+                        <div class="collapse faq-answer" id="faq7">
+                            <div class="answer-content">
+                                <p>While we can't make courses free, we continuously scan for new free offerings. Join our Telegram channel to get notified about the latest free courses as soon as they're available.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <div class="faq-question" data-bs-toggle="collapse" data-bs-target="#faq8" aria-expanded="false" aria-controls="faq8">
+                            <h4>
+                                <i class="fas fa-handshake" style="color: #8B4513;"></i>
+                                Is {{ settings.site_title or 'OWL COURSE' }} affiliated with course providers?
+                            </h4>
+                            <i class="fas fa-plus"></i>
+                        </div>
+                        <div class="collapse faq-answer" id="faq8">
+                            <div class="answer-content">
+                                <p>No, {{ settings.site_title or 'OWL COURSE' }} is an independent platform that aggregates publicly available information about free courses. We are not affiliated with Udemy or other course providers.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <div class="faq-question" data-bs-toggle="collapse" data-bs-target="#faq9" aria-expanded="false" aria-controls="faq9">
+                            <h4>
+                                <i class="fas fa-headset" style="color: #8B4513;"></i>
+                                How can I contact support?
+                            </h4>
+                            <i class="fas fa-plus"></i>
+                        </div>
+                        <div class="collapse faq-answer" id="faq9">
+                            <div class="answer-content">
+                                <p>You can reach us through our Telegram channel or contact us via the About page. We're always happy to help with any questions or feedback.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <div class="faq-question" data-bs-toggle="collapse" data-bs-target="#how-to-register" aria-expanded="false" aria-controls="how-to-register">
+                            <h4 id="how-to-register">
+                                <i class="fas fa-user-plus" style="color: #8B4513;"></i>
+                                How I can get the free course?
+                            </h4>
+                            <i class="fas fa-plus"></i>
+                        </div>
+                        <div class="collapse faq-answer" id="how-to-register">
+                            <div class="answer-content">
+                                <p class="mb-3">Watch this step-by-step video tutorial to learn how to register and claim free courses on Udemy:</p>
+                                
+                                <div class="video-container mb-3" style="max-width: 100%; margin: 0 auto;">
+                                    <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.1); background: #f8f9fa;">
+                                        <iframe 
+                                            src="https://www.youtube.com/embed/2Pnvock9fbo?rel=0&showinfo=0&modestbranding=1" 
+                                            style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; border-radius: 12px;"
+                                            allowfullscreen>
+                                        </iframe>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="text-muted">
+                        <i class="fas fa-lightbulb me-2"></i>
+                        <strong>Pro Tip:</strong> Join our Telegram channel to get instant notifications about new free courses!
+                    </div>
+                </div>
+
+                <div class="text-center">
+                    <a href="{% if telegram_settings and telegram_settings.join_channel_username %}https://t.me/{{ telegram_settings.join_channel_username.lstrip('@') }}{% else %}https://t.me/{{ settings.site_title or 'OWL COURSE' }}{% endif %}" 
+                       target="_blank" class="btn btn-primary telegram-btn">
+                        <i class="fab fa-telegram me-2"></i>
+                        Join Telegram Channel
+                    </a>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle automatic opening of FAQ question from anchor link (e.g., from Telegram)
+    if (window.location.hash === '#how-to-register') {
+        const registerCollapse = document.getElementById('how-to-register');
+        const registerQuestion = document.querySelector('[data-bs-target="#how-to-register"]');
+        
+        if (registerCollapse && registerQuestion) {
+            // Open the collapse
+            const bsCollapse = new bootstrap.Collapse(registerCollapse, {
+                show: true
+            });
+            
+            // Update the question state
+            registerQuestion.setAttribute('aria-expanded', 'true');
+            
+            // Scroll to the question smoothly
+            setTimeout(() => {
+                registerQuestion.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'center' 
+                });
+            }, 300);
+        }
+    }
+    
+    // Add click event listeners to all FAQ questions
+    document.querySelectorAll('.faq-question').forEach(question => {
+        question.addEventListener('click', function() {
+            const expanded = this.getAttribute('aria-expanded') === 'true';
+            this.setAttribute('aria-expanded', !expanded);
+        });
+    });
+});
+</script>
+
+{% endblock %}
