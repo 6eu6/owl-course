@@ -1,0 +1,253 @@
+{% extends "admin_base.html" %}
+
+{% block title %}ShrinkMe Management - {{ settings.site_title or 'OWL COURSE' }} Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="admin-card">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h3 class="mb-0">
+                        <i class="fas fa-link text-primary me-2"></i>
+                        ShrinkMe Link Management
+                    </h3>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-primary" onclick="refreshStats()">
+                            <i class="fas fa-sync-alt me-1"></i>
+                            Refresh
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Statistics Cards -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="stat-card bg-primary text-white">
+                            <div class="stat-card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h4 class="stat-number mb-1">{{ stats.total_links }}</h4>
+                                        <p class="stat-label mb-0">Total Shortened Links</p>
+                                    </div>
+                                    <div class="stat-icon">
+                                        <i class="fas fa-link fa-2x"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="stat-card bg-success text-white">
+                            <div class="stat-card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h4 class="stat-number mb-1">{{ stats.total_clicks }}</h4>
+                                        <p class="stat-label mb-0">Total Clicks</p>
+                                    </div>
+                                    <div class="stat-icon">
+                                        <i class="fas fa-mouse-pointer fa-2x"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ShrinkMe Configuration -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-cog me-2"></i>
+                            ShrinkMe Configuration
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">API Status</label>
+                                    <div class="d-flex align-items-center">
+                                        <span class="badge bg-success me-2">Active</span>
+                                        <small class="text-muted">API Key configured</small>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">API Endpoint</label>
+                                    <input type="text" class="form-control" value="https://shrinkme.io/api" readonly>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Domain</label>
+                                    <input type="text" class="form-control" value="shrinkme.ink" readonly>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Auto-Shortening</label>
+                                    <div class="d-flex align-items-center">
+                                        <span class="badge bg-success me-2">Enabled</span>
+                                        <small class="text-muted">All course links are automatically shortened</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Shortened Links -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-history me-2"></i>
+                            Recent Shortened Links
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        {% if recent_links %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Original URL</th>
+                                        <th>Shortened URL</th>
+                                        <th>Clicks</th>
+                                        <th>Created</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for link in recent_links %}
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <i class="fas fa-external-link-alt text-muted me-2"></i>
+                                                <span class="text-truncate" style="max-width: 300px;" title="{{ link.original_url }}">
+                                                    {{ link.original_url }}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <i class="fas fa-link text-primary me-2"></i>
+                                                <a href="{{ link.shortened_url }}" target="_blank" class="text-decoration-none">
+                                                    {{ link.shortened_url }}
+                                                </a>
+                                                <button class="btn btn-sm btn-outline-secondary ms-2" onclick="copyToClipboard('{{ link.shortened_url }}')">
+                                                    <i class="fas fa-copy"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-info">{{ link.click_count or 0 }}</span>
+                                        </td>
+                                        <td>
+                                            <small class="text-muted">
+                                                {{ link.created_at.strftime('%Y-%m-%d %H:%M') if link.created_at else 'N/A' }}
+                                            </small>
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm">
+                                                <a href="{{ link.shortened_url }}" target="_blank" class="btn btn-outline-primary">
+                                                    <i class="fas fa-external-link-alt"></i>
+                                                </a>
+                                                <button class="btn btn-outline-danger" onclick="deleteLink('{{ link._id }}')">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-link fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">No shortened links yet</h5>
+                            <p class="text-muted">Links will appear here as users access course content</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.stat-card {
+    border-radius: 10px;
+    padding: 0;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.stat-card-body {
+    padding: 25px;
+}
+
+.stat-number {
+    font-size: 2.5rem;
+    font-weight: bold;
+    margin: 0;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    opacity: 0.9;
+    margin: 0;
+}
+
+.stat-icon {
+    opacity: 0.3;
+}
+
+.table th {
+    border-top: none;
+    font-weight: 600;
+    color: #495057;
+    background-color: #f8f9fa;
+}
+
+.badge {
+    font-size: 0.75rem;
+}
+</style>
+
+<script>
+function refreshStats() {
+    window.location.reload();
+}
+
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(function() {
+        // Show success feedback
+        const button = event.target.closest('button');
+        const originalHtml = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-check text-success"></i>';
+        
+        setTimeout(() => {
+            button.innerHTML = originalHtml;
+        }, 2000);
+    }).catch(function(err) {
+        console.error('Failed to copy: ', err);
+    });
+}
+
+function deleteLink(linkId) {
+    if (confirm('Are you sure you want to delete this shortened link?')) {
+        // Implement delete functionality
+        console.log('Delete link:', linkId);
+    }
+}
+
+// Auto-refresh every 30 seconds
+setInterval(function() {
+    refreshStats();
+}, 30000);
+</script>
+{% endblock %}
