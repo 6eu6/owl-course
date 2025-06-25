@@ -1,0 +1,353 @@
+{% extends "merged_base.html" %}
+
+{% block title %}كورسات مجانية دائمة | StudyBullet Free Courses | دورات تعليمية مجاناً للأبد - {{ settings.site_title or 'OWL COURSE' }}{% endblock %}
+
+{% block meta_description %}اكتشف آلاف الكورسات المجانية الدائمة من StudyBullet | دورات تعليمية مجاناً للأبد في البرمجة والأعمال والتصميم | Discover thousands of permanent free courses from StudyBullet{% endblock %}
+
+{% block meta_keywords %}كورسات مجانية دائمة, studybullet, دورات مجانية للأبد, تعليم مجاني, كورسات بدون انتهاء, دورات تدريبية مجانية, permanent free courses, studybullet courses, free education{% endblock %}
+
+{% block content %}
+
+<!-- Header Ads -->
+{% if header_ads %}
+<section class="header-ads">
+    <div class="container">
+        {% for ad in header_ads %}
+        <div class="ad-banner">
+            {% if ad.link_url %}<a href="{{ ad.link_url }}" target="_blank" rel="noopener">{% endif %}
+                {% if ad.image_url %}
+                <img src="{{ ad.image_url }}" alt="{{ ad.title or 'Advertisement' }}" class="ad-image">
+                {% else %}
+                <div class="ad-content">
+                    <h4>{{ ad.title }}</h4>
+                    <p>{{ ad.content }}</p>
+                </div>
+                {% endif %}
+            {% if ad.link_url %}</a>{% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+<!-- Hero Section -->
+<section class="hero">
+    <div class="container">
+        <h1>Free Permanent Courses</h1>
+        <p>Discover thousands of permanently free courses - no payments or coupons needed</p>
+        
+        <div class="hero-stats">
+            <div class="stat-item">
+                <span class="stat-number">{{ total_courses or 0 }}</span>
+                <span class="stat-label">Free Courses</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-number">{{ categories|length or 0 }}</span>
+                <span class="stat-label">Categories</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-number">100%</span>
+                <span class="stat-label">Permanently Free</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Enhanced Search Section -->
+<section class="enhanced-search">
+    <div class="container">
+        <div class="search-container">
+            <form class="search-form" method="GET" id="searchFormFree">
+                <!-- Main Search Bar -->
+                <div class="search-bar-wrapper">
+                    <div class="search-input-group">
+                        <i class="fas fa-search search-icon"></i>
+                        <input type="text" 
+                               class="search-input" 
+                               name="search" 
+                               placeholder="Find your next course" 
+                               value="{{ request.args.get('search', '') }}"
+                               autocomplete="off"
+                               id="searchInputFree">
+                        <button type="button" class="filter-toggle-btn" id="filterToggleFree">
+                            <i class="fas fa-sliders-h"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Filters Panel (Initially Hidden) -->
+                <div class="filters-panel" id="filtersPanelFree">
+                    <div class="filters-grid">
+                        <div class="filter-item">
+                            <select name="category" class="filter-select">
+                                <option value="">All Categories</option>
+                                {% for cat in categories %}
+                                <option value="{{ cat }}" {% if selected_category == cat %}selected{% endif %}>
+                                    {{ cat }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="filter-item">
+                            <select name="language" class="filter-select">
+                                <option value="">Language</option>
+                                {% for lang in languages %}
+                                <option value="{{ lang }}" {% if selected_language == lang %}selected{% endif %}>
+                                    {{ lang }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="filter-item">
+                            <select name="rating" class="filter-select">
+                                <option value="">Any Rating</option>
+                                <option value="4.5" {% if selected_rating == '4.5' %}selected{% endif %}>4.5+ Stars</option>
+                                <option value="4.0" {% if selected_rating == '4.0' %}selected{% endif %}>4.0+ Stars</option>
+                                <option value="3.5" {% if selected_rating == '3.5' %}selected{% endif %}>3.5+ Stars</option>
+                            </select>
+                        </div>
+                        
+                        <div class="filter-actions">
+                            <button type="submit" class="btn-apply">Apply</button>
+                            <a href="{{ url_for('free_courses') }}" class="btn-clear">Clear</a>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</section>
+
+<!-- Courses Section -->
+<section class="courses">
+    <div class="container">
+        <!-- Course Results Info -->
+        {% if search_query or selected_category or selected_language or selected_rating %}
+        <div class="section-title">
+            <h2>
+                {% if search_query %}
+                    Search Results: "{{ search_query }}"
+                {% else %}
+                    Filtered Courses
+                {% endif %}
+            </h2>
+            <p class="text-muted">{{ total_courses }} courses found</p>
+        </div>
+        {% else %}
+        <div class="section-title">
+            <h2>Free Permanent Courses</h2>
+            <p class="text-muted">Updated Daily</p>
+        </div>
+        {% endif %}
+
+        {% if courses %}
+        <!-- Course Grid -->
+        <div class="course-grid">
+            {% for course in courses %}
+            <div class="course-card">
+                {% if course.image_url and course.image_url != '' and course.image_url != 'N/A' %}
+                <img src="{{ course.image_url }}" 
+                     alt="{{ course.title }}" 
+                     class="course-image"
+                     loading="lazy"
+                     onerror="this.src='{{ url_for('static', filename='images/default-course.svg') }}'">
+                {% else %}
+                <img src="{{ url_for('static', filename='images/default-course.svg') }}" 
+                     alt="{{ course.title }}" 
+                     class="course-image"
+                     loading="lazy">
+                {% endif %}
+                
+                <div class="course-content">
+                    <h3 class="course-title">
+                        <a href="{% if course.slug %}/course/{{ course.slug }}{% else %}{{ url_for('free_course_detail', course_id=course._id) }}{% endif %}">
+                            {{ course.title }}
+                        </a>
+                    </h3>
+                    
+                    {% if course.instructor %}
+                    <p class="course-instructor">
+                        <i class="fas fa-user"></i> {{ course.instructor }}
+                    </p>
+                    {% endif %}
+                    
+                    <div class="course-meta">
+                        {% if course.rating and course.rating > 0 %}
+                        <div class="meta-item">
+                            <i class="fas fa-star rating"></i>
+                            <span class="rating">{{ "%.1f"|format(course.rating) }}</span>
+                        </div>
+                        {% endif %}
+                        
+                        {% if course.language %}
+                        <div class="meta-item">
+                            <i class="fas fa-globe"></i>
+                            <span>{{ course.language }}</span>
+                        </div>
+                        {% endif %}
+                        
+                        {% if course.level %}
+                        <div class="meta-item">
+                            <i class="fas fa-layer-group"></i>
+                            <span>{{ course.level }}</span>
+                        </div>
+                        {% endif %}
+                        
+                        {% if course.duration %}
+                        <div class="meta-item">
+                            <i class="fas fa-clock"></i>
+                            <span>{{ course.duration }}</span>
+                        </div>
+                        {% endif %}
+                        
+                        {% if course.students_count and course.students_count > 0 %}
+                        <div class="meta-item">
+                            <i class="fas fa-users"></i>
+                            <span>{{ format_students_count(course.students_count) }}</span>
+                        </div>
+                        {% endif %}
+                        
+                        {% if course.category %}
+                        <div class="meta-item">
+                            <i class="fas fa-folder"></i>
+                            <span>{{ course.category }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="course-description">
+                        {% if course.description %}
+                        <p>{{ course.description[:120] }}{% if course.description|length > 120 %}...{% endif %}</p>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="course-pricing">
+                        <span class="current-price">FREE</span>
+                    </div>
+                    
+                    <div class="course-tags">
+                        {% if course.category %}
+                        <span class="tag">{{ course.category }}</span>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="course-actions">
+                        <a href="{% if course.slug %}/course/{{ course.slug }}{% else %}{{ url_for('free_course_detail', course_id=course._id) }}{% endif %}" 
+                           class="btn-get-course btn-primary">
+                            <i class="fas fa-eye"></i> View Details
+                        </a>
+                        <small class="text-success mt-2 d-block">
+                            <i class="fas fa-gift"></i> Permanently Free - No Coupon Needed
+                        </small>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Pagination -->
+        {% if total_pages > 1 %}
+        <div class="pagination-wrapper">
+            <nav aria-label="Course pagination">
+                <ul class="pagination">
+                    <!-- Previous Page -->
+                    <li class="page-item {% if current_page <= 1 %}disabled{% endif %}">
+                        <a class="page-link {% if current_page <= 1 %}disabled{% endif %}" 
+                           href="{% if current_page > 1 %}{{ url_for('free_courses', page=current_page-1, search=search_query, category=selected_category, language=selected_language, rating=selected_rating) }}{% else %}#{% endif %}"
+                           data-page="{% if current_page > 1 %}{{ current_page-1 }}{% endif %}">
+                            <i class="fas fa-chevron-left"></i>
+                        </a>
+                    </li>
+                    
+                    <!-- Page Numbers -->
+                    {% set start_page = [1, current_page - 2]|max %}
+                    {% set end_page = [total_pages, current_page + 2]|min %}
+                    
+                    {% if start_page > 1 %}
+                    <li class="page-item">
+                        <a class="page-link" 
+                           href="{{ url_for('free_courses', page=1, search=search_query, category=selected_category, language=selected_language, rating=selected_rating) }}"
+                           data-page="1">1</a>
+                    </li>
+                    {% if start_page > 2 %}
+                    <li class="page-item disabled">
+                        <span class="page-link">...</span>
+                    </li>
+                    {% endif %}
+                    {% endif %}
+                    
+                    {% for page_num in range(start_page, end_page + 1) %}
+                    <li class="page-item {% if page_num == current_page %}active{% endif %}">
+                        <a class="page-link {% if page_num == current_page %}active{% endif %}" 
+                           href="{{ url_for('free_courses', page=page_num, search=search_query, category=selected_category, language=selected_language, rating=selected_rating) }}"
+                           data-page="{{ page_num }}">{{ page_num }}</a>
+                    </li>
+                    {% endfor %}
+                    
+                    {% if end_page < total_pages %}
+                    {% if end_page < total_pages - 1 %}
+                    <li class="page-item disabled">
+                        <span class="page-link">...</span>
+                    </li>
+                    {% endif %}
+                    <li class="page-item">
+                        <a class="page-link" 
+                           href="{{ url_for('free_courses', page=total_pages, search=search_query, category=selected_category, language=selected_language, rating=selected_rating) }}"
+                           data-page="{{ total_pages }}">{{ total_pages }}</a>
+                    </li>
+                    {% endif %}
+                    
+                    <!-- Next Page -->
+                    <li class="page-item {% if current_page >= total_pages %}disabled{% endif %}">
+                        <a class="page-link {% if current_page >= total_pages %}disabled{% endif %}" 
+                           href="{% if current_page < total_pages %}{{ url_for('free_courses', page=current_page+1, search=search_query, category=selected_category, language=selected_language, rating=selected_rating) }}{% else %}#{% endif %}"
+                           data-page="{% if current_page < total_pages %}{{ current_page+1 }}{% endif %}">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+            
+            <div class="pagination-info">
+                <small class="text-muted">
+                    Showing {{ ((current_page-1) * 12 + 1) if courses else 0 }} - 
+                    {{ [current_page * 12, total_courses]|min }} of {{ total_courses }} courses
+                </small>
+            </div>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <!-- No Courses Found -->
+        <div class="text-center py-5">
+            <i class="fas fa-search fa-3x text-muted mb-3"></i>
+            <h3 class="text-muted">No courses found</h3>
+            {% if search_query or selected_category or selected_language or selected_rating %}
+            <p class="text-muted">Try adjusting your search criteria or filters</p>
+            <a href="{{ url_for('free_courses') }}" class="btn btn-primary">
+                <i class="fas fa-times"></i> Clear all filters
+            </a>
+            {% else %}
+            <p class="text-muted">Check back soon for new courses!</p>
+            <a href="{% if telegram_settings and telegram_settings.join_channel_username %}https://t.me/{{ telegram_settings.join_channel_username.lstrip('@') }}{% else %}https://t.me/{{ settings.site_title or 'OWL COURSE' }}{% endif %}" class="btn btn-primary telegram-btn" target="_blank">
+                <i class="fab fa-telegram"></i> Join Telegram for updates
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+<!-- Call to Action -->
+<section class="py-5" style="background: linear-gradient(135deg, var(--primary-blue), var(--primary-teal));">
+    <div class="container text-center text-white">
+        <h2 class="mb-3">Never miss a free course!</h2>
+        <p class="lead mb-4">Join our Telegram channel for instant notifications about new free courses</p>
+        <a href="{% if telegram_settings and telegram_settings.join_channel_username %}https://t.me/{{ telegram_settings.join_channel_username.lstrip('@') }}{% else %}https://t.me/{{ settings.site_title or 'OWL COURSE' }}{% endif %}" class="btn btn-light btn-lg telegram-btn" target="_blank">
+            <i class="fab fa-telegram"></i> Join {{ settings.site_title or 'OWL COURSE' }} on Telegram
+        </a>
+    </div>
+</section>
+{% endblock %}
