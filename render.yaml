@@ -1,0 +1,82 @@
+services:
+  - type: web
+    name: owl-course-web
+    env: python
+    plan: starter
+    buildCommand: pip install -r requirements_production.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 300 --max-requests 1000 --preload main:app
+    healthCheckPath: /health
+    envVars:
+      # Database Configuration
+      - key: DATABASE_URL
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      
+      # Authentication & Security
+      - key: SESSION_SECRET
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      
+      # External Services
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHANNEL_ID
+        sync: false
+      - key: SHRINKME_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      
+      # Optional Services
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_PHONE_NUMBER
+        sync: false
+      - key: SENDGRID_API_KEY
+        sync: false
+      
+      # App Configuration
+      - key: FLASK_ENV
+        value: production
+      - key: SITE_URL
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+
+  - type: cron
+    name: coursegem-scraper
+    env: python
+    schedule: "0 */3 * * *"  # Every 3 hours
+    buildCommand: pip install -r requirements_production.txt
+    startCommand: python cron_scraper.py both
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+
+  - type: cron
+    name: coursegem-telegram
+    env: python
+    schedule: "*/10 * * * *"  # Every 10 minutes (Render limitation)
+    buildCommand: pip install -r requirements_production.txt
+    startCommand: python cron_telegram.py
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHANNEL_ID
+        sync: false
+
+  - type: cron
+    name: coursegem-cleanup
+    env: python
+    schedule: "0 2 * * *"  # Daily at 2 AM
+    buildCommand: pip install -r requirements_production.txt
+    startCommand: python cron_scraper.py cleanup
+    envVars:
+      - key: DATABASE_URL
+        sync: false
