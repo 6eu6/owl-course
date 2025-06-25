@@ -1,0 +1,1095 @@
+{% extends "merged_base.html" %}
+
+{% block title %}{{ course.title }} - {{ settings.site_title or 'OWL COURSE' }}{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/course-detail-owl-theme.css') }}">
+{% endblock %}
+
+{% block meta_description %}{{ course.description[:160] if course.description else 'Learn ' + course.title + ' for free on OWL COURSE. High-quality Udemy course available at no cost.' }}{% endblock %}
+
+{% block meta_keywords %}{{ course.title }}, free course, udemy free, {{ course.category }}, {{ course.language }}, online learning{% endblock %}
+
+{% block og_title %}{{ course.title }} - Free Course on {{ settings.site_title or 'OWL COURSE' }}{% endblock %}
+{% block og_description %}{{ course.description[:200] if course.description else 'Learn ' + course.title + ' for free. High-quality course available at no cost on OWL COURSE.' }}{% endblock %}
+
+{% block content %}
+<div class="course-detail">
+    <div class="container">
+        <!-- Course Header -->
+        <div class="course-header">
+            <div class="row">
+                <div class="col-lg-4">
+                    {% if course.image_url and course.image_url != '' and course.image_url != 'N/A' %}
+                    <img src="{{ course.image_url }}" 
+                         alt="{{ course.title }}" 
+                         class="course-detail-image"
+                         onerror="this.src='{{ url_for('static', filename='images/default-course.svg') }}'">
+                    {% else %}
+                    <img src="{{ url_for('static', filename='images/default-course.svg') }}" 
+                         alt="{{ course.title }}" 
+                         class="course-detail-image">
+                    {% endif %}
+                </div>
+                
+                <div class="col-lg-8">
+                    <h1 class="course-detail-title">{{ course.title }}</h1>
+                    
+                    {% if course.instructor %}
+                    <p class="course-instructor mb-3">
+                        <i class="fas fa-user-tie"></i> 
+                        <strong>Instructor:</strong> {{ course.instructor }}
+                    </p>
+                    {% endif %}
+                    
+                    <div class="course-meta-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-top: 20px;">
+                        <style>
+                        @media (max-width: 768px) {
+                            .course-meta-grid {
+                                grid-template-columns: 1fr !important;
+                                gap: 10px !important;
+                            }
+                        }
+                        </style>
+                        {% if course.rating and course.rating > 0 %}
+                        <div style="text-align: center; padding: 12px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <div style="color: #666; font-size: 14px; margin-bottom: 5px;">Rating</div>
+                            <div style="color: #333; font-weight: 600; font-size: 16px;">
+                                <i class="fas fa-star" style="color: #ffc107; margin-right: 4px;"></i>
+                                {{ "%.1f"|format(course.rating) }}/5.0
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if course.language %}
+                        <div style="text-align: center; padding: 12px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <div style="color: #666; font-size: 14px; margin-bottom: 5px;">Language</div>
+                            <div style="color: #333; font-weight: 600; font-size: 16px;">
+                                <i class="fas fa-globe" style="color: #6c757d; margin-right: 4px;"></i>
+                                {{ course.language }}
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if course.level %}
+                        <div style="text-align: center; padding: 12px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <div style="color: #666; font-size: 14px; margin-bottom: 5px;">Level</div>
+                            <div style="color: #333; font-weight: 600; font-size: 16px;">
+                                <i class="fas fa-layer-group" style="color: #6c757d; margin-right: 4px;"></i>
+                                {{ course.level }}
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if course.duration %}
+                        <div style="text-align: center; padding: 12px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <div style="color: #666; font-size: 14px; margin-bottom: 5px;">Duration</div>
+                            <div style="color: #333; font-weight: 600; font-size: 16px;">
+                                <i class="fas fa-clock" style="color: #6c757d; margin-right: 4px;"></i>
+                                {{ course.duration }}
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if course.category %}
+                        <div style="text-align: center; padding: 12px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <div style="color: #666; font-size: 14px; margin-bottom: 5px;">Category</div>
+                            <div style="color: #333; font-weight: 600; font-size: 16px;">
+                                <i class="fas fa-folder" style="color: #6c757d; margin-right: 4px;"></i>
+                                {{ course.category }}
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if course.students_count and course.students_count > 0 %}
+                        <div style="text-align: center; padding: 12px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <div style="color: #666; font-size: 14px; margin-bottom: 5px;">Students</div>
+                            <div style="color: #333; font-weight: 600; font-size: 16px;">
+                                <i class="fas fa-users" style="color: #6c757d; margin-right: 4px;"></i>
+                                {{ "{:,}".format(course.students_count) }}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+
+                    
+
+                </div>
+            </div>
+        </div>
+        
+        <!-- What You'll Learn with {{ settings.site_title or 'OWL COURSE' }} Theme -->
+        <div class="course-description">
+            <div class="admin-card owl-course-themed">
+                <h3 style="color: #8B4513; border-bottom: 2px solid #8B4513; padding-bottom: 10px;">
+                    <i class="fas fa-graduation-cap" style="color: #8B4513;"></i> What You Will Learn
+                </h3>
+                <div class="what-youll-learn">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <ul class="learning-objectives">
+                                {% for objective in learning_objectives[:4] %}
+                                <li style="margin-bottom: 10px; padding: 8px 0; border-left: 3px solid #8B4513; padding-left: 15px;">
+                                    <i class="fas fa-check" style="color: #8B4513; margin-right: 8px;"></i> 
+                                    {{ objective }}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <ul class="learning-objectives">
+                                {% for objective in learning_objectives[4:8] %}
+                                <li style="margin-bottom: 10px; padding: 8px 0; border-left: 3px solid #8B4513; padding-left: 15px;">
+                                    <i class="fas fa-check" style="color: #8B4513; margin-right: 8px;"></i> 
+                                    {{ objective }}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Course Description -->
+        {% if course.description and not course.description.startswith('This free course from Udemy covers essential topics') %}
+        <div class="course-description">
+            <h3><i class="fas fa-file-alt"></i> Course Description</h3>
+            <div class="course-description-content">
+                {{ course.description|safe if course.description else 'No description available for this course.' }}
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Course Information -->
+        <div class="row">
+            <div class="col-lg-8 offset-lg-2">
+                <div class="admin-card owl-course-themed">
+                    <h5 style="color: #8B4513; border-bottom: 2px solid #8B4513; padding-bottom: 10px;">
+                        <i class="fas fa-clock" style="color: #8B4513;"></i> Course Details
+                    </h5>
+                    
+                    <div class="course-details-list">
+                        {% if course.created_at %}
+                        <div class="detail-item" style="border-left: 3px solid #8B4513; padding-left: 10px; margin-bottom: 12px;">
+                            <span class="detail-label" style="color: #8B4513; font-weight: 600;">Added to {{ settings.site_title or 'OWL COURSE' }}:</span>
+                            <span class="detail-value">{{ course.created_at.strftime('%B %d, %Y') }}</span>
+                        </div>
+                        {% endif %}
+                        
+                        {% if course.language %}
+                        <div class="detail-item" style="border-left: 3px solid #8B4513; padding-left: 10px; margin-bottom: 12px;">
+                            <span class="detail-label" style="color: #8B4513; font-weight: 600;">Language:</span>
+                            <span class="detail-value">{{ course.language }}</span>
+                        </div>
+                        {% endif %}
+                        
+                        {% if course.level %}
+                        <div class="detail-item" style="border-left: 3px solid #8B4513; padding-left: 10px; margin-bottom: 12px;">
+                            <span class="detail-label" style="color: #8B4513; font-weight: 600;">Skill Level:</span>
+                            <span class="detail-value">{{ course.level }}</span>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="detail-item" style="border-left: 3px solid #8B4513; padding-left: 10px; margin-bottom: 12px;">
+                            <span class="detail-label" style="color: #8B4513; font-weight: 600;">Price:</span>
+                            <span class="detail-value" style="color: #228B22; font-weight: bold; font-size: 16px;">FREE</span>
+                        </div>
+                        
+                        <div class="detail-item" style="border-left: 3px solid #8B4513; padding-left: 10px; margin-bottom: 12px;">
+                            <span class="detail-label" style="color: #8B4513; font-weight: 600;">Platform:</span>
+                            <span class="detail-value">Udemy</span>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="text-center">
+                        <p class="small text-muted mb-3">
+                            <i class="fas fa-info-circle"></i>
+                            Course hosted on Udemy platform
+                        </p>
+                        
+                        <div class="d-grid gap-2">
+                            <!-- 1. Course Access Button with Enhanced {{ settings.site_title or 'OWL COURSE' }} Theme -->
+                            {% if course.udemy_url and course.udemy_url != '' %}
+                            <a href="{{ url_for('course_access_by_slug', slug=course.slug) }}" 
+                               class="btn w-100 mb-3"
+                               style="background: linear-gradient(135deg, #8B4513, #A0522D); 
+                                      border: none; 
+                                      color: white; 
+                                      font-weight: bold; 
+                                      font-size: 16px; 
+                                      padding: 12px 20px; 
+                                      border-radius: 8px;
+                                      box-shadow: 0 4px 12px rgba(139, 69, 19, 0.3);
+                                      transition: all 0.3s ease;"
+                               onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(139, 69, 19, 0.4)';"
+                               onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(139, 69, 19, 0.3)';">
+                                <i class="fas fa-graduation-cap"></i> Enroll here for free
+                            </a>
+                            {% elif course.course_url and course.course_url != '' %}
+                            <a href="{{ url_for('course_access_by_slug', slug=course.slug) }}" 
+                               class="btn w-100 mb-3"
+                               style="background: linear-gradient(135deg, #8B4513, #A0522D); 
+                                      border: none; 
+                                      color: white; 
+                                      font-weight: bold; 
+                                      font-size: 16px; 
+                                      padding: 12px 20px; 
+                                      border-radius: 8px;
+                                      box-shadow: 0 4px 12px rgba(139, 69, 19, 0.3);
+                                      transition: all 0.3s ease;"
+                               onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(139, 69, 19, 0.4)';"
+                               onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(139, 69, 19, 0.3)';">
+                                <i class="fas fa-graduation-cap"></i> View on StudyBullet
+                            </a>
+                            {% endif %}
+                            
+                            <!-- 2. Report Button -->
+                            <button type="button" 
+                                    class="btn btn-outline-warning w-100 mb-3"
+                                    onclick="showReportModal('{{ course._id }}', '{{ course.title.replace("'", "\\'") }}', '{{ course.udemy_url or course.course_url or "" }}')">
+                                <i class="fas fa-exclamation-triangle"></i> Report Course
+                            </button>
+                            
+
+                            
+                            <!-- Course Rating System -->
+                            <div class="course-rating-section mb-3">
+                                <div class="rating-display text-center mb-2">
+                                    <span class="badge bg-success me-2">
+                                        <i class="fas fa-thumbs-up me-1"></i>
+                                        <span id="likes-count">{{ course.likes or 0 }}</span>
+                                    </span>
+                                    <span class="badge bg-secondary">
+                                        <i class="fas fa-thumbs-down me-1"></i>
+                                        <span id="dislikes-count">{{ course.dislikes or 0 }}</span>
+                                    </span>
+                                </div>
+                                <div class="rating-buttons d-flex justify-content-center gap-3 mb-2">
+                                    <button type="button" class="btn btn-outline-success btn-sm rating-btn" data-action="like" data-course-id="{{ course._id }}">
+                                        <i class="fas fa-thumbs-up me-1"></i>
+                                        <span class="like-count">{{ course.likes or 0 }}</span>
+                                    </button>
+                                    <button type="button" class="btn btn-outline-danger btn-sm rating-btn" data-action="dislike" data-course-id="{{ course._id }}">
+                                        <i class="fas fa-thumbs-down me-1"></i>
+                                        <span class="dislike-count">{{ course.dislikes or 0 }}</span>
+                                    </button>
+                                </div>
+                                <p class="text-center small text-muted mb-0">Rate this course</p>
+                            </div>
+                            
+                            <a href="{% if telegram_settings and telegram_settings.join_channel_username %}https://t.me/{{ telegram_settings.join_channel_username.lstrip('@') }}{% else %}https://t.me/{{ settings.site_title or 'OWL COURSE' }}{% endif %}" 
+                               class="btn btn-primary w-100 telegram-btn"
+                               target="_blank">
+                                <i class="fab fa-telegram me-2"></i> Join Telegram Channel
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Related Courses Horizontal Scroll -->
+        <div class="related-courses-horizontal">
+            <h3><i class="fas fa-graduation-cap"></i> More courses</h3>
+            <div class="scroll-container">
+                <button class="scroll-btn scroll-left" id="scrollLeft">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <div class="courses-horizontal-scroll" id="coursesContainer">
+                    <!-- Courses will be loaded here via JavaScript -->
+                    <div class="loading-placeholder">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>Loading related courses...</p>
+                    </div>
+                </div>
+                <button class="scroll-btn scroll-right" id="scrollRight">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Course Rating System
+document.addEventListener('DOMContentLoaded', function() {
+    // Rating buttons functionality
+    const ratingButtons = document.querySelectorAll('.rating-btn');
+    ratingButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const action = this.dataset.action;
+            const courseId = this.dataset.courseId;
+            
+            // Prevent multiple clicks
+            if (this.disabled) return;
+            this.disabled = true;
+            
+            fetch('/api/rate-course', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    course_id: courseId,
+                    action: action
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update the counts
+                    document.querySelector('.like-count').textContent = data.likes;
+                    document.querySelector('.dislike-count').textContent = data.dislikes;
+                    
+                    // Visual feedback
+                    this.classList.remove('btn-outline-' + (action === 'like' ? 'success' : 'danger'));
+                    this.classList.add('btn-' + (action === 'like' ? 'success' : 'danger'));
+                    
+                    // Show success message
+                    const message = document.createElement('div');
+                    message.className = 'alert alert-success alert-sm mt-2';
+                    message.innerHTML = '<i class="fas fa-check"></i> Thank you for rating!';
+                    this.parentNode.parentNode.appendChild(message);
+                    
+                    setTimeout(() => {
+                        message.remove();
+                    }, 3000);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            })
+            .finally(() => {
+                // Re-enable button after 2 seconds
+                setTimeout(() => {
+                    this.disabled = false;
+                }, 2000);
+            });
+        });
+    });
+
+    // Social sharing functionality
+    const shareButtons = document.querySelectorAll('.share-btn');
+    shareButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const platform = this.dataset.platform;
+            const courseTitle = '{{ course.title }}';
+            const courseUrl = window.location.href;
+            const shareText = `Check out this free course: ${courseTitle}`;
+            
+            switch(platform) {
+                case 'whatsapp':
+                    window.open(`https://wa.me/?text=${encodeURIComponent(shareText + ' ' + courseUrl)}`, '_blank');
+                    break;
+                case 'telegram':
+                    window.open(`https://t.me/share/url?url=${encodeURIComponent(courseUrl)}&text=${encodeURIComponent(shareText)}`, '_blank');
+                    break;
+                case 'twitter':
+                    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(courseUrl)}`, '_blank');
+                    break;
+                case 'facebook':
+                    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(courseUrl)}`, '_blank');
+                    break;
+                case 'copy':
+                    navigator.clipboard.writeText(courseUrl).then(() => {
+                        // Show copy feedback
+                        const originalIcon = this.innerHTML;
+                        this.innerHTML = '<i class="fas fa-check"></i>';
+                        this.classList.remove('btn-secondary');
+                        this.classList.add('btn-success');
+                        
+                        setTimeout(() => {
+                            this.innerHTML = originalIcon;
+                            this.classList.remove('btn-success');
+                            this.classList.add('btn-secondary');
+                        }, 2000);
+                    });
+                    break;
+            }
+        });
+    });
+});
+</script>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.course-details-list {
+    list-style: none;
+    padding: 0;
+}
+
+.original-price {
+    text-decoration: line-through;
+    color: #6c757d;
+    margin-right: 10px;
+}
+
+.detail-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--gray-200);
+}
+
+.detail-item:last-child {
+    border-bottom: none;
+}
+
+.detail-label {
+    font-weight: 500;
+    color: var(--gray-600);
+}
+
+.detail-value {
+    font-weight: 600;
+    color: var(--gray-800);
+}
+
+.course-description-content {
+    line-height: 1.7;
+    color: var(--gray-700);
+}
+
+.course-description-content p {
+    margin-bottom: 1rem;
+}
+
+/* What You'll Learn Section */
+.what-youll-learn {
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+}
+
+.learning-objectives {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.learning-objectives li {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.learning-objectives li:last-child {
+    margin-bottom: 0;
+}
+
+.learning-objectives li i {
+    margin-right: 0.75rem;
+    margin-top: 0.1rem;
+    font-size: 0.9rem;
+}
+
+/* Course Includes Section */
+.course-includes {
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+}
+
+.includes-list {
+    margin-top: 1rem;
+}
+
+.include-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+    font-size: 0.95rem;
+}
+
+.include-item:last-child {
+    margin-bottom: 0;
+}
+
+.include-item i {
+    margin-right: 0.75rem;
+    font-size: 1rem;
+    width: 20px;
+    text-align: center;
+}
+
+/* Course Content Section */
+.course-content-section {
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+}
+
+.course-sections {
+    margin-top: 1rem;
+}
+
+.section-item {
+    border: 1px solid var(--gray-200);
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+    transition: all 0.2s ease;
+}
+
+.section-item:hover {
+    border-color: #8B4513;
+    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.1);
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    cursor: pointer;
+}
+
+.section-header i {
+    color: #8B4513;
+    margin-right: 0.75rem;
+    font-size: 1rem;
+}
+
+.section-title {
+    font-weight: 600;
+    color: var(--gray-800);
+    margin-right: auto;
+}
+
+.section-info {
+    font-size: 0.85rem;
+    color: var(--gray-600);
+    margin-left: 1rem;
+}
+
+/* Section Headers */
+.course-description h3,
+.course-includes h3,
+.course-content-section h3 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--gray-800);
+    margin-bottom: 1.5rem;
+    border-bottom: 2px solid #8B4513;
+    padding-bottom: 0.5rem;
+}
+
+.course-description h3 i,
+.course-includes h3 i,
+.course-content-section h3 i {
+    color: #8B4513;
+    margin-right: 0.5rem;
+}
+
+/* Related Courses Horizontal Scroll */
+.related-courses-horizontal {
+    margin: 3rem 0;
+    padding: 2rem 0;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 15px;
+}
+
+.related-courses-horizontal h3 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--gray-800);
+    margin-bottom: 2rem;
+    text-align: center;
+    border-bottom: 3px solid #8B4513;
+    padding-bottom: 1rem;
+}
+
+.related-courses-horizontal h3 i {
+    color: #8B4513;
+    margin-right: 0.5rem;
+}
+
+.scroll-container {
+    position: relative;
+    margin: 0 3rem;
+}
+
+.courses-horizontal-scroll {
+    display: flex;
+    gap: 1.5rem;
+    overflow-x: auto;
+    scroll-behavior: smooth;
+    padding: 1rem 0;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.courses-horizontal-scroll::-webkit-scrollbar {
+    display: none;
+}
+
+.scroll-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(13, 110, 253, 0.9);
+    border: none;
+    color: white;
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 10;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(13, 110, 253, 0.3);
+}
+
+.scroll-btn:hover {
+    background: rgba(13, 110, 253, 1);
+    transform: translateY(-50%) scale(1.1);
+    box-shadow: 0 6px 20px rgba(13, 110, 253, 0.4);
+}
+
+.scroll-left {
+    left: -22px;
+}
+
+.scroll-right {
+    right: -22px;
+}
+
+.horizontal-course-card {
+    min-width: 280px;
+    max-width: 280px;
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    border: 1px solid #e9ecef;
+}
+
+.horizontal-course-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.horizontal-course-card .course-image {
+    width: 100%;
+    height: 160px;
+    object-fit: cover;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.horizontal-course-card .course-content {
+    padding: 1.2rem;
+}
+
+.horizontal-course-card .course-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.8rem;
+    line-height: 1.3;
+    height: 2.6rem;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.horizontal-course-card .course-title a {
+    color: var(--gray-800);
+    text-decoration: none;
+}
+
+.horizontal-course-card .course-title a:hover {
+    color: #8B4513;
+}
+
+.horizontal-course-card .course-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin-bottom: 1rem;
+    font-size: 0.85rem;
+    color: var(--gray-600);
+}
+
+.horizontal-course-card .info-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.horizontal-course-card .info-item i {
+    width: 14px;
+    text-align: center;
+    color: #8B4513;
+}
+
+.horizontal-course-card .course-price {
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+.horizontal-course-card .price-free {
+    font-weight: 700;
+    color: #28a745;
+    font-size: 1.1rem;
+}
+
+.horizontal-course-card .btn-view-course {
+    width: 100%;
+    background: linear-gradient(135deg, #8B4513 0%, #0056b3 100%);
+    border: none;
+    color: white;
+    padding: 0.6rem 1rem;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    pointer-events: none; /* Prevent the button from interfering with card clicks */
+}
+
+.horizontal-course-card:hover .btn-view-course {
+    background: linear-gradient(135deg, #0056b3 0%, #004494 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(13, 110, 253, 0.3);
+}
+
+.loading-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+    color: var(--gray-600);
+}
+
+.loading-placeholder i {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+    color: #8B4513;
+}
+
+@media (max-width: 768px) {
+    .course-detail-image {
+        margin-bottom: 2rem;
+    }
+    
+    .course-detail-meta {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .what-youll-learn,
+    .course-includes,
+    .course-content-section {
+        padding: 1.5rem;
+    }
+    
+    .learning-objectives li,
+    .include-item {
+        font-size: 0.9rem;
+    }
+    
+    .section-header {
+        padding: 0.75rem 1rem;
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .scroll-container {
+        margin: 0 1rem;
+    }
+    
+    .horizontal-course-card {
+        min-width: 250px;
+        max-width: 250px;
+    }
+    
+    .scroll-btn {
+        display: none;
+    }
+    }
+    
+    .section-info {
+        margin-left: 0;
+        margin-top: 0.25rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Track course views (optional analytics)
+    console.log('Course viewed:', '{{ course.title }}');
+    
+    // Auto-focus on the main CTA button
+    const ctaButton = document.querySelector('.btn-primary.btn-lg');
+    if (ctaButton) {
+        ctaButton.focus();
+    }
+    
+    // Rating system functionality
+    const ratingButtons = document.querySelectorAll('.rating-btn');
+    ratingButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const action = this.dataset.action;
+            const courseId = this.dataset.courseId;
+            const collection = '{% if course.get("source") == "StudyBullet" %}free_courses{% else %}courses{% endif %}';
+            
+            // Disable button temporarily
+            this.disabled = true;
+            const originalText = this.innerHTML;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            
+            fetch('/api/course-rating', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    course_id: courseId,
+                    action: action,
+                    collection: collection
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update the display counters
+                    document.getElementById('likes-count').textContent = data.likes;
+                    document.getElementById('dislikes-count').textContent = data.dislikes;
+                    
+                    // Update button counters
+                    document.querySelector('.like-count').textContent = data.likes;
+                    document.querySelector('.dislike-count').textContent = data.dislikes;
+                    
+                    // Show success feedback
+                    this.classList.add('btn-success');
+                    this.innerHTML = '<i class="fas fa-check"></i>';
+                    
+                    setTimeout(() => {
+                        this.innerHTML = originalText;
+                        this.classList.remove('btn-success');
+                        if (action === 'like') {
+                            this.classList.add('btn-outline-success');
+                        } else {
+                            this.classList.add('btn-outline-danger');
+                        }
+                        this.disabled = false;
+                    }, 2000);
+                } else {
+                    console.error('Rating failed:', data.message);
+                    this.innerHTML = originalText;
+                    this.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                this.innerHTML = originalText;
+                this.disabled = false;
+            });
+        });
+    });
+    
+    // Social sharing functionality
+    const shareButtons = document.querySelectorAll('.share-btn');
+    shareButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const platform = this.dataset.platform;
+            const courseTitle = '{{ course.title }}';
+            const courseUrl = window.location.href;
+            const shareText = `Check out this free course: ${courseTitle}`;
+            
+            switch(platform) {
+                case 'whatsapp':
+                    window.open(`https://wa.me/?text=${encodeURIComponent(shareText + ' ' + courseUrl)}`, '_blank');
+                    break;
+                case 'telegram':
+                    window.open(`https://t.me/share/url?url=${encodeURIComponent(courseUrl)}&text=${encodeURIComponent(shareText)}`, '_blank');
+                    break;
+                case 'twitter':
+                    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(courseUrl)}`, '_blank');
+                    break;
+                case 'facebook':
+                    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(courseUrl)}`, '_blank');
+                    break;
+                case 'copy':
+                    navigator.clipboard.writeText(courseUrl).then(() => {
+                        // Show copy feedback
+                        const originalIcon = this.innerHTML;
+                        this.innerHTML = '<i class="fas fa-check"></i>';
+                        this.classList.remove('btn-secondary');
+                        this.classList.add('btn-success');
+                        
+                        setTimeout(() => {
+                            this.innerHTML = originalIcon;
+                            this.classList.remove('btn-success');
+                            this.classList.add('btn-secondary');
+                        }, 2000);
+                    });
+                    break;
+            }
+        });
+    });
+    
+    // Load related courses for horizontal scroll
+    loadRelatedCourses();
+    
+    // Horizontal scroll buttons functionality
+    const scrollLeft = document.getElementById('scrollLeft');
+    const scrollRight = document.getElementById('scrollRight');
+    const coursesContainer = document.getElementById('coursesContainer');
+    
+    if (scrollLeft && scrollRight && coursesContainer) {
+        scrollLeft.addEventListener('click', () => {
+            coursesContainer.scrollBy({ left: -300, behavior: 'smooth' });
+        });
+        
+        scrollRight.addEventListener('click', () => {
+            coursesContainer.scrollBy({ left: 300, behavior: 'smooth' });
+        });
+    }
+});
+
+// Function to load related courses
+function loadRelatedCourses() {
+    const coursesContainer = document.getElementById('coursesContainer');
+    const courseCategory = '{{ course.category }}';
+    const currentCourseId = '{{ course._id }}';
+    
+    console.log('Loading related courses for course_detail.html...');
+    
+    fetch(`/api/related-courses?category=${encodeURIComponent(courseCategory)}&exclude_id=${currentCourseId}&limit=6`)
+        .then(response => response.json())
+        .then(data => {
+            console.log('Related courses data received:', data);
+            
+            if (data.success && data.courses && data.courses.length > 0) {
+                coursesContainer.innerHTML = '';
+                
+                data.courses.forEach(course => {
+                    const courseCard = createHorizontalCourseCard(course);
+                    coursesContainer.appendChild(courseCard);
+                });
+                
+                console.log(`Loaded ${data.courses.length} related courses successfully`);
+            } else {
+                coursesContainer.innerHTML = `
+                    <div class="loading-placeholder">
+                        <i class="fas fa-info-circle"></i>
+                        <p>No related courses found in this category</p>
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error loading related courses:', error);
+            coursesContainer.innerHTML = `
+                <div class="loading-placeholder">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>Error loading related courses</p>
+                </div>
+            `;
+        });
+}
+
+// Function to create horizontal course card
+function createHorizontalCourseCard(course) {
+    const card = document.createElement('div');
+    card.className = 'horizontal-course-card';
+    
+    // Format student count
+    let studentsText = 'N/A';
+    if (course.students_count || course.students) {
+        const count = course.students_count || course.students;
+        if (count > 1000) {
+            studentsText = (count / 1000).toFixed(1) + 'K';
+        } else {
+            studentsText = count.toString();
+        }
+    }
+    
+    // Format rating
+    let ratingText = '';
+    if (course.rating && course.rating > 0) {
+        ratingText = `
+            <div class="info-item">
+                <i class="fas fa-star"></i>
+                <span>${parseFloat(course.rating).toFixed(1)}</span>
+            </div>
+        `;
+    }
+    
+    // Determine course URL based on collection
+    let courseUrl;
+    if (course.collection === 'free_courses' || course.source === 'StudyBullet') {
+        courseUrl = `/course/${course.slug || course._id}`;
+    } else {
+        courseUrl = `/course/${course.slug || course._id}`;
+    }
+    
+    // Make the entire card clickable
+    card.style.cursor = 'pointer';
+    card.addEventListener('click', function() {
+        window.location.href = courseUrl;
+    });
+    
+    card.innerHTML = `
+        <img src="${course.image_url || '/static/images/default-course.svg'}" 
+             alt="${course.title}" 
+             class="course-image"
+             loading="lazy"
+             onerror="this.src='/static/images/default-course.svg'">
+        
+        <div class="course-content">
+            <h4 class="course-title">
+                ${course.title}
+            </h4>
+            
+            <div class="course-info">
+                ${ratingText}
+                <div class="info-item">
+                    <i class="fas fa-users"></i>
+                    <span>${studentsText} students</span>
+                </div>
+                <div class="info-item">
+                    <i class="fas fa-globe"></i>
+                    <span>${course.language || 'English'}</span>
+                </div>
+            </div>
+            
+            <div class="course-price">
+                <span class="price-free">FREE</span>
+            </div>
+            
+            <div class="btn-view-course">
+                <i class="fas fa-graduation-cap"></i> View Details
+            </div>
+        </div>
+    `;
+    
+    return card;
+}
+</script>
+{% endblock %}
