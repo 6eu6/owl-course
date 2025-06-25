@@ -1,0 +1,557 @@
+/*
+OWL COURSE - New White & Natural Color Theme
+Based on animated GIF colors with white as primary color
+Replacing the blue theme completely
+*/
+
+:root {
+    /* Primary White Theme Colors */
+    --primary-white: #ffffff;
+    --soft-cream: #faf9f7;
+    --warm-beige: #f5f3f0;
+    
+    /* Natural Accent Colors from Animated GIF */
+    --warm-brown: #8b6f47;
+    --soft-green: #7a9471;
+    --natural-orange: #d4874b;
+    --gentle-yellow: #e8c547;
+    
+    /* Text Colors */
+    --dark-text: #2c2c2c;
+    --medium-text: #5a5a5a;
+    --light-text: #888888;
+    
+    /* Border & Shadow Colors */
+    --light-border: #e8e6e3;
+    --medium-border: #d4d1cc;
+    --soft-shadow: rgba(139, 111, 71, 0.1);
+    
+    /* Button Colors */
+    --btn-primary: var(--warm-brown);
+    --btn-primary-hover: #704a2c;
+    --btn-secondary: var(--soft-green);
+    --btn-secondary-hover: #65805a;
+    --btn-accent: var(--natural-orange);
+    --btn-accent-hover: #b8703a;
+}
+
+/* Reset previous blue theme */
+body {
+    background-color: var(--primary-white);
+    color: var(--dark-text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Header & Navigation */
+.navbar {
+    background-color: var(--primary-white);
+    border-bottom: 2px solid var(--light-border);
+    box-shadow: 0 2px 8px var(--soft-shadow);
+}
+
+.navbar-brand {
+    color: var(--warm-brown) !important;
+    font-weight: 700;
+    font-size: 1.3rem;
+}
+
+.navbar-nav .nav-link {
+    color: var(--medium-text) !important;
+    font-weight: 500;
+    transition: color 0.3s ease;
+}
+
+.navbar-nav .nav-link:hover {
+    color: var(--warm-brown) !important;
+}
+
+/* Buttons - Natural Theme */
+.btn-primary {
+    background-color: var(--btn-primary);
+    border-color: var(--btn-primary);
+    color: var(--primary-white);
+    font-weight: 600;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    background-color: var(--btn-primary-hover);
+    border-color: var(--btn-primary-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px var(--soft-shadow);
+}
+
+.btn-outline-primary {
+    color: var(--btn-primary);
+    border-color: var(--btn-primary);
+    background-color: transparent;
+}
+
+.btn-outline-primary:hover {
+    background-color: var(--btn-primary);
+    border-color: var(--btn-primary);
+    color: var(--primary-white);
+}
+
+.btn-success {
+    background-color: var(--btn-secondary);
+    border-color: var(--btn-secondary);
+    color: var(--primary-white);
+}
+
+.btn-success:hover {
+    background-color: var(--btn-secondary-hover);
+    border-color: var(--btn-secondary-hover);
+}
+
+.btn-warning {
+    background-color: var(--btn-accent);
+    border-color: var(--btn-accent);
+    color: var(--primary-white);
+}
+
+.btn-warning:hover {
+    background-color: var(--btn-accent-hover);
+    border-color: var(--btn-accent-hover);
+}
+
+/* Cards */
+.card {
+    background-color: var(--primary-white);
+    border: 1px solid var(--light-border);
+    border-radius: 12px;
+    box-shadow: 0 4px 16px var(--soft-shadow);
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(139, 111, 71, 0.15);
+}
+
+.card-header {
+    background-color: var(--soft-cream);
+    border-bottom: 1px solid var(--light-border);
+    color: var(--warm-brown);
+    font-weight: 600;
+}
+
+/* Hero Section - Remove all blur effects */
+.hero-overlay,
+.hero-overlay *,
+[class*="hero"] {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    filter: none !important;
+    background: transparent !important;
+}
+
+/* Course Cards */
+.course-card {
+    background-color: var(--primary-white);
+    border: 1px solid var(--light-border);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.course-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 28px rgba(139, 111, 71, 0.2);
+    border-color: var(--warm-brown);
+}
+
+.course-info-list {
+    background-color: var(--soft-cream);
+    border-radius: 8px;
+    padding: 12px;
+    margin: 12px 0;
+}
+
+.course-info-item {
+    color: var(--medium-text);
+    font-size: 0.9rem;
+    margin-bottom: 4px;
+}
+
+.course-info-item:last-child {
+    margin-bottom: 0;
+}
+
+.course-info-item strong {
+    color: var(--warm-brown);
+}
+
+/* Search Bar */
+.search-container {
+    background: linear-gradient(135deg, var(--soft-cream) 0%, var(--warm-beige) 100%);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 32px;
+    border: 1px solid var(--light-border);
+}
+
+.form-control {
+    border: 2px solid var(--light-border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    background-color: var(--primary-white);
+    color: var(--dark-text);
+    transition: all 0.3s ease;
+}
+
+.form-control:focus {
+    border-color: var(--warm-brown);
+    box-shadow: 0 0 0 0.2rem rgba(139, 111, 71, 0.25);
+    background-color: var(--primary-white);
+}
+
+/* Hero Section */
+.hero-overlay {
+    background: linear-gradient(45deg, 
+        rgba(139, 111, 71, 0.8) 0%,
+        rgba(122, 148, 113, 0.8) 50%,
+        rgba(212, 135, 75, 0.8) 100%);
+    color: var(--primary-white);
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Footer */
+.footer {
+    background-color: var(--warm-beige);
+    border-top: 3px solid var(--warm-brown);
+    color: var(--dark-text);
+    padding: 40px 0 20px;
+}
+
+.footer h5 {
+    color: var(--warm-brown);
+    font-weight: 700;
+}
+
+.footer-links a {
+    color: #1a1a1a;
+    text-decoration: none;
+    transition: color 0.3s ease;
+    font-weight: 500;
+}
+
+.footer-links a:hover {
+    color: var(--warm-brown);
+}
+
+/* Telegram Join Button */
+.telegram-join-btn {
+    background: #0088cc;
+    color: #ffffff;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 25px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.telegram-join-btn:hover {
+    background: #006bb3;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 136, 204, 0.3);
+}
+
+/* Social Media Icons - Original Colors */
+.social-icon {
+    color: #666;
+    font-size: 1.5rem;
+    transition: all 0.3s ease;
+    margin: 0 10px;
+}
+
+/* Facebook */
+.social-icon.facebook:hover {
+    color: #1877f2;
+}
+
+/* Twitter */
+.social-icon.twitter:hover {
+    color: #1da1f2;
+}
+
+/* Instagram */
+.social-icon.instagram:hover {
+    color: #e4405f;
+}
+
+/* LinkedIn */
+.social-icon.linkedin:hover {
+    color: #0077b5;
+}
+
+/* YouTube */
+.social-icon.youtube:hover {
+    color: #ff0000;
+}
+
+/* Telegram Icon */
+.social-icon.telegram:hover {
+    color: #0088cc;
+}
+
+/* Telegram Buttons - Exclude Footer Social Links */
+.btn-telegram,
+.telegram-btn,
+.telegram-join-btn:not(.social-link),
+.btn[href*="telegram"]:not(.social-link),
+.btn[href*="t.me"]:not(.social-link) {
+    background: #0088cc !important;
+    color: #ffffff !important;
+    border: none !important;
+    transition: all 0.3s ease !important;
+}
+
+.btn-telegram:hover,
+.telegram-btn:hover,
+.telegram-join-btn:not(.social-link):hover,
+.btn[href*="telegram"]:not(.social-link):hover,
+.btn[href*="t.me"]:not(.social-link):hover {
+    background: #006bb3 !important;
+    color: #ffffff !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 136, 204, 0.3);
+}
+
+/* Footer Text - Selective Dark Colors */
+.footer p,
+.footer span,
+.footer small {
+    color: #1a1a1a !important;
+    font-weight: 500;
+}
+
+/* Footer Section Headings Keep Original Brown Color */
+.footer-section h5 {
+    color: var(--warm-brown) !important;
+    font-weight: 700;
+}
+
+/* Footer Links Under Headings - Dark Black */
+.footer-section p a,
+.footer-links a {
+    color: #1a1a1a !important;
+    font-weight: 500;
+    text-decoration: none;
+}
+
+/* Social Media Icons with Brand Colors */
+.social-links {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    margin-top: 15px;
+}
+
+.social-links .social-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    text-decoration: none;
+    font-size: 1.3rem;
+    transition: all 0.3s ease;
+    color: white;
+}
+
+/* Telegram Button */
+.social-links .social-link[aria-label="Telegram"] {
+    background: #0088cc;
+    border: 2px solid #0088cc;
+}
+
+.social-links .social-link[aria-label="Telegram"]:hover {
+    background: #006bb3;
+    border-color: #006bb3;
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0, 136, 204, 0.4);
+}
+
+/* X (Twitter) Button */
+.social-links .social-link[aria-label="X"] {
+    background: #000000;
+    border: 2px solid #000000;
+}
+
+.social-links .social-link[aria-label="X"]:hover {
+    background: #333333;
+    border-color: #333333;
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+
+/* Facebook Button */
+.social-links .social-link[aria-label="Facebook"] {
+    background: #1877f2;
+    border: 2px solid #1877f2;
+}
+
+.social-links .social-link[aria-label="Facebook"]:hover {
+    background: #166fe5;
+    border-color: #166fe5;
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(24, 119, 242, 0.4);
+}
+
+/* Footer Link Hover Effects */
+.footer-section p a:hover,
+.footer-links a:hover {
+    color: var(--warm-brown) !important;
+}
+
+/* X Icon Display Fix */
+.social-link[aria-label="X"] {
+    font-family: "Times New Roman", serif !important;
+    font-size: 1.5rem !important;
+    font-weight: bold !important;
+    text-decoration: none !important;
+}
+
+.telegram-join-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(122, 148, 113, 0.4);
+    color: var(--primary-white);
+    text-decoration: none;
+}
+
+/* Pagination */
+.pagination .page-link {
+    color: var(--warm-brown);
+    border-color: var(--light-border);
+    background-color: var(--primary-white);
+}
+
+.pagination .page-link:hover {
+    color: var(--btn-primary-hover);
+    background-color: var(--soft-cream);
+    border-color: var(--warm-brown);
+}
+
+.pagination .page-item.active .page-link {
+    background-color: var(--warm-brown);
+    border-color: var(--warm-brown);
+    color: var(--primary-white);
+}
+
+/* Alerts */
+.alert-success {
+    background-color: rgba(122, 148, 113, 0.1);
+    border-color: var(--soft-green);
+    color: var(--btn-secondary-hover);
+}
+
+.alert-warning {
+    background-color: rgba(212, 135, 75, 0.1);
+    border-color: var(--natural-orange);
+    color: var(--btn-accent-hover);
+}
+
+.alert-info {
+    background-color: rgba(139, 111, 71, 0.1);
+    border-color: var(--warm-brown);
+    color: var(--btn-primary-hover);
+}
+
+/* Course Statistics */
+.stats-container {
+    background: linear-gradient(135deg, var(--soft-cream) 0%, var(--warm-beige) 100%);
+    border: 2px solid var(--light-border);
+    border-radius: 16px;
+    padding: 20px;
+}
+
+.stat-number {
+    color: var(--warm-brown);
+    font-weight: 700;
+}
+
+/* Rating Stars */
+.rating-stars .star {
+    color: var(--gentle-yellow);
+}
+
+.rating-stars .star.empty {
+    color: var(--light-border);
+}
+
+/* Loading Spinner */
+.spinner-border {
+    color: var(--warm-brown);
+}
+
+/* Social Share Buttons */
+.social-share-btn {
+    background-color: var(--soft-cream);
+    color: var(--warm-brown);
+    border: 1px solid var(--light-border);
+    padding: 8px 16px;
+    border-radius: 8px;
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+
+.social-share-btn:hover {
+    background-color: var(--warm-brown);
+    color: var(--primary-white);
+    text-decoration: none;
+}
+
+/* Remove all blue theme remnants */
+.bg-primary,
+.btn-primary.old-blue,
+.text-primary.old-blue {
+    background-color: var(--warm-brown) !important;
+    color: var(--primary-white) !important;
+}
+
+/* Ensure white background for all containers */
+.container,
+.container-fluid,
+main {
+    background-color: var(--primary-white);
+}
+
+/* Category badges */
+.badge {
+    background-color: var(--soft-green);
+    color: var(--primary-white);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-weight: 500;
+}
+
+.badge.category-badge {
+    background-color: var(--warm-brown);
+}
+
+.badge.level-badge {
+    background-color: var(--natural-orange);
+}
+
+.badge.language-badge {
+    background-color: var(--soft-green);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .search-container {
+        padding: 16px;
+        margin-bottom: 24px;
+    }
+    
+    .card {
+        margin-bottom: 16px;
+    }
+    
+    .hero-overlay h1 {
+        font-size: 1.8rem;
+    }
+}
