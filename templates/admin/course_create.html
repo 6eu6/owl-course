@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إضافة كورس جديد - {{ settings.site_title or 'OWL COURSE' }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="/static/css/admin.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <nav class="col-md-3 col-lg-2 d-md-block bg-dark sidebar collapse">
+                <div class="position-sticky pt-3">
+                    <div class="text-center mb-4">
+                        <img src="/static/images/{{ settings.site_title|lower or 'owl-course' }}_logo_symbol.png" alt="{{ settings.site_title or 'OWL COURSE' }}" style="width: 50px; height: 50px;">
+                        <h5 class="text-white mt-2">{{ settings.site_title or 'OWL COURSE' }}</h5>
+                    </div>
+                    
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="/eu6a-admin/dashboard">
+                                <i class="fas fa-tachometer-alt me-2"></i>
+                                لوحة التحكم
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white active" href="/eu6a-admin/courses">
+                                <i class="fas fa-book me-2"></i>
+                                إدارة الكورسات
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="/eu6a-admin/telegram">
+                                <i class="fab fa-telegram me-2"></i>
+                                إدارة التليجرام
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="/eu6a-admin/ads">
+                                <i class="fas fa-ad me-2"></i>
+                                إدارة الإعلانات
+                            </a>
+                        </li>
+                        <li class="nav-item mt-4">
+                            <a class="nav-link text-white" href="/eu6a-admin/logout">
+                                <i class="fas fa-sign-out-alt me-2"></i>
+                                تسجيل الخروج
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+
+            <!-- Main content -->
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                    <h1 class="h2">
+                        <i class="fas fa-plus me-2"></i>
+                        إضافة كورس جديد
+                    </h1>
+                    <div class="btn-toolbar mb-2 mb-md-0">
+                        <div class="btn-group me-2">
+                            <a href="/eu6a-admin/courses" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-1"></i>
+                                العودة للكورسات
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Flash Messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        <div class="row">
+                            <div class="col-12">
+                                {% for category, message in messages %}
+                                    <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show" role="alert">
+                                        {{ message }}
+                                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endwith %}
+
+                <!-- Course Form -->
+                <div class="row">
+                    <div class="col-lg-8">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="fas fa-edit me-2"></i>
+                                    بيانات الكورس
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <form method="POST" id="courseForm">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="title" class="form-label">عنوان الكورس <span class="text-danger">*</span></label>
+                                                <input type="text" class="form-control" id="title" name="title" required>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="instructor" class="form-label">اسم المدرب</label>
+                                                <input type="text" class="form-control" id="instructor" name="instructor">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="description" class="form-label">وصف الكورس</label>
+                                        <textarea class="form-control" id="description" name="description" rows="4"></textarea>
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label for="category" class="form-label">التصنيف</label>
+                                                <select class="form-control" id="category" name="category">
+                                                    <option value="">اختر التصنيف</option>
+                                                    <option value="Development">البرمجة والتطوير</option>
+                                                    <option value="Business">الأعمال</option>
+                                                    <option value="Design">التصميم</option>
+                                                    <option value="Marketing">التسويق</option>
+                                                    <option value="IT & Software">تكنولوجيا المعلومات</option>
+                                                    <option value="Personal Development">التطوير الشخصي</option>
+                                                    <option value="Photography">التصوير</option>
+                                                    <option value="Music">الموسيقى</option>
+                                                    <option value="Health & Fitness">الصحة واللياقة</option>
+                                                    <option value="Teaching">التدريس</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label for="language" class="form-label">اللغة</label>
+                                                <select class="form-control" id="language" name="language">
+                                                    <option value="English">English</option>
+                                                    <option value="Arabic">العربية</option>
+                                                    <option value="Spanish">Español</option>
+                                                    <option value="French">Français</option>
+                                                    <option value="German">Deutsch</option>
+                                                    <option value="Portuguese">Português</option>
+                                                    <option value="Italian">Italiano</option>
+                                                    <option value="Russian">Русский</option>
+                                                    <option value="Chinese">中文</option>
+                                                    <option value="Japanese">日本語</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label for="rating" class="form-label">التقييم (من 5)</label>
+                                                <input type="number" class="form-control" id="rating" name="rating" min="0" max="5" step="0.1">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label for="students_count" class="form-label">عدد الطلاب</label>
+                                                <input type="number" class="form-control" id="students_count" name="students_count" min="0">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label for="price_original" class="form-label">السعر الأصلي</label>
+                                                <input type="text" class="form-control" id="price_original" name="price_original" placeholder="$99.99">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label for="price_discounted" class="form-label">السعر المخفض</label>
+                                                <input type="text" class="form-control" id="price_discounted" name="price_discounted" value="Free">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="udemy_url" class="form-label">رابط Udemy <span class="text-danger">*</span></label>
+                                        <input type="url" class="form-control" id="udemy_url" name="udemy_url" required placeholder="https://www.udemy.com/course/...">
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="image_url" class="form-label">رابط صورة الكورس</label>
+                                        <input type="url" class="form-control" id="image_url" name="image_url" placeholder="https://example.com/image.jpg">
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="is_published" name="is_published" checked>
+                                            <label class="form-check-label" for="is_published">
+                                                نشر الكورس فوراً
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                                        <a href="/eu6a-admin/courses" class="btn btn-secondary me-md-2">
+                                            <i class="fas fa-times me-1"></i>
+                                            إلغاء
+                                        </a>
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="fas fa-save me-1"></i>
+                                            حفظ الكورس
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-lg-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="card-title mb-0">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    نصائح الإدخال
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <h6>الحقول المطلوبة:</h6>
+                                <ul class="list-unstyled small">
+                                    <li><i class="fas fa-check text-success me-1"></i> عنوان الكورس</li>
+                                    <li><i class="fas fa-check text-success me-1"></i> رابط Udemy</li>
+                                </ul>
+                                
+                                <hr>
+                                
+                                <h6>نصائح للبيانات:</h6>
+                                <ul class="list-unstyled small">
+                                    <li><i class="fas fa-lightbulb text-warning me-1"></i> استخدم عنوان واضح ومفهوم</li>
+                                    <li><i class="fas fa-lightbulb text-warning me-1"></i> تأكد من صحة رابط Udemy</li>
+                                    <li><i class="fas fa-lightbulb text-warning me-1"></i> اختر التصنيف المناسب</li>
+                                    <li><i class="fas fa-lightbulb text-warning me-1"></i> أضف وصف شامل للكورس</li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <div class="card mt-3">
+                            <div class="card-header">
+                                <h6 class="card-title mb-0">
+                                    <i class="fas fa-eye me-2"></i>
+                                    معاينة الصورة
+                                </h6>
+                            </div>
+                            <div class="card-body text-center">
+                                <img id="imagePreview" src="/static/images/default-course.jpg" alt="معاينة الصورة" 
+                                     class="img-fluid rounded" style="max-height: 150px; display: none;">
+                                <div id="imagePlaceholder" class="bg-light border rounded d-flex align-items-center justify-content-center" 
+                                     style="height: 150px;">
+                                    <span class="text-muted">أدخل رابط الصورة لرؤية المعاينة</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Image preview functionality
+        document.getElementById('image_url').addEventListener('input', function() {
+            const imageUrl = this.value.trim();
+            const preview = document.getElementById('imagePreview');
+            const placeholder = document.getElementById('imagePlaceholder');
+            
+            if (imageUrl) {
+                preview.src = imageUrl;
+                preview.style.display = 'block';
+                placeholder.style.display = 'none';
+                
+                // Handle image load error
+                preview.onerror = function() {
+                    this.style.display = 'none';
+                    placeholder.style.display = 'flex';
+                    placeholder.innerHTML = '<span class="text-danger">فشل في تحميل الصورة</span>';
+                };
+            } else {
+                preview.style.display = 'none';
+                placeholder.style.display = 'flex';
+                placeholder.innerHTML = '<span class="text-muted">أدخل رابط الصورة لرؤية المعاينة</span>';
+            }
+        });
+
+        // Form validation
+        document.getElementById('courseForm').addEventListener('submit', function(e) {
+            const title = document.getElementById('title').value.trim();
+            const udemyUrl = document.getElementById('udemy_url').value.trim();
+            
+            if (!title) {
+                e.preventDefault();
+                alert('يرجى إدخال عنوان الكورس');
+                document.getElementById('title').focus();
+                return;
+            }
+            
+            if (!udemyUrl) {
+                e.preventDefault();
+                alert('يرجى إدخال رابط Udemy');
+                document.getElementById('udemy_url').focus();
+                return;
+            }
+            
+            if (!udemyUrl.includes('udemy.com')) {
+                e.preventDefault();
+                alert('يرجى إدخال رابط Udemy صحيح');
+                document.getElementById('udemy_url').focus();
+                return;
+            }
+        });
+    </script>
+</body>
+</html>
