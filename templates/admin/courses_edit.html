@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>التعديل المجمع للكورسات - {{ settings.site_title or 'OWL COURSE' }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="/static/css/admin.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <nav class="col-md-3 col-lg-2 d-md-block bg-dark sidebar collapse">
+                <div class="position-sticky pt-3">
+                    <div class="text-center mb-4">
+                        <img src="/static/images/{{ settings.site_title|lower or 'owl-course' }}_logo_symbol.png" alt="{{ settings.site_title or 'OWL COURSE' }}" style="width: 50px; height: 50px;">
+                        <h5 class="text-white mt-2">{{ settings.site_title or 'OWL COURSE' }}</h5>
+                    </div>
+                    
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="/eu6a-admin/dashboard">
+                                <i class="fas fa-tachometer-alt me-2"></i>
+                                لوحة التحكم
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white active" href="/eu6a-admin/courses">
+                                <i class="fas fa-book me-2"></i>
+                                إدارة الكورسات
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="/eu6a-admin/telegram">
+                                <i class="fab fa-telegram me-2"></i>
+                                إدارة التليجرام
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="/eu6a-admin/ads">
+                                <i class="fas fa-ad me-2"></i>
+                                إدارة الإعلانات
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="/eu6a-admin/settings">
+                                <i class="fas fa-cog me-2"></i>
+                                الإعدادات العامة
+                            </a>
+                        </li>
+                        <li class="nav-item mt-4">
+                            <a class="nav-link text-white" href="/eu6a-admin/logout">
+                                <i class="fas fa-sign-out-alt me-2"></i>
+                                تسجيل الخروج
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+
+            <!-- Main content -->
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                    <h1 class="h2">
+                        <i class="fas fa-edit me-2"></i>
+                        التعديل المجمع للكورسات
+                    </h1>
+                    <div class="btn-toolbar mb-2 mb-md-0">
+                        <div class="btn-group me-2">
+                            <a href="/eu6a-admin/courses" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-1"></i>
+                                العودة لإدارة الكورسات
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Flash Messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        <div class="row">
+                            <div class="col-12">
+                                {% for category, message in messages %}
+                                    <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show" role="alert">
+                                        {{ message }}
+                                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endwith %}
+
+                <!-- Filters -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-filter me-2"></i>
+                            فلترة الكورسات
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <form method="GET" class="row g-3">
+                            <div class="col-md-4">
+                                <label for="search" class="form-label">البحث</label>
+                                <input type="text" class="form-control" id="search" name="search" 
+                                       value="{{ search }}" placeholder="ابحث في العنوان أو الوصف...">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="status" class="form-label">الحالة</label>
+                                <select class="form-control" id="status" name="status">
+                                    <option value="all" {% if status == 'all' %}selected{% endif %}>جميع الكورسات</option>
+                                    <option value="published" {% if status == 'published' %}selected{% endif %}>الكورسات المنشورة</option>
+                                    <option value="unpublished" {% if status == 'unpublished' %}selected{% endif %}>الكورسات غير المنشورة</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">&nbsp;</label>
+                                <div class="d-grid">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-search me-1"></i>
+                                        فلترة
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- تحديث جودة الصور -->
+                <div class="alert alert-info border-2 border-info mb-4">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h6 class="alert-heading mb-1">
+                                <i class="fas fa-image me-2"></i>
+                                تحسين جودة الصور
+                            </h6>
+                            <small class="text-muted">تحديث جودة صور الكورسات من 240x135 إلى 750x422 بكسل لجودة أفضل</small>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <button type="button" class="btn btn-info" onclick="upgradeImages()">
+                                <i class="fas fa-magic me-1"></i>
+                                تحديث جودة الصور
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- منطقة خطر: حذف جميع الكورسات -->
+                <div class="alert alert-danger border-2 border-danger mb-4">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h6 class="alert-heading mb-1">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                منطقة خطر: حذف جميع الكورسات
+                            </h6>
+                            <small class="text-muted">حذف نهائي لجميع الكورسات ({{ total_courses }}) في قاعدة البيانات - لا يمكن التراجع!</small>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <button type="button" class="btn btn-danger" onclick="confirmDeleteAllCourses()">
+                                <i class="fas fa-trash me-1"></i>
+                                حذف جميع الكورسات ({{ total_courses }})
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Course Selection and Actions -->
+                {% if courses %}
+                    <form method="POST" id="bulkEditForm">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="card-title mb-0">
+                                    <i class="fas fa-list me-2"></i>
+                                    اختر الكورسات للتعديل
+                                </h5>
+                                <div>
+                                    <button type="button" id="selectAll" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-check-square me-1"></i>
+                                        تحديد الكل
+                                    </button>
+                                    <button type="button" id="selectNone" class="btn btn-sm btn-outline-secondary">
+                                        <i class="fas fa-square me-1"></i>
+                                        إلغاء التحديد
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th width="40">
+                                                    <input type="checkbox" id="masterCheckbox" class="form-check-input">
+                                                </th>
+                                                <th>الكورس</th>
+                                                <th>الفئة</th>
+                                                <th>اللغة</th>
+                                                <th>الحالة</th>
+                                                <th>التقييم</th>
+                                                <th>تاريخ الإضافة</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for course in courses %}
+                                            <tr>
+                                                <td>
+                                                    <input type="checkbox" name="course_ids" value="{{ course._id }}" 
+                                                           class="form-check-input course-checkbox">
+                                                </td>
+                                                <td>
+                                                    <div class="d-flex align-items-center">
+                                                        {% if course.image_url %}
+                                                            <img src="{{ course.image_url }}" alt="{{ course.title }}" 
+                                                                 style="width: 50px; height: 35px; object-fit: cover;" 
+                                                                 class="rounded me-3">
+                                                        {% else %}
+                                                            <div class="bg-secondary rounded d-flex align-items-center justify-content-center me-3" 
+                                                                 style="width: 50px; height: 35px;">
+                                                                <i class="fas fa-book text-white"></i>
+                                                            </div>
+                                                        {% endif %}
+                                                        <div>
+                                                            <div class="fw-bold">{{ course.title[:50] + '...' if course.title and course.title|length > 50 else course.title }}</div>
+                                                            <div class="small text-muted">{{ course.instructor or 'غير محدد' }}</div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-info">{{ course.category or 'غير محدد' }}</span>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-secondary">{{ course.language or 'غير محدد' }}</span>
+                                                </td>
+                                                <td>
+                                                    {% if course.is_published %}
+                                                        <span class="badge bg-success">
+                                                            <i class="fas fa-eye me-1"></i>
+                                                            منشور
+                                                        </span>
+                                                    {% else %}
+                                                        <span class="badge bg-warning">
+                                                            <i class="fas fa-eye-slash me-1"></i>
+                                                            غير منشور
+                                                        </span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    {% if course.rating %}
+                                                        <div class="d-flex align-items-center">
+                                                            <span class="me-1">{{ "%.1f"|format(course.rating) }}</span>
+                                                            <i class="fas fa-star text-warning"></i>
+                                                        </div>
+                                                    {% else %}
+                                                        <span class="text-muted">لا يوجد</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    <div class="small">
+                                                        {{ course.created_at.strftime('%Y-%m-%d') if course.created_at else 'غير محدد' }}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <!-- Bulk Actions -->
+                                <div class="mt-4">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <span id="selectedCount" class="text-muted">لم يتم تحديد أي كورس</span>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="row g-2">
+                                                <div class="col-4">
+                                                    <select name="action" id="actionSelect" class="form-control" required>
+                                                        <option value="">اختر الإجراء</option>
+                                                        <option value="publish">نشر الكورسات</option>
+                                                        <option value="unpublish">إلغاء نشر الكورسات</option>
+                                                        <option value="update_category">تحديث الفئة</option>
+                                                        <option value="update_language">تحديث اللغة</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-4">
+                                                    <button type="submit" id="executeButton" class="btn btn-primary w-100" disabled>
+                                                        <i class="fas fa-play me-1"></i>
+                                                        تنفيذ
+                                                    </button>
+                                                </div>
+                                                <div class="col-4">
+                                                    <button type="button" id="deleteButton" class="btn btn-danger w-100" disabled onclick="confirmBulkDelete()">
+                                                        <i class="fas fa-trash me-1"></i>
+                                                        حذف دفعي
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Additional Fields for Category/Language Update -->
+                                    <div id="categoryField" class="mt-3" style="display: none;">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <label for="new_category" class="form-label">الفئة الجديدة</label>
+                                                <input type="text" class="form-control" name="new_category" 
+                                                       placeholder="أدخل اسم الفئة الجديدة">
+                                                <datalist id="categoryList">
+                                                    {% for category in categories %}
+                                                        <option value="{{ category }}">
+                                                    {% endfor %}
+                                                </datalist>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div id="languageField" class="mt-3" style="display: none;">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <label for="new_language" class="form-label">اللغة الجديدة</label>
+                                                <input type="text" class="form-control" name="new_language" 
+                                                       placeholder="أدخل اسم اللغة الجديدة">
+                                                <datalist id="languageList">
+                                                    {% for language in languages %}
+                                                        <option value="{{ language }}">
+                                                    {% endfor %}
+                                                </datalist>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Pagination -->
+                        {% if total_pages > 1 %}
+                            <nav aria-label="صفحات الكورسات" class="mt-4">
+                                <ul class="pagination justify-content-center">
+                                    {% if has_prev %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page - 1 }}&search={{ search }}&status={{ status }}">السابق</a>
+                                        </li>
+                                    {% endif %}
+                                    
+                                    {% for p in range(1, total_pages + 1) %}
+                                        {% if p == page %}
+                                            <li class="page-item active">
+                                                <span class="page-link">{{ p }}</span>
+                                            </li>
+                                        {% elif p <= 3 or p > total_pages - 3 or (p >= page - 1 and p <= page + 1) %}
+                                            <li class="page-item">
+                                                <a class="page-link" href="?page={{ p }}&search={{ search }}&status={{ status }}">{{ p }}</a>
+                                            </li>
+                                        {% elif p == 4 or p == total_pages - 3 %}
+                                            <li class="page-item disabled">
+                                                <span class="page-link">...</span>
+                                            </li>
+                                        {% endif %}
+                                    {% endfor %}
+                                    
+                                    {% if has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page + 1 }}&search={{ search }}&status={{ status }}">التالي</a>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        {% endif %}
+                    </form>
+                {% else %}
+                    <div class="card">
+                        <div class="card-body text-center py-5">
+                            <i class="fas fa-book fa-4x text-muted mb-3"></i>
+                            <h5 class="text-muted">لا توجد كورسات</h5>
+                            <p class="text-muted">لا توجد كورسات متاحة للتعديل حالياً.</p>
+                            <a href="/eu6a-admin/courses" class="btn btn-primary">
+                                <i class="fas fa-arrow-left me-1"></i>
+                                العودة لإدارة الكورسات
+                            </a>
+                        </div>
+                    </div>
+                {% endif %}
+            </main>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const masterCheckbox = document.getElementById('masterCheckbox');
+            const courseCheckboxes = document.querySelectorAll('.course-checkbox');
+            const selectAllBtn = document.getElementById('selectAll');
+            const selectNoneBtn = document.getElementById('selectNone');
+            const executeButton = document.getElementById('executeButton');
+            const deleteButton = document.getElementById('deleteButton');
+            const selectedCount = document.getElementById('selectedCount');
+            const actionSelect = document.getElementById('actionSelect');
+            const categoryField = document.getElementById('categoryField');
+            const languageField = document.getElementById('languageField');
+            const bulkEditForm = document.getElementById('bulkEditForm');
+
+            function updateUI() {
+                const checkedBoxes = document.querySelectorAll('.course-checkbox:checked');
+                const count = checkedBoxes.length;
+                
+                if (selectedCount) {
+                    if (count === 0) {
+                        selectedCount.textContent = 'لم يتم تحديد أي كورس';
+                        if (executeButton) executeButton.disabled = true;
+                        if (deleteButton) deleteButton.disabled = true;
+                    } else {
+                        selectedCount.textContent = `تم تحديد ${count} كورس`;
+                        if (executeButton && actionSelect) executeButton.disabled = !actionSelect.value;
+                        if (deleteButton) deleteButton.disabled = false;
+                    }
+                }
+                
+                if (masterCheckbox) {
+                    masterCheckbox.indeterminate = count > 0 && count < courseCheckboxes.length;
+                    masterCheckbox.checked = count === courseCheckboxes.length && count > 0;
+                }
+            }
+
+            function updateActionFields() {
+                const action = actionSelect.value;
+                categoryField.style.display = action === 'update_category' ? 'block' : 'none';
+                languageField.style.display = action === 'update_language' ? 'block' : 'none';
+                updateUI();
+            }
+
+            // Master checkbox functionality
+            if (masterCheckbox) {
+                masterCheckbox.addEventListener('change', function() {
+                    courseCheckboxes.forEach(checkbox => {
+                        checkbox.checked = this.checked;
+                    });
+                    updateUI();
+                });
+            }
+
+            // Individual checkbox functionality
+            courseCheckboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', updateUI);
+            });
+
+            // Select all button
+            if (selectAllBtn) {
+                selectAllBtn.addEventListener('click', function() {
+                    courseCheckboxes.forEach(checkbox => {
+                        checkbox.checked = true;
+                    });
+                    updateUI();
+                });
+            }
+
+            // Select none button
+            if (selectNoneBtn) {
+                selectNoneBtn.addEventListener('click', function() {
+                    courseCheckboxes.forEach(checkbox => {
+                        checkbox.checked = false;
+                    });
+                    updateUI();
+                });
+            }
+
+            // Action select change
+            if (actionSelect) {
+                actionSelect.addEventListener('change', updateActionFields);
+            }
+
+            // Form submission confirmation
+            if (bulkEditForm) {
+                bulkEditForm.addEventListener('submit', function(e) {
+                    const checkedBoxes = document.querySelectorAll('.course-checkbox:checked');
+                    const count = checkedBoxes.length;
+                    const action = actionSelect.value;
+                    
+                    if (count === 0) {
+                        e.preventDefault();
+                        alert('يرجى اختيار كورس واحد على الأقل للتعديل.');
+                        return;
+                    }
+                    
+                    if (!action) {
+                        e.preventDefault();
+                        alert('يرجى اختيار الإجراء المطلوب تنفيذه.');
+                        return;
+                    }
+                    
+                    let confirmMessage = `هل أنت متأكد من تنفيذ هذا الإجراء على ${count} كورس؟`;
+                    
+                    if (action === 'delete') {
+                        confirmMessage = `تحذير: سيتم حذف ${count} كورس نهائياً ولا يمكن التراجع عن هذا الإجراء. هل أنت متأكد؟`;
+                    }
+                    
+                    if (!confirm(confirmMessage)) {
+                        e.preventDefault();
+                    }
+                });
+            }
+
+            // Initial UI update
+            updateUI();
+        });
+
+        // Global function for image upgrade
+        function upgradeImages() {
+            if (confirm('هل تريد تحديث جودة صور الكورسات من 240x135 إلى 750x422 بكسل؟')) {
+                const button = event.target;
+                const originalText = button.innerHTML;
+                
+                button.disabled = true;
+                button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>جاري التحديث...';
+                
+                fetch('/admin/upgrade_images', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('✅ ' + data.message);
+                        location.reload();
+                    } else {
+                        alert('❌ خطأ: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('❌ حدث خطأ في الاتصال!');
+                })
+                .finally(() => {
+                    button.disabled = false;
+                    button.innerHTML = originalText;
+                });
+            }
+        }
+
+        // Global function for bulk delete confirmation
+        function confirmBulkDelete() {
+            const checkedBoxes = document.querySelectorAll('.course-checkbox:checked');
+            const count = checkedBoxes.length;
+            
+            if (count === 0) {
+                alert('يرجى اختيار كورس واحد على الأقل للحذف.');
+                return;
+            }
+            
+            const confirmMessage = `⚠️ تحذير خطير: سيتم حذف ${count} كورس نهائياً من الموقع وقاعدة البيانات.\n\nهذا الإجراء لا يمكن التراجع عنه!\n\nهل أنت متأكد من المتابعة؟`;
+            
+            if (confirm(confirmMessage)) {
+                // Create a hidden form for deletion
+                const form = document.getElementById('bulkEditForm');
+                const actionInput = document.createElement('input');
+                actionInput.type = 'hidden';
+                actionInput.name = 'action';
+                actionInput.value = 'delete';
+                form.appendChild(actionInput);
+                
+                // Submit the form
+                form.submit();
+            }
+        }
+
+        // Global function for delete ALL courses confirmation
+        function confirmDeleteAllCourses() {
+            const firstConfirm = confirm('🚨 تحذير خطير جداً!\n\nستقوم بحذف جميع الكورسات في الموقع نهائياً!\n\nهذا سيؤدي إلى:\n- حذف جميع البيانات من قاعدة البيانات\n- فقدان جميع الكورسات المجمعة\n- إفراغ الموقع بالكامل\n\nهل أنت متأكد 100% من هذا الإجراء؟');
+            
+            if (!firstConfirm) {
+                return;
+            }
+            
+            const secondConfirm = confirm('تأكيد نهائي:\n\nاكتب "نعم" في الرسالة التالية للتأكيد النهائي لحذف جميع الكورسات.');
+            
+            if (!secondConfirm) {
+                return;
+            }
+            
+            const finalConfirm = prompt('للتأكيد النهائي، اكتب كلمة "حذف" بالضبط:');
+            
+            if (finalConfirm !== 'حذف') {
+                alert('تم إلغاء العملية. لم تكتب كلمة التأكيد الصحيحة.');
+                return;
+            }
+            
+            // إرسال طلب حذف جميع الكورسات
+            fetch('/admin/courses/delete-all', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(`تم حذف جميع الكورسات بنجاح!\nعدد الكورسات المحذوفة: ${data.deleted_count}`);
+                    window.location.reload();
+                } else {
+                    alert('حدث خطأ أثناء الحذف: ' + data.error);
+                }
+            })
+            .catch(error => {
+                alert('حدث خطأ في الاتصال: ' + error);
+            });
+        }
+    </script>
+</body>
+</html>
