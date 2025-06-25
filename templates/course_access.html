@@ -1,0 +1,895 @@
+{% extends "merged_base.html" %}
+
+{% block title %}{{ course.title }} - {{ settings.site_title or 'OWL COURSE' }}{% endblock %}
+
+{% block animated_header %}
+<!-- Hero Section disabled for course access pages -->
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+
+
+    <!-- Course Title -->
+    <h1 class="course-title mb-4">{{ course.title }}</h1>
+    
+    <!-- Course Description -->
+    <p class="course-description lead mb-4">{{ generated_content.get('description', course.get('description', '')) }}</p>
+    
+
+
+    <!-- Instructional Banner -->
+    <div class="instruction-banner-container mb-5">
+        <img src="{{ url_for('static', filename='images/how-to-get-course-instructions.svg') }}" 
+             alt="How to Get the Course - Step by Step Instructions" 
+             class="instruction-banner">
+    </div>
+
+    <!-- Course Overview -->
+    {% if generated_content.get('overview') %}
+    <div class="content-section mb-5">
+        <h2 class="section-title">📖 Course Overview</h2>
+        <p class="section-content detailed">{{ generated_content.overview }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Industry Insights -->
+    {% if generated_content.get('industry_insights') %}
+    <div class="content-section mb-5">
+        <h2 class="section-title">🏭 Industry Insights & Applications</h2>
+        <div class="insights-grid">
+            {% for insight in generated_content.industry_insights %}
+            <div class="insight-card">
+                <i class="fas fa-industry text-primary me-3"></i>
+                <span>{{ insight }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Career Benefits -->
+    {% if generated_content.get('career_benefits') %}
+    <div class="content-section mb-5">
+        <h2 class="section-title">🚀 Career Advancement Benefits</h2>
+        <div class="benefits-enhanced-grid">
+            {% for benefit in generated_content.career_benefits %}
+            <div class="benefit-enhanced-card">
+                <i class="fas fa-trophy text-warning me-3"></i>
+                <span>{{ benefit }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Practical Applications -->
+    {% if generated_content.get('practical_applications') %}
+    <div class="content-section mb-5">
+        <h2 class="section-title">⚡ Practical Applications & Real-World Use</h2>
+        <div class="applications-list">
+            {% for application in generated_content.practical_applications %}
+            <div class="application-item">
+                <i class="fas fa-cogs text-success me-3"></i>
+                <div>
+                    <strong>Real-World Application:</strong>
+                    <p class="mb-0">{{ application }}</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Modern Tools & Technologies -->
+    {% if generated_content.get('modern_tools') %}
+    <div class="content-section mb-5">
+        <h2 class="section-title">🛠️ Modern Tools & Methodologies</h2>
+        <div class="row">
+            <div class="col-md-6">
+                <h4 class="subsection-title">Software & Platforms</h4>
+                <div class="tools-list">
+                    {% for tool in generated_content.modern_tools.software %}
+                    <div class="tool-item">
+                        <i class="fas fa-desktop text-info me-2"></i>
+                        {{ tool }}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="col-md-6">
+                <h4 class="subsection-title">Methodologies & Frameworks</h4>
+                <div class="tools-list">
+                    {% for methodology in generated_content.modern_tools.methodologies %}
+                    <div class="tool-item">
+                        <i class="fas fa-project-diagram text-danger me-2"></i>
+                        {{ methodology }}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Course Format & Support -->
+    {% if generated_content.get('course_format') %}
+    <div class="content-section mb-5">
+        <h2 class="section-title">📋 Course Format & Learning Support</h2>
+        <div class="format-grid">
+            <div class="format-card">
+                <i class="fas fa-play-circle text-primary me-3"></i>
+                <div>
+                    <strong>Delivery Method:</strong>
+                    <p class="mb-0">{{ generated_content.course_format.delivery_method }}</p>
+                </div>
+            </div>
+            <div class="format-card">
+                <i class="fas fa-clock text-info me-3"></i>
+                <div>
+                    <strong>Duration & Pace:</strong>
+                    <p class="mb-0">{{ generated_content.course_format.duration }}</p>
+                </div>
+            </div>
+            <div class="format-card">
+                <i class="fas fa-headset text-success me-3"></i>
+                <div>
+                    <strong>Support System:</strong>
+                    <p class="mb-0">{{ generated_content.course_format.support }}</p>
+                </div>
+            </div>
+            <div class="format-card">
+                <i class="fas fa-download text-warning me-3"></i>
+                <div>
+                    <strong>Course Materials:</strong>
+                    <p class="mb-0">{{ generated_content.course_format.materials }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Success Metrics -->
+    {% if generated_content.get('success_metrics') %}
+    <div class="content-section mb-5">
+        <h2 class="section-title">🎯 Success Metrics & Achievement Indicators</h2>
+        <div class="metrics-list">
+            {% for metric in generated_content.success_metrics %}
+            <div class="metric-item">
+                <i class="fas fa-check-circle text-success me-3"></i>
+                <span>{{ metric }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- What You'll Learn -->
+    {% if generated_content.get('what_you_learn') %}
+    <div class="content-section mb-5">
+        <h2 class="section-title">💡 What You'll Learn</h2>
+        <div class="learning-grid">
+            {% for skill in generated_content.what_you_learn %}
+            <div class="skill-item">
+                <i class="fas fa-graduation-cap text-primary me-3"></i>
+                <span>{{ skill }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Course Structure -->
+    {% if generated_content.get('course_structure') %}
+    <div class="content-section mb-5">
+        <h2 class="section-title">📚 Course Structure</h2>
+        <div class="structure-list">
+            {% for module in generated_content.course_structure %}
+            <div class="module-item">
+                <i class="fas fa-play-circle text-success me-3"></i>
+                <span>{{ module }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Key Features -->
+    {% if generated_content.get('key_features') %}
+    <div class="content-section mb-5">
+        <h2 class="section-title">⭐ Key Features</h2>
+        <div class="features-grid">
+            {% for feature in generated_content.key_features %}
+            <div class="feature-card">
+                <i class="fas fa-star text-warning me-2"></i>
+                <span>{{ feature }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Course Benefits -->
+    {% if generated_content.get('course_benefits') %}
+    <div class="content-section mb-5">
+        <h2 class="section-title">🚀 Course Benefits</h2>
+        <div class="benefits-grid">
+            {% for benefit in generated_content.course_benefits %}
+            <div class="benefit-card">
+                <i class="fas fa-trophy text-warning me-3"></i>
+                <span>{{ benefit }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Who Should Take This Course -->
+    {% if generated_content.get('who_should_take') %}
+    <div class="content-section mb-5">
+        <h2 class="section-title">👥 Who Should Take This Course</h2>
+        <div class="audience-grid">
+            {% for audience in generated_content.who_should_take %}
+            <div class="audience-card">
+                <i class="fas fa-user-check text-info me-3"></i>
+                <span>{{ audience }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Career Outcomes -->
+    {% if generated_content.get('career_outcomes') %}
+    <div class="content-section mb-5">
+        <h2 class="section-title">🎯 Career Outcomes</h2>
+        <div class="outcomes-list">
+            {% for outcome in generated_content.career_outcomes %}
+            <div class="outcome-item">
+                <i class="fas fa-briefcase text-success me-3"></i>
+                <span>{{ outcome }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Practical Applications -->
+    {% if generated_content.get('practical_applications') %}
+    <div class="content-section mb-5">
+        <h2 class="section-title">🔧 Practical Applications</h2>
+        <div class="applications-list">
+            {% for application in generated_content.practical_applications %}
+            <div class="application-item">
+                <i class="fas fa-tools text-secondary me-3"></i>
+                <span>{{ application }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Why Choose This Course -->
+    {% if generated_content.get('why_choose_this') %}
+    <div class="content-section mb-5">
+        <h2 class="section-title">💎 Why Choose This Course</h2>
+        <div class="reasons-list">
+            {% for reason in generated_content.why_choose_this %}
+            <div class="reason-item">
+                <i class="fas fa-gem text-primary me-3"></i>
+                <span>{{ reason }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Prerequisites -->
+    {% if generated_content.get('prerequisites') %}
+    <div class="content-section mb-5">
+        <h2 class="section-title">📋 Prerequisites</h2>
+        <div class="prerequisites-list">
+            {% for prereq in generated_content.prerequisites %}
+            <div class="prerequisite-item">
+                <i class="fas fa-check-square text-secondary me-3"></i>
+                <span>{{ prereq }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Instructor Expertise -->
+    {% if generated_content.get('instructor_expertise') %}
+    <div class="content-section mb-5">
+        <h2 class="section-title">👨‍🏫 Instructor Expertise</h2>
+        <div class="expertise-list">
+            {% for expertise in generated_content.instructor_expertise %}
+            <div class="expertise-item">
+                <i class="fas fa-award text-warning me-3"></i>
+                <span>{{ expertise }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Thanks for Visiting Banner -->
+    <div class="instruction-section text-center mb-5">
+        <img src="{{ url_for('static', filename='images/thanks-for-visiting.gif') }}" 
+             alt="Thanks for visiting {{ settings.site_title or 'OWL COURSE' }} - We appreciate your support" 
+             class="instruction-image mb-4">
+    </div>
+
+    <!-- Additional Information -->
+    <div class="info-section mb-4">
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <div class="info-card">
+                    <i class="fas fa-language text-primary me-2"></i>
+                    <strong>Language:</strong> {{ course.get('language', 'English') }}
+                </div>
+            </div>
+            <div class="col-md-6 mb-3">
+                <div class="info-card">
+                    <i class="fas fa-signal text-info me-2"></i>
+                    <strong>Level:</strong> {{ course.get('level', 'All Levels') }}
+                </div>
+            </div>
+            <div class="col-md-6 mb-3">
+                <div class="info-card">
+                    <i class="fas fa-users text-warning me-2"></i>
+                    <strong>Students:</strong> {{ course.get('students', '1000+') }}
+                </div>
+            </div>
+            <div class="col-md-6 mb-3">
+                <div class="info-card">
+                    <i class="fas fa-desktop text-secondary me-2"></i>
+                    <strong>Platform:</strong> Udemy
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Compact Course Access Section -->
+    <div class="compact-access-section text-center mb-5">
+        <p class="access-text mb-3">Click the button below to get your course link:</p>
+        
+        <div class="buttons-container mb-3">
+            {% if course.get('udemy_url') and course.udemy_url != '' %}
+            {% if course.get('coupon_code') %}
+            {% set udemy_url = course.udemy_url %}
+            {% if '?' in udemy_url %}
+                {% set final_url = udemy_url + '&couponCode=' + course.coupon_code %}
+            {% else %}
+                {% set final_url = udemy_url + '?couponCode=' + course.coupon_code %}
+            {% endif %}
+            <a href="javascript:void(0)" 
+               class="btn btn-success compact-btn me-2"
+               onclick="redirectToShortenedLink('{{ final_url }}', '{{ course._id }}')">
+                <i class="fas fa-graduation-cap me-2"></i>Get the Course
+            </a>
+            {% else %}
+            <a href="javascript:void(0)" 
+               class="btn btn-success compact-btn me-2"
+               onclick="redirectToShortenedLink('{{ course.udemy_url }}', '{{ course._id }}')">
+                <i class="fas fa-graduation-cap me-2"></i>Get the Course
+            </a>
+            {% endif %}
+            {% elif course.get('course_url') and course.course_url != '' %}
+            <a href="javascript:void(0)" 
+               class="btn btn-success compact-btn me-2"
+               onclick="redirectToShortenedLink('{{ course.course_url }}', '{{ course._id }}')">
+                <i class="fas fa-graduation-cap me-2"></i>Get the Course
+            </a>
+            {% endif %}
+        </div>
+        
+        <!-- Social Sharing Buttons -->
+        <div class="social-sharing mb-3">
+            <p class="text-center small text-muted mb-2">Share this course</p>
+            <div class="d-flex justify-content-center flex-wrap gap-2">
+                <button type="button" class="btn btn-success btn-sm share-btn" data-platform="whatsapp">
+                    <i class="fab fa-whatsapp"></i>
+                </button>
+                <button type="button" class="btn btn-info btn-sm share-btn" data-platform="telegram">
+                    <i class="fab fa-telegram"></i>
+                </button>
+                <button type="button" class="btn btn-primary btn-sm share-btn" data-platform="twitter">
+                    <i class="fab fa-twitter"></i>
+                </button>
+                <button type="button" class="btn btn-primary btn-sm share-btn" data-platform="facebook">
+                    <i class="fab fa-facebook"></i>
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm share-btn" data-platform="copy">
+                    <i class="fas fa-copy"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div class="buttons-container">
+            <button type="button" 
+                    class="btn btn-outline-warning w-100 mb-2"
+                    onclick="showReportModal('{{ course.get('_id') }}', '{{ course.get('title', '').replace("'", "\\'") }}', '{{ course.get('udemy_url') or course.get('course_url', '') }}')">
+                <i class="fas fa-exclamation-triangle"></i> Report Course
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+.course-title {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #2c3e50;
+    line-height: 1.2;
+}
+
+.course-description {
+    font-size: 1.1rem;
+    color: #6c757d;
+    line-height: 1.6;
+}
+
+.course-stats-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 15px;
+    padding: 15px 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.instruction-banner-container {
+    text-align: center;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 15px;
+    margin: 2rem 0;
+}
+
+.instruction-banner {
+    max-width: 100%;
+    height: auto;
+    border-radius: 15px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+}
+
+.content-section {
+    background: #ffffff;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 2px 15px rgba(0,0,0,0.08);
+    border-left: 4px solid #8B4513;
+}
+
+.section-title {
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: #2c3e50;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+}
+
+.section-content {
+    font-size: 1.1rem;
+    line-height: 1.7;
+    color: #495057;
+}
+
+.section-content.detailed {
+    font-size: 1.15rem;
+    line-height: 1.8;
+    color: #444;
+    text-align: justify;
+}
+
+.learning-grid, .benefits-grid, .features-grid, .audience-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.2rem;
+    margin-top: 1.5rem;
+}
+
+.skill-item, .benefit-card, .feature-card, .audience-card {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    background: rgba(13, 110, 253, 0.05);
+    border-left: 4px solid #0d6efd;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+}
+
+.skill-item:hover, .benefit-card:hover, .feature-card:hover, .audience-card:hover {
+    background: rgba(13, 110, 253, 0.1);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.structure-list, .outcomes-list, .applications-list, .reasons-list, .prerequisites-list, .expertise-list {
+    margin-top: 1.5rem;
+}
+
+.module-item, .outcome-item, .application-item, .reason-item, .prerequisite-item, .expertise-item {
+    display: flex;
+    align-items: flex-start;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    background: #f8f9fa;
+    border-radius: 10px;
+    border-left: 4px solid #28a745;
+    transition: all 0.3s ease;
+}
+
+.module-item:hover, .outcome-item:hover, .application-item:hover, .reason-item:hover, .prerequisite-item:hover, .expertise-item:hover {
+    background: #e9ecef;
+    transform: translateX(5px);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.learning-objectives,
+.benefits-grid,
+.audience-list,
+.requirements-list {
+    display: grid;
+    gap: 15px;
+}
+
+.objective-item,
+.benefit-card,
+.audience-item,
+.requirement-item {
+    display: flex;
+    align-items: center;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+    border-left: 3px solid #28a745;
+}
+
+.objective-item:hover,
+.benefit-card:hover,
+.audience-item:hover,
+.requirement-item:hover {
+    background: #e3f2fd;
+    transform: translateX(5px);
+}
+
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+}
+
+.feature-item {
+    display: flex;
+    align-items: center;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+    border: 1px solid #e9ecef;
+}
+
+.feature-item:hover {
+    background: #ffffff;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    transform: translateY(-3px);
+}
+
+.feature-item i {
+    font-size: 1.5rem;
+    margin-right: 15px;
+    min-width: 30px;
+}
+
+.access-section {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 50px 30px;
+    border-radius: 20px;
+    color: white;
+}
+
+.access-card {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.access-title {
+    font-size: 2.2rem;
+    font-weight: bold;
+    margin-bottom: 15px;
+}
+
+.access-description {
+    font-size: 1.2rem;
+    margin-bottom: 30px;
+    opacity: 0.9;
+}
+
+.access-btn {
+    font-size: 1.3rem;
+    padding: 15px 40px;
+    border-radius: 50px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    transition: all 0.3s ease;
+}
+
+.access-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+}
+
+.info-section {
+    background: #f8f9fa;
+    padding: 30px;
+    border-radius: 15px;
+    margin-top: 30px;
+}
+
+.info-card {
+    display: flex;
+    align-items: center;
+    padding: 15px;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    transition: all 0.3s ease;
+}
+
+.info-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+}
+
+.info-card i {
+    min-width: 25px;
+}
+
+/* Instruction Section Styles */
+.instruction-section {
+    padding: 20px 0;
+    background: #f8f9fa;
+    border-radius: 15px;
+    margin: 30px 0;
+}
+
+.instruction-image {
+    max-width: 100%;
+    height: auto;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+}
+
+/* Compact Access Button Styles */
+.compact-access-section {
+    background: #fff;
+    padding: 20px;
+    border-radius: 15px;
+    box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+    margin: 30px auto;
+    max-width: 400px;
+}
+
+.access-text {
+    font-size: 1.1rem;
+    color: #495057;
+    margin-bottom: 15px;
+    font-weight: 500;
+}
+
+.compact-btn {
+    padding: 12px 30px;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 25px;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    background: #28a745;
+    border: none;
+    box-shadow: 0 3px 15px rgba(40, 167, 69, 0.3);
+}
+
+.compact-btn:hover {
+    background: #218838;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 20px rgba(40, 167, 69, 0.4);
+}
+
+.buttons-container {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.report-btn {
+    background: white !important;
+    color: #dc3545 !important;
+    border: 2px solid #dc3545 !important;
+    box-shadow: 0 3px 15px rgba(220, 53, 69, 0.3);
+}
+
+.report-btn:hover {
+    background: #dc3545 !important;
+    color: white !important;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 20px rgba(220, 53, 69, 0.4);
+}
+
+@media (max-width: 576px) {
+    .buttons-container {
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .compact-btn {
+        width: 100%;
+        max-width: 300px;
+    }
+}
+
+@media (max-width: 768px) {
+    .course-title {
+        font-size: 2rem;
+    }
+    
+    .content-section {
+        padding: 20px;
+    }
+    
+    .access-section {
+        padding: 30px 20px;
+    }
+    
+    .access-title {
+        font-size: 1.8rem;
+    }
+    
+    .features-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Social Sharing Buttons - Same Style as Course Detail Page */
+.social-sharing {
+    text-align: center;
+}
+
+.share-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    border: 2px solid;
+}
+
+.share-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.share-btn i {
+    font-size: 16px;
+}
+
+/* Platform-specific colors */
+.share-btn[data-platform="whatsapp"]:hover {
+    background-color: #25D366;
+    border-color: #25D366;
+    color: white;
+}
+
+.share-btn[data-platform="telegram"]:hover {
+    background-color: #0088cc;
+    border-color: #0088cc;
+    color: white;
+}
+
+.share-btn[data-platform="twitter"]:hover {
+    background-color: #1DA1F2;
+    border-color: #1DA1F2;
+    color: white;
+}
+
+.share-btn[data-platform="facebook"]:hover {
+    background-color: #1877F2;
+    border-color: #1877F2;
+    color: white;
+}
+
+.share-btn[data-platform="copy"]:hover {
+    background-color: #6c757d;
+    border-color: #6c757d;
+    color: white;
+}
+</style>
+
+<script>
+console.log('Course viewed:', '{{ course.get("title", "Unknown Course") }}');
+
+// Report functionality now handled by unified system in base.html
+
+// ShrinkMe Link Shortening Function for External Links Only
+function redirectToShortenedLink(originalUrl, courseId) {
+    // Show loading state
+    const button = event.target.closest('a');
+    const originalContent = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Getting Link...';
+    button.style.pointerEvents = 'none';
+    
+    // Build the shortened link URL
+    const shortenUrl = "{{ url_for('shorten_link') }}" + 
+                      "?url=" + encodeURIComponent(originalUrl) + 
+                      "&course_id=" + encodeURIComponent(courseId);
+    
+    // Open the shortened link in a new tab/window
+    const newWindow = window.open(shortenUrl, '_blank', 'noopener,noreferrer');
+    
+    // Reset button after a short delay
+    setTimeout(() => {
+        button.innerHTML = originalContent;
+        button.style.pointerEvents = 'auto';
+    }, 2000);
+    
+    // Fallback: if popup is blocked, redirect in current tab
+    if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+        window.location.href = shortenUrl;
+    }
+}
+
+// Social sharing functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const shareButtons = document.querySelectorAll('.share-btn');
+    shareButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const platform = this.dataset.platform;
+            const courseTitle = '{{ course.title }}';
+            const courseUrl = window.location.href;
+            const shareText = `Check out this free course: ${courseTitle}`;
+            
+            switch(platform) {
+                case 'whatsapp':
+                    window.open(`https://wa.me/?text=${encodeURIComponent(shareText + ' ' + courseUrl)}`, '_blank');
+                    break;
+                case 'telegram':
+                    window.open(`https://t.me/share/url?url=${encodeURIComponent(courseUrl)}&text=${encodeURIComponent(shareText)}`, '_blank');
+                    break;
+                case 'twitter':
+                    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(courseUrl)}`, '_blank');
+                    break;
+                case 'facebook':
+                    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(courseUrl)}`, '_blank');
+                    break;
+                case 'copy':
+                    navigator.clipboard.writeText(courseUrl).then(() => {
+                        // Show copy feedback
+                        const originalIcon = this.innerHTML;
+                        this.innerHTML = '<i class="fas fa-check"></i>';
+                        this.classList.remove('btn-secondary');
+                        this.classList.add('btn-success');
+                        
+                        setTimeout(() => {
+                            this.innerHTML = originalIcon;
+                            this.classList.remove('btn-success');
+                            this.classList.add('btn-secondary');
+                        }, 2000);
+                    });
+                    break;
+            }
+        });
+    });
+});
+</script>
+
+{% endblock %}
