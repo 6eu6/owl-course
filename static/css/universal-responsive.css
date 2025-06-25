@@ -1,0 +1,976 @@
+/* Universal Responsive Design System - Complete Device Compatibility */
+
+/* ==========================================================================
+   GLOBAL RESET AND BASE STYLES
+   ========================================================================== */
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    line-height: 1.6;
+    overflow-x: hidden;
+}
+
+.container {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1rem;
+}
+
+/* ==========================================================================
+   ENHANCED SEARCH BAR - PERFECTLY CENTERED ON ALL DEVICES
+   ========================================================================== */
+
+.enhanced-search {
+    width: 100%;
+    padding: 2rem 0;
+    margin-bottom: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.search-container {
+    width: 100%;
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 0 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.search-form {
+    width: 100%;
+    max-width: 800px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.search-bar-wrapper {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.search-input-group {
+    width: 100%;
+    max-width: 600px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    background: white;
+    border-radius: 50px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    overflow: hidden;
+    border: 3px solid transparent;
+    transition: all 0.3s ease;
+    margin: 0 auto;
+    height: 60px;
+}
+
+.search-input-group:focus-within {
+    border-color: #8B4513;
+    box-shadow: 0 15px 40px rgba(0, 123, 255, 0.3);
+    transform: translateY(-2px);
+}
+
+.search-icon {
+    position: absolute;
+    left: 1.5rem;
+    color: #6c757d;
+    font-size: 1.2rem;
+    z-index: 2;
+    pointer-events: none;
+}
+
+.search-input {
+    width: 100%;
+    height: 100%;
+    padding: 0 4.5rem 0 3.5rem;
+    border: none;
+    background: transparent;
+    font-size: 1.1rem;
+    outline: none;
+    color: #333;
+    font-weight: 400;
+}
+
+.search-input::placeholder {
+    color: #adb5bd;
+    font-weight: 400;
+}
+
+.filter-toggle-btn {
+    position: absolute;
+    right: 0.5rem;
+    background: #8B4513;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    z-index: 3;
+    font-size: 1rem;
+}
+
+.filter-toggle-btn:hover {
+    background: #0056b3;
+    transform: scale(1.05);
+}
+
+.filters-panel {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #ffffff;
+    border: 1px solid #e6eaee;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+    margin-top: 0.5rem;
+    opacity: 0;
+    transform: translateY(-15px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: none;
+    z-index: 1000;
+    border-top: 2px solid #8B4513;
+}
+
+.filters-panel.show {
+    display: block;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Filter styles specific to free courses page only */
+.free-courses-page .filters-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    align-items: end;
+}
+
+.free-courses-page .filter-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.free-courses-page .filter-select {
+    padding: 0.75rem 1rem;
+    border: 2px solid #e6eaee;
+    border-radius: 12px;
+    background: #ffffff;
+    color: #374151;
+    font-size: 0.95rem;
+    font-weight: 500;
+    outline: none;
+    transition: all 0.3s ease;
+    appearance: none;
+    background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6,9 12,15 18,9"></polyline></svg>');
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    background-size: 16px;
+    padding-right: 3rem;
+}
+
+.free-courses-page .filter-select:focus {
+    border-color: #8B4513;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.free-courses-page .filters-actions {
+    display: flex;
+    gap: 0.75rem;
+    grid-column: 1 / -1;
+    justify-content: center;
+    margin-top: 0.5rem;
+}
+
+.free-courses-page .filters-actions .btn {
+    padding: 0.75rem 2rem;
+    border-radius: 25px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    border: none;
+    cursor: pointer;
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.free-courses-page .filters-actions .btn-primary {
+    background: transparent;
+    color: white;
+    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+}
+
+.free-courses-page .filters-actions .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+}
+
+.free-courses-page .filters-actions .btn-outline-secondary {
+    background: #f8f9fa;
+    color: #6c757d;
+    border: 2px solid #e6eaee;
+}
+
+.free-courses-page .filters-actions .btn-outline-secondary:hover {
+    background: #e6eaee;
+    color: #374151;
+    border-color: #e6eaee;
+    transform: translateY(-2px);
+}
+
+.filter-select {
+    padding: 0.75rem 1rem;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: white;
+    font-size: 0.875rem;
+    color: #374151;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    appearance: none;
+    background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>');
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 16px;
+    padding-right: 2.5rem;
+}
+
+.filter-select:focus {
+    outline: none;
+    border-color: #8B4513;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+.filter-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #f3f4f6;
+}
+
+.btn-apply, .btn-clear {
+    padding: 0.625rem 1.5rem;
+    border-radius: 6px;
+    font-weight: 500;
+    font-size: 0.875rem;
+    border: 1px solid;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+}
+
+.btn-apply {
+    background: #8B4513;
+    color: white;
+    border-color: #8B4513;
+}
+
+.btn-apply:hover {
+    background: #0056b3;
+    border-color: #0056b3;
+}
+
+.btn-clear {
+    background: #f8f9fa;
+    color: #6c757d;
+    border-color: #dee2e6;
+}
+
+.btn-clear:hover {
+    background: #e9ecef;
+    border-color: #adb5bd;
+}
+
+.btn-search, .btn-clear {
+    padding: 0.75rem 2rem;
+    border: none;
+    border-radius: 25px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 120px;
+    font-size: 0.9rem;
+}
+
+.btn-search {
+    background: linear-gradient(135deg, #28a745, #20c997);
+    color: white;
+}
+
+.btn-search:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+}
+
+.btn-clear {
+    background: #6c757d;
+    color: white;
+}
+
+.btn-clear:hover {
+    background: #545b62;
+    transform: translateY(-2px);
+}
+
+/* ==========================================================================
+   PAGINATION SYSTEM - PERFECTLY CENTERED
+   ========================================================================== */
+
+.pagination-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 3rem 0;
+    padding: 0 1rem;
+    width: 100%;
+}
+
+.pagination {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.pagination .page-item {
+    margin: 0.25rem;
+}
+
+.pagination .page-link {
+    padding: 0.75rem 1rem;
+    min-width: 48px;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    border: 2px solid #dee2e6;
+    color: #8B4513;
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    background: white;
+    font-size: 1rem;
+}
+
+.pagination .page-link:hover {
+    background: #8B4513;
+    color: white;
+    border-color: #8B4513;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+}
+
+.pagination .page-item.active .page-link {
+    background: #8B4513;
+    color: white;
+    border-color: #8B4513;
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+}
+
+.pagination .page-item.disabled .page-link {
+    color: #6c757d;
+    background: #f8f9fa;
+    border-color: #dee2e6;
+    cursor: not-allowed;
+}
+
+/* ==========================================================================
+   COURSE GRID SYSTEM - RESPONSIVE LAYOUT
+   ========================================================================== */
+
+.course-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 2rem;
+    margin: 2rem 0;
+    padding: 0 1rem;
+}
+
+.course-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    transition: all 0.3s ease;
+    border: 1px solid #e9ecef;
+}
+
+.course-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.course-image {
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+    display: block;
+}
+
+.course-content {
+    padding: 1.5rem;
+}
+
+.course-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0 0 0.75rem 0;
+    line-height: 1.4;
+}
+
+.course-title a {
+    color: #333;
+    text-decoration: none;
+    display: block;
+}
+
+.course-title a:hover {
+    color: #8B4513;
+}
+
+.course-instructor {
+    color: #6c757d;
+    font-size: 0.9rem;
+    margin: 0.5rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.course-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin: 1rem 0;
+    align-items: center;
+}
+
+.meta-item {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.85rem;
+    color: #6c757d;
+}
+
+.rating {
+    color: #ffc107;
+}
+
+.course-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+}
+
+.btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 6px;
+    font-weight: 500;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 0.9rem;
+    min-height: 44px;
+    text-align: center;
+}
+
+.btn-primary {
+    background: #8B4513;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #0056b3;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+}
+
+.btn-outline-primary {
+    background: transparent;
+    color: #8B4513;
+    border: 2px solid #8B4513;
+}
+
+.btn-outline-primary:hover {
+    background: #8B4513;
+    color: white;
+}
+
+/* Unified Report Button Styling */
+.btn-outline-warning {
+    background: transparent;
+    color: #ffc107;
+    border: 2px solid #ffc107;
+}
+
+.btn-outline-warning:hover {
+    background: #ffc107;
+    color: #000;
+    border-color: #ffc107;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
+}
+
+/* Course Actions Enhanced */
+.course-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 15px;
+}
+
+.btn-course-action {
+    order: 1;
+}
+
+.btn-report-course {
+    order: 2;
+    font-size: 0.85rem;
+    padding: 6px 12px;
+    min-height: 36px;
+}
+
+/* Unified Telegram Button Styling */
+.telegram-btn {
+    background: linear-gradient(135deg, #0088cc, #00a2e8);
+    border: none;
+    color: white !important;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    box-shadow: 0 4px 15px rgba(0, 136, 204, 0.3);
+    transition: all 0.3s ease;
+}
+
+.telegram-btn:hover {
+    background: linear-gradient(135deg, #006ba3, #0088cc);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 136, 204, 0.4);
+    color: white !important;
+}
+
+.telegram-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 10px rgba(0, 136, 204, 0.3);
+}
+
+.telegram-btn .fab.fa-telegram {
+    font-size: 1.1em;
+}
+
+/* Course Info List Styling */
+.course-info-list {
+    margin: 15px 0;
+}
+
+.course-info-list ul {
+    margin: 0;
+    padding: 0;
+}
+
+.course-info-list .info-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.course-info-list .info-item:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.course-info-list .info-item i {
+    width: 18px;
+    text-align: center;
+    margin-right: 10px;
+    font-size: 0.9rem;
+}
+
+.course-info-list .info-item span {
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
+.course-info-list .info-item strong {
+    margin-right: 5px;
+    color: #333;
+}
+
+/* Responsive adjustments for course info */
+@media (max-width: 768px) {
+    .course-info-list .info-item {
+        padding: 4px 0;
+        margin-bottom: 6px;
+    }
+    
+    .course-info-list .info-item i {
+        width: 16px;
+        margin-right: 8px;
+        font-size: 0.8rem;
+    }
+    
+    .course-info-list .info-item span {
+        font-size: 0.8rem;
+    }
+}
+
+/* ==========================================================================
+   RESPONSIVE BREAKPOINTS
+   ========================================================================== */
+
+/* Large Desktop (1400px+) */
+@media (min-width: 1400px) {
+    .container {
+        max-width: 1320px;
+        padding: 0 1.5rem;
+    }
+    
+    .search-input-group {
+        max-width: 700px;
+        height: 70px;
+    }
+    
+    .search-input {
+        font-size: 1.2rem;
+        padding: 0 5rem 0 4rem;
+    }
+    
+    .search-icon {
+        left: 1.75rem;
+        font-size: 1.3rem;
+    }
+    
+    .filter-toggle-btn {
+        width: 54px;
+        height: 54px;
+        right: 0.75rem;
+    }
+    
+    .course-grid {
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 2.5rem;
+    }
+    
+    .pagination .page-link {
+        padding: 0.875rem 1.25rem;
+        min-width: 52px;
+        min-height: 52px;
+        font-size: 1.1rem;
+    }
+}
+
+/* Desktop (1200px - 1399px) */
+@media (min-width: 1200px) and (max-width: 1399px) {
+    .search-input-group {
+        max-width: 650px;
+        height: 65px;
+    }
+    
+    .search-input {
+        font-size: 1.15rem;
+        padding: 0 4.5rem 0 3.75rem;
+    }
+    
+    .search-icon {
+        left: 1.6rem;
+        font-size: 1.25rem;
+    }
+    
+    .filter-toggle-btn {
+        width: 50px;
+        height: 50px;
+        right: 0.6rem;
+    }
+    
+    .course-grid {
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 2.25rem;
+    }
+    
+    .pagination .page-link {
+        padding: 0.8rem 1.1rem;
+        min-width: 50px;
+        min-height: 50px;
+        font-size: 1.05rem;
+    }
+}
+
+/* Tablet Landscape (992px - 1199px) */
+@media (min-width: 992px) and (max-width: 1199px) {
+    .search-input-group {
+        max-width: 600px;
+        height: 60px;
+    }
+    
+    .search-input {
+        font-size: 1.1rem;
+        padding: 0 4.25rem 0 3.5rem;
+    }
+    
+    .search-icon {
+        left: 1.5rem;
+        font-size: 1.2rem;
+    }
+    
+    .filter-toggle-btn {
+        width: 48px;
+        height: 48px;
+        right: 0.5rem;
+    }
+    
+    .course-grid {
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 2rem;
+    }
+    
+    .filters-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+/* Tablet Portrait (768px - 991px) */
+@media (min-width: 768px) and (max-width: 991px) {
+    .search-input-group {
+        max-width: 550px;
+        height: 58px;
+    }
+    
+    .search-input {
+        font-size: 1.05rem;
+        padding: 0 4rem 0 3.25rem;
+    }
+    
+    .search-icon {
+        left: 1.4rem;
+        font-size: 1.15rem;
+    }
+    
+    .filter-toggle-btn {
+        width: 46px;
+        height: 46px;
+    }
+    
+    .course-grid {
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 1.75rem;
+    }
+    
+    .filters-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .pagination .page-link {
+        padding: 0.7rem 0.9rem;
+        min-width: 46px;
+        min-height: 46px;
+    }
+}
+
+/* Mobile Large (576px - 767px) */
+@media (min-width: 576px) and (max-width: 767px) {
+    .enhanced-search {
+        padding: 2.5rem 0;
+        min-height: 180px;
+    }
+    
+    .search-container {
+        padding: 0 0.75rem;
+    }
+    
+    .search-input-group {
+        max-width: 100%;
+        height: 55px;
+    }
+    
+    .search-input {
+        font-size: 1rem;
+        padding: 0 3.75rem 0 3rem;
+    }
+    
+    .search-icon {
+        left: 1.25rem;
+        font-size: 1.1rem;
+    }
+    
+    .filter-toggle-btn {
+        width: 44px;
+        height: 44px;
+        right: 0.4rem;
+    }
+    
+    .course-grid {
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 1.5rem;
+        padding: 0 0.75rem;
+    }
+    
+    .filters-panel {
+        padding: 1.5rem;
+        margin: 0 0.5rem;
+    }
+    
+    .filters-grid {
+        grid-template-columns: 1fr;
+        gap: 1.25rem;
+    }
+    
+    .filter-actions {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+    
+    .btn-search, .btn-clear {
+        width: 100%;
+        padding: 1rem;
+    }
+    
+    .pagination .page-link {
+        padding: 0.65rem 0.8rem;
+        min-width: 44px;
+        min-height: 44px;
+        font-size: 0.95rem;
+    }
+}
+
+/* Mobile Small (up to 575px) */
+@media (max-width: 575px) {
+    .enhanced-search {
+        padding: 2rem 0;
+        min-height: 160px;
+    }
+    
+    .search-container {
+        padding: 0 0.5rem;
+    }
+    
+    .search-input-group {
+        height: 52px;
+    }
+    
+    .search-input {
+        font-size: 0.95rem;
+        padding: 0 3.5rem 0 2.75rem;
+    }
+    
+    .search-icon {
+        left: 1rem;
+        font-size: 1rem;
+    }
+    
+    .filter-toggle-btn {
+        width: 42px;
+        height: 42px;
+        right: 0.3rem;
+        font-size: 0.9rem;
+    }
+    
+    .course-grid {
+        grid-template-columns: 1fr;
+        gap: 1.25rem;
+        padding: 0 0.5rem;
+    }
+    
+    .filters-panel {
+        padding: 1.25rem;
+        margin: 0 0.25rem;
+    }
+    
+    .pagination {
+        gap: 0.25rem;
+    }
+    
+    .pagination .page-link {
+        padding: 0.6rem 0.7rem;
+        min-width: 42px;
+        min-height: 42px;
+        font-size: 0.9rem;
+    }
+    
+    .btn {
+        padding: 0.7rem 1.25rem;
+        font-size: 0.85rem;
+        min-height: 42px;
+    }
+}
+
+/* Extra Small Mobile (up to 400px) */
+@media (max-width: 400px) {
+    .search-input-group {
+        height: 48px;
+    }
+    
+    .search-input {
+        font-size: 0.9rem;
+        padding: 0 3.25rem 0 2.5rem;
+    }
+    
+    .search-icon {
+        left: 0.875rem;
+        font-size: 0.95rem;
+    }
+    
+    .filter-toggle-btn {
+        width: 40px;
+        height: 40px;
+        right: 0.25rem;
+        font-size: 0.85rem;
+    }
+    
+    .pagination .page-link {
+        padding: 0.5rem 0.6rem;
+        min-width: 40px;
+        min-height: 40px;
+        font-size: 0.85rem;
+    }
+    
+    .btn {
+        padding: 0.65rem 1rem;
+        font-size: 0.8rem;
+        min-height: 40px;
+    }
+}
