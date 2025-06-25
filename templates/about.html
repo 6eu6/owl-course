@@ -1,0 +1,322 @@
+{% extends "merged_base.html" %}
+
+{% block title %}حول {{ settings.site_title or 'OWL COURSE' }} | About Us | منصة دورات يودمي مجانية | Free Udemy Courses Platform{% endblock %}
+
+{% block meta_description %}تعرف على مهمة {{ settings.site_title or 'OWL COURSE' }} في جعل التعليم الجودة متاحاً للجميع | اكتشف دورات يودمي مجانية وانضم لمجتمعنا | Learn about {{ settings.site_title or 'OWL COURSE' }}'s mission to make quality education accessible to everyone{% endblock %}
+
+{% block meta_keywords %}حول كورس جم, منصة تعليمية, دورات مجانية, يودمي مجاني, تعليم إلكتروني, about {{ settings.site_title|lower or 'owl-course' }}, educational platform, free courses, online learning{% endblock %}
+
+{# Hero Section Variables #}
+{% set hero_count = 'OWL' %}
+{% set hero_title = 'About OWL COURSE' %}
+{% set hero_description = 'Empowering learners worldwide with free access to quality education' %}
+
+{% block content %}
+
+<!-- About Content -->
+<section class="py-5">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 mx-auto">
+                <div class="admin-card">
+                    <h2><i class="fas fa-gem text-brown"></i> Our Mission</h2>
+                    <p class="lead">
+                        At {{ settings.site_title or 'OWL COURSE' }}, we believe that quality education should be accessible to everyone, regardless of their financial situation. 
+                        Our mission is to democratize learning by connecting learners with free, high-quality educational content.
+                    </p>
+                    
+                    <p>
+                        We carefully curate and aggregate free course offers from Udemy and other educational platforms, 
+                        making it easier for you to discover valuable learning opportunities without the hassle of searching 
+                        through countless websites.
+                    </p>
+                </div>
+                
+                <div class="admin-card">
+                    <h3><i class="fas fa-target text-brown"></i> What We Do</h3>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="feature-item mb-4">
+                                <div class="feature-icon">
+                                    <i class="fas fa-search fa-2x text-brown"></i>
+                                </div>
+                                <h5>Course Discovery</h5>
+                                <p>We continuously scan the web for the latest free course offers, saving you hours of searching.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="feature-item mb-4">
+                                <div class="feature-icon">
+                                    <i class="fas fa-filter fa-2x text-brown"></i>
+                                </div>
+                                <h5>Quality Curation</h5>
+                                <p>Every course is reviewed to ensure it meets our quality standards before being featured.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="feature-item mb-4">
+                                <div class="feature-icon">
+                                    <i class="fas fa-bell fa-2x text-brown"></i>
+                                </div>
+                                <h5>Instant Notifications</h5>
+                                <p>Get notified immediately when new courses become available through our Telegram channel.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="feature-item mb-4">
+                                <div class="feature-icon">
+                                    <i class="fas fa-users fa-2x text-brown"></i>
+                                </div>
+                                <h5>Learning Community</h5>
+                                <p>Join thousands of learners who are advancing their skills through our platform.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="admin-card">
+                    <h3><i class="fas fa-heart text-danger"></i> Why We Started</h3>
+                    <p>
+                        Education is the most powerful tool for personal and professional growth. However, the high cost of quality courses 
+                        often creates barriers for many aspiring learners. We founded {{ settings.site_title or 'OWL COURSE' }} to break down these barriers and create 
+                        equal opportunities for everyone to learn and grow.
+                    </p>
+                    
+                    <p>
+                        Our team consists of passionate educators, developers, and lifelong learners who understand the value of continuous 
+                        education. We've experienced firsthand how the right course at the right time can transform careers and lives.
+                    </p>
+                </div>
+                
+                <div class="admin-card">
+                    <h3><i class="fas fa-chart-line text-success"></i> Our Impact</h3>
+                    <div class="row text-center">
+                        <div class="col-md-4">
+                            <div class="stat-card">
+                                <div class="stat-icon courses">
+                                    <i class="fas fa-book"></i>
+                                </div>
+                                <h4>10,000+</h4>
+                                <p>Free Courses Shared</p>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="stat-card">
+                                <div class="stat-icon published">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                                <h4>50,000+</h4>
+                                <p>Learners Reached</p>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="stat-card">
+                                <div class="stat-icon unpublished">
+                                    <i class="fas fa-globe"></i>
+                                </div>
+                                <h4>100+</h4>
+                                <p>Countries Served</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+
+                
+                <div class="admin-card text-center">
+                    <h3><i class="fas fa-envelope text-primary"></i> Get in Touch</h3>
+                    <p>
+                        Have questions, suggestions, or feedback? We'd love to hear from you!
+                    </p>
+                    
+                    <div class="contact-options">
+                        <a href="{% if telegram_settings and telegram_settings.contact_username %}https://t.me/{{ telegram_settings.contact_username.lstrip('@') }}{% else %}https://t.me/{{ settings.site_title or 'OWL COURSE' }}{% endif %}" 
+                           class="btn btn-outline-primary me-2 mb-2 telegram-btn"
+                           target="_blank">
+                            <i class="fab fa-telegram"></i> Message us on Telegram
+                        </a>
+                        
+                        <a href="mailto:{{ settings.site_title|lower or 'owl-course' }}@tech-center.com" 
+                           class="btn btn-outline-secondary mb-2">
+                            <i class="fas fa-envelope"></i> Email us
+                        </a>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <small class="text-muted">
+                            <i class="fas fa-heart text-danger"></i>
+                            Made with love by learners, for learners
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* About Page Brown Theme Override */
+.text-brown {
+    color: #8B4513 !important;
+}
+
+.text-primary {
+    color: #8B4513 !important;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #8B4513 0%, #a0522d 100%) !important;
+    border-color: #8B4513 !important;
+    color: white !important;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #a0522d 0%, #8B4513 100%) !important;
+    border-color: #a0522d !important;
+    color: white !important;
+}
+
+.btn-outline-primary {
+    border-color: #8B4513 !important;
+    color: #8B4513 !important;
+}
+
+.btn-outline-primary:hover {
+    background: #8B4513 !important;
+    border-color: #8B4513 !important;
+    color: white !important;
+}
+
+.feature-item {
+    text-align: center;
+}
+
+.feature-icon {
+    margin-bottom: 1rem;
+}
+
+.faq-item {
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.faq-item:last-child {
+    border-bottom: none;
+}
+
+.faq-item h6 {
+    color: #8B4513 !important;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.telegram-feature {
+    padding: 1rem;
+}
+
+.contact-options {
+    margin: 2rem 0;
+}
+
+/* CTA Section Theme Override */
+.py-5[style*="background: linear-gradient"] {
+    background: linear-gradient(135deg, #8B4513, #a0522d) !important;
+}
+
+/* Telegram buttons stay blue */
+.telegram-btn,
+.fab.fa-telegram {
+    color: #0088cc !important;
+}
+
+.btn-outline-light.telegram-btn {
+    border-color: #0088cc !important;
+    color: #0088cc !important;
+    background: rgba(0, 136, 204, 0.1) !important;
+}
+
+.btn-outline-light.telegram-btn:hover {
+    background: #0088cc !important;
+    border-color: #0088cc !important;
+    color: white !important;
+}
+
+@media (max-width: 768px) {
+    .hero h1 {
+        font-size: 2rem;
+    }
+    
+    .feature-item {
+        margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+        margin-bottom: 2rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Add smooth scrolling for anchor links
+document.addEventListener('DOMContentLoaded', function() {
+    // Animate statistics on scroll
+    const observerOptions = {
+        threshold: 0.5,
+        rootMargin: '0px 0px -50px 0px'
+    };
+    
+    const observer = new IntersectionObserver(function(entries) {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const statNumbers = entry.target.querySelectorAll('.stat-card h4');
+                statNumbers.forEach(num => {
+                    animateNumber(num);
+                });
+                observer.unobserve(entry.target);
+            }
+        });
+    }, observerOptions);
+    
+    const statsSection = document.querySelector('.row.text-center');
+    if (statsSection) {
+        observer.observe(statsSection);
+    }
+});
+
+function animateNumber(element) {
+    const target = parseInt(element.textContent.replace(/\D/g, ''));
+    const duration = 2000;
+    const start = performance.now();
+    
+    function update(currentTime) {
+        const elapsed = currentTime - start;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        const current = Math.floor(progress * target);
+        const suffix = element.textContent.includes('+') ? '+' : '';
+        const prefix = element.textContent.includes('K') ? 'K' : 
+                      element.textContent.includes('M') ? 'M' : '';
+        
+        element.textContent = current.toLocaleString() + prefix + suffix;
+        
+        if (progress < 1) {
+            requestAnimationFrame(update);
+        }
+    }
+    
+    requestAnimationFrame(update);
+}
+</script>
+{% endblock %}
