@@ -1,0 +1,70 @@
+{% extends "merged_base.html" %}
+
+{% block title %}Terms of Service - {{ settings.site_title or 'OWL COURSE' }}{% endblock %}
+
+{# Hero Section Variables #}
+{% set hero_count = 'TERMS' %}
+{% set hero_title = 'Terms of Service' %}
+{% set hero_description = 'Important terms and conditions for using our platform' %}
+
+{% block content %}
+<div class="container mt-5 pt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="admin-card">
+                <div class="text-center mb-4">
+                    <h1 class="admin-title">
+                        <i class="fas fa-file-contract style="color: #8B4513;" me-2"></i>
+                        Terms of Service
+                    </h1>
+                    <p class="text-muted">Terms and Conditions of Use</p>
+                </div>
+
+                <div class="mb-4">
+                    <h3 class="style="color: #8B4513;"">Acceptance of Terms</h3>
+                    <p>By accessing and using {{ settings.site_title or 'OWL COURSE' }}, you accept and agree to be bound by the terms and provision of this agreement.</p>
+                    
+                    <h3 class="style="color: #8B4513;" mt-4">Service Description</h3>
+                    <p>{{ settings.site_title or 'OWL COURSE' }} is a free educational platform that aggregates and displays information about free online courses from various educational platforms. We do not host the courses ourselves but provide links to legitimate educational providers.</p>
+                    
+                    <h3 class="style="color: #8B4513;" mt-4">User Responsibilities</h3>
+                    <ul>
+                        <li>Use the service for educational purposes only</li>
+                        <li>Respect the terms of service of linked educational platforms</li>
+                        <li>Do not attempt to disrupt or damage the website</li>
+                        <li>Do not use automated tools to scrape our content</li>
+                    </ul>
+                    
+                    <h3 class="style="color: #8B4513;" mt-4">Content and Links</h3>
+                    <p>All course information is sourced from publicly available educational content. {{ settings.site_title or 'OWL COURSE' }} is not responsible for the content, availability, or quality of courses offered by third-party platforms.</p>
+                    
+                    <h3 class="style="color: #8B4513;" mt-4">Disclaimer</h3>
+                    <p>{{ settings.site_title or 'OWL COURSE' }} provides information "as is" without warranties of any kind. We do not guarantee the availability, accuracy, or continued free status of any course listings.</p>
+                    
+                    <h3 class="style="color: #8B4513;" mt-4">Limitation of Liability</h3>
+                    <p>{{ settings.site_title or 'OWL COURSE' }} shall not be liable for any damages arising from the use of this website or the courses accessed through our links.</p>
+                    
+                    <h3 class="style="color: #8B4513;" mt-4">Changes to Terms</h3>
+                    <p>We reserve the right to modify these terms at any time. Changes will be effective immediately upon posting on this page.</p>
+                    
+                    <div class="text-muted mt-4">
+                        <i class="fas fa-calendar-alt me-2"></i>
+                        <strong>Last Updated:</strong> June 2025
+                    </div>
+                </div>
+
+                <div class="text-center">
+                    <a href="{{ url_for('index') }}" class="btn btn-primary">
+                        <i class="fas fa-home me-1"></i>
+                        Back to Home
+                    </a>
+                    <a href="{{ url_for('privacy_policy') }}" class="btn btn-outline-primary ms-2">
+                        <i class="fas fa-shield-alt me-1"></i>
+                        Privacy Policy
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
