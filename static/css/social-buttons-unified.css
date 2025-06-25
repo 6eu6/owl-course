@@ -1,0 +1,132 @@
+/*
+SOCIAL BUTTONS UNIFIED - توحيد أزرار التواصل الاجتماعي
+ضمان تناسق الأبعاد والأحجام والتنسيق لجميع الأزرار
+*/
+
+/* توحيد أبعاد جميع أزرار التواصل الاجتماعي */
+.footer .social-links .social-link {
+    width: 45px !important;
+    height: 45px !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin: 0 5px !important;
+    transition: all 0.3s ease !important;
+    text-decoration: none !important;
+    position: relative !important;
+    overflow: hidden !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* توحيد حجم الأيقونات داخل الأزرار */
+.footer .social-links .social-link i {
+    font-size: 20px !important;
+    line-height: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    height: 100% !important;
+    position: relative !important;
+    z-index: 1 !important;
+}
+
+/* ألوان محددة لكل منصة مع الحفاظ على التوحيد */
+.footer .social-links .social-link[aria-label="Telegram"] {
+    background: #0088cc !important;
+    color: white !important;
+}
+
+.footer .social-links .social-link[aria-label="Facebook"] {
+    background: #1877f2 !important;
+    color: white !important;
+}
+
+.footer .social-links .social-link[aria-label="X"] {
+    background: #000000 !important;
+    color: white !important;
+}
+
+/* إصلاح خاص لأيقونة X - استخدام حرف X بدلاً من الأيقونة */
+.footer .social-links .social-link[aria-label="X"] i.fab.fa-x-twitter::before {
+    content: "𝕏" !important;
+    font-family: "Inter", "Arial", sans-serif !important;
+    font-size: 18px !important;
+    font-weight: bold !important;
+    color: white !important;
+    display: block !important;
+    text-align: center !important;
+    line-height: 1 !important;
+}
+
+/* تأثيرات التمرير موحدة لجميع الأزرار */
+.footer .social-links .social-link:hover {
+    transform: translateY(-3px) scale(1.1) !important;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3) !important;
+}
+
+.footer .social-links .social-link[aria-label="Telegram"]:hover {
+    background: linear-gradient(135deg, #0088cc 0%, #0066aa 100%) !important;
+}
+
+.footer .social-links .social-link[aria-label="Facebook"]:hover {
+    background: linear-gradient(135deg, #1877f2 0%, #1459c9 100%) !important;
+}
+
+.footer .social-links .social-link[aria-label="X"]:hover {
+    background: linear-gradient(135deg, #000000 0%, #333333 100%) !important;
+}
+
+/* ضمان عدم تداخل العناصر */
+.footer .social-links {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 10px !important;
+    margin: 15px 0 !important;
+}
+
+/* إصلاحات للشاشات الصغيرة مع الحفاظ على التوحيد */
+@media (max-width: 768px) {
+    .footer .social-links .social-link {
+        width: 40px !important;
+        height: 40px !important;
+        margin: 0 3px !important;
+    }
+    
+    .footer .social-links .social-link i {
+        font-size: 18px !important;
+    }
+    
+    .footer .social-links .social-link[aria-label="X"] i.fab.fa-x-twitter::before {
+        font-size: 16px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .footer .social-links .social-link {
+        width: 38px !important;
+        height: 38px !important;
+        margin: 0 2px !important;
+    }
+    
+    .footer .social-links .social-link i {
+        font-size: 16px !important;
+    }
+    
+    .footer .social-links .social-link[aria-label="X"] i.fab.fa-x-twitter::before {
+        font-size: 14px !important;
+    }
+}
+
+/* منع أي تأثيرات خارجية على التوحيد */
+.footer .social-links .social-link * {
+    box-sizing: border-box !important;
+}
+
+/* إزالة أي خلفيات أو حدود إضافية */
+.footer .social-links .social-link:before,
+.footer .social-links .social-link:after {
+    display: none !important;
+}
