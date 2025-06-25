@@ -1,0 +1,27 @@
+{% extends "merged_base.html" %}
+
+{% block body_class %}free-courses-page{% endblock %}
+
+{% block title %}Permanent Free Courses | StudyBullet | {{ settings.site_title or 'OWL COURSE' }}{% endblock %}
+
+{% block meta_description %}Always free courses from StudyBullet - no coupons needed. Learn at your own pace with lifetime access to quality educational content.{% endblock %}
+
+{% block meta_keywords %}permanent free courses, always free courses, free education, no coupon courses, studybullet free, lifetime access courses{% endblock %}
+
+{% set page_title = 'Permanent Free Courses' %}
+{% set page_description = 'Always free, no coupons needed - learn at your own pace' %}
+{% set courses_label = 'Permanent Free Courses' %}
+{% set featured_title = 'Permanent Free Courses' %}
+{% set featured_description = 'Always free, no coupons needed - learn at your own pace' %}
+{% set course_type_name = 'free' %}
+{% set clear_filters_url = url_for('free_courses') %}
+{% set search_placeholder = 'Search permanent free courses...' %}
+
+{# Hero Section Variables #}
+{% set hero_count = total_courses or courses|length %}
+{% set hero_title = 'Permanent Free Courses' %}
+{% set hero_description = 'Always free, no coupons needed - learn at your own pace' %}
+
+{% macro pagination_url_func(page, search=None, category=None, language=None, rating=None) -%}
+{{ url_for('free_courses', page=page, search=search, category=category, language=language, rating=rating) }}
+{%- endmacro %}
