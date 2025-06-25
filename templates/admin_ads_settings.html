@@ -1,0 +1,387 @@
+{% extends "merged_base.html" %}
+
+{% block title %}Ads & Monetization Settings - Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="admin-card">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h3 class="mb-0">
+                        <i class="fas fa-ad text-primary me-2"></i>
+                        Ads & Monetization Control Center
+                    </h3>
+                    <div class="d-flex gap-2">
+                        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-1"></i>Back to Dashboard
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Revenue Balance Overview -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="balance-card adsense-card">
+                            <div class="balance-header">
+                                <i class="fab fa-google text-primary me-2"></i>
+                                <h5>Google AdSense</h5>
+                            </div>
+                            <div class="balance-percentage">{{ ads_settings.adsense_percentage or 70 }}%</div>
+                            <div class="balance-description">Primary advertising revenue</div>
+                            <div class="balance-status">
+                                <span class="badge bg-success">Active & Compliant</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="balance-card shrinkme-card">
+                            <div class="balance-header">
+                                <i class="fas fa-link text-warning me-2"></i>
+                                <h5>ShrinkMe Links</h5>
+                            </div>
+                            <div class="balance-percentage">{{ ads_settings.shrinkme_percentage or 30 }}%</div>
+                            <div class="balance-description">Link monetization revenue</div>
+                            <div class="balance-status">
+                                {% if ads_settings.shrinkme_enabled %}
+                                <span class="badge bg-success">Active</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Disabled</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Revenue Balance Control -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-balance-scale me-2"></i>
+                            Revenue Balance Configuration
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <form method="POST" action="{{ url_for('admin_ads_balance_update') }}">
+                            <div class="row">
+                                <!-- Revenue Balance Slider -->
+                                <div class="col-12 mb-4">
+                                    <label class="form-label">
+                                        <strong>Revenue Source Balance</strong>
+                                    </label>
+                                    <div class="balance-slider-container">
+                                        <div class="d-flex justify-content-between mb-2">
+                                            <span class="text-primary"><i class="fab fa-google me-1"></i>AdSense</span>
+                                            <span class="text-warning"><i class="fas fa-link me-1"></i>ShrinkMe</span>
+                                        </div>
+                                        <input type="range" class="form-range balance-slider" 
+                                               id="revenueBalance" name="revenue_balance"
+                                               min="0" max="100" step="5"
+                                               value="{{ 100 - (ads_settings.shrinkme_percentage or 30) }}"
+                                               oninput="updateBalanceDisplay(this.value)">
+                                        <div class="d-flex justify-content-between">
+                                            <span id="adsense_display">{{ 100 - (ads_settings.shrinkme_percentage or 30) }}%</span>
+                                            <span id="shrinkme_display">{{ ads_settings.shrinkme_percentage or 30 }}%</span>
+                                        </div>
+                                    </div>
+                                    <small class="form-text text-muted">
+                                        Adjust the balance between AdSense (safe, compliant) and ShrinkMe (higher revenue, user friction)
+                                    </small>
+                                </div>
+
+                                <!-- ShrinkMe Toggle -->
+                                <div class="col-md-6 mb-3">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" 
+                                               id="shrinkme_enabled" name="shrinkme_enabled"
+                                               {% if ads_settings.shrinkme_enabled %}checked{% endif %}>
+                                        <label class="form-check-label" for="shrinkme_enabled">
+                                            <strong>Enable ShrinkMe Link Shortening</strong>
+                                        </label>
+                                        <small class="form-text text-muted">
+                                            Master switch for all link monetization features
+                                        </small>
+                                    </div>
+                                </div>
+
+                                <!-- Smart Targeting -->
+                                <div class="col-md-6 mb-3">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" 
+                                               id="smart_targeting" name="smart_targeting"
+                                               {% if ads_settings.smart_targeting %}checked{% endif %}>
+                                        <label class="form-check-label" for="smart_targeting">
+                                            <strong>Smart User Targeting</strong>
+                                        </label>
+                                        <small class="form-text text-muted">
+                                            Only show ShrinkMe to engaged users (3+ page views)
+                                        </small>
+                                    </div>
+                                </div>
+
+                                <!-- Mobile Strategy -->
+                                <div class="col-md-6 mb-3">
+                                    <label for="mobile_strategy" class="form-label">
+                                        <strong>Mobile Device Strategy</strong>
+                                    </label>
+                                    <select class="form-select" id="mobile_strategy" name="mobile_strategy">
+                                        <option value="same" {% if ads_settings.mobile_strategy == 'same' %}selected{% endif %}>
+                                            Same as Desktop
+                                        </option>
+                                        <option value="adsense_only" {% if ads_settings.mobile_strategy == 'adsense_only' %}selected{% endif %}>
+                                            AdSense Only (Better UX)
+                                        </option>
+                                        <option value="reduced_shrinkme" {% if ads_settings.mobile_strategy == 'reduced_shrinkme' %}selected{% endif %}>
+                                            Reduced ShrinkMe (50% less)
+                                        </option>
+                                    </select>
+                                    <small class="form-text text-muted">
+                                        Mobile users prefer faster, simpler experiences
+                                    </small>
+                                </div>
+
+                                <!-- Cooldown Period -->
+                                <div class="col-md-6 mb-3">
+                                    <label for="cooldown_hours" class="form-label">
+                                        <strong>User Cooldown Period</strong>
+                                    </label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" 
+                                               id="cooldown_hours" name="cooldown_hours"
+                                               min="1" max="168"
+                                               value="{{ ads_settings.cooldown_hours or 24 }}">
+                                        <span class="input-group-text">hours</span>
+                                    </div>
+                                    <small class="form-text text-muted">
+                                        Time between ShrinkMe exposures per user
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div class="text-end">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-2"></i>Save Configuration
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- AdSense Compliance Guidelines -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-shield-alt me-2"></i>
+                            AdSense Compliance Guidelines
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6 class="text-success"><i class="fas fa-check-circle me-2"></i>Recommended Practices</h6>
+                                <ul class="compliance-list">
+                                    <li>Keep ShrinkMe usage below 40% for safety</li>
+                                    <li>Use smart targeting to reduce user complaints</li>
+                                    <li>Maintain high-quality original content</li>
+                                    <li>Implement cooldown periods between monetized interactions</li>
+                                    <li>Monitor user feedback and adjust accordingly</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="text-warning"><i class="fas fa-exclamation-triangle me-2"></i>Risk Factors</h6>
+                                <ul class="compliance-list">
+                                    <li>High ShrinkMe percentage (>50%)</li>
+                                    <li>Excessive user complaints about redirects</li>
+                                    <li>No content differentiation from source sites</li>
+                                    <li>Aggressive monetization without user value</li>
+                                    <li>Mobile experience degradation</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Revenue Analytics -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-chart-bar me-2"></i>
+                            Revenue Performance Metrics
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="metric-small">
+                                    <div class="metric-value">{{ analytics.today.total_interactions or 0 }}</div>
+                                    <div class="metric-label">Today's Interactions</div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="metric-small">
+                                    <div class="metric-value">{{ analytics.today.shrinkme_uses or 0 }}</div>
+                                    <div class="metric-label">ShrinkMe Clicks</div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="metric-small">
+                                    <div class="metric-value">{{ analytics.today.direct_links or 0 }}</div>
+                                    <div class="metric-label">Direct Links</div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="metric-small">
+                                    {% set conversion_rate = (analytics.today.shrinkme_uses / analytics.today.total_interactions * 100) if analytics.today.total_interactions > 0 else 0 %}
+                                    <div class="metric-value">{{ "%.1f"|format(conversion_rate) }}%</div>
+                                    <div class="metric-label">Conversion Rate</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <a href="{{ url_for('admin_ads') }}" class="btn btn-outline-primary">
+                                <i class="fas fa-chart-line me-1"></i>View Detailed Analytics
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.admin-card {
+    background: white;
+    border-radius: 15px;
+    padding: 2rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+}
+
+.balance-card {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 15px;
+    padding: 1.5rem;
+    text-align: center;
+    margin-bottom: 1rem;
+    border: 2px solid #dee2e6;
+    transition: all 0.3s ease;
+}
+
+.balance-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.adsense-card {
+    border-color: #4285f4;
+    background: linear-gradient(135deg, #4285f4 0%, #34a853 100%);
+    color: white;
+}
+
+.shrinkme-card {
+    border-color: #ff9800;
+    background: linear-gradient(135deg, #ff9800 0%, #ff5722 100%);
+    color: white;
+}
+
+.balance-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1rem;
+}
+
+.balance-percentage {
+    font-size: 2.5rem;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+}
+
+.balance-description {
+    font-size: 0.9rem;
+    opacity: 0.9;
+    margin-bottom: 1rem;
+}
+
+.balance-slider-container {
+    background: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 10px;
+    border: 1px solid #dee2e6;
+}
+
+.balance-slider {
+    background: linear-gradient(to right, #4285f4 0%, #ff9800 100%);
+    height: 8px;
+    border-radius: 4px;
+}
+
+.compliance-list {
+    list-style: none;
+    padding-left: 0;
+}
+
+.compliance-list li {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.compliance-list li:last-child {
+    border-bottom: none;
+}
+
+.metric-small {
+    text-align: center;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+.metric-small .metric-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #0d6efd;
+    margin-bottom: 0.25rem;
+}
+
+.metric-small .metric-label {
+    font-size: 0.8rem;
+    color: #6c757d;
+}
+
+.card {
+    border: none;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.card-header {
+    background: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+}
+</style>
+
+<script>
+function updateBalanceDisplay(adsensePercentage) {
+    const shrinkmePercentage = 100 - adsensePercentage;
+    document.getElementById('adsense_display').textContent = adsensePercentage + '%';
+    document.getElementById('shrinkme_display').textContent = shrinkmePercentage + '%';
+    
+    // Update the balance cards
+    const adsenseCard = document.querySelector('.adsense-card .balance-percentage');
+    const shrinkmeCard = document.querySelector('.shrinkme-card .balance-percentage');
+    
+    if (adsenseCard) adsenseCard.textContent = adsensePercentage + '%';
+    if (shrinkmeCard) shrinkmeCard.textContent = shrinkmePercentage + '%';
+}
+
+// Initialize display on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const slider = document.getElementById('revenueBalance');
+    if (slider) {
+        updateBalanceDisplay(slider.value);
+    }
+});
+</script>
+{% endblock %}
