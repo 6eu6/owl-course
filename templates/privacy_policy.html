@@ -1,0 +1,62 @@
+{% extends "merged_base.html" %}
+
+{% block title %}Privacy Policy - {{ settings.site_title or 'OWL COURSE' }}{% endblock %}
+
+{# Hero Section Variables #}
+{% set hero_count = 'PRIVACY' %}
+{% set hero_title = 'Privacy Policy' %}
+{% set hero_description = 'Your privacy is important to us - learn how we protect your data' %}
+
+{% block content %}
+<div class="container mt-5 pt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="admin-card">
+                <div class="text-center mb-4">
+                    <h1 class="admin-title">
+                        <i class="fas fa-shield-alt style="color: #8B4513;" me-2"></i>
+                        Privacy Policy
+                    </h1>
+                    <p class="text-muted">Data Protection and Privacy Information</p>
+                </div>
+
+                <div class="mb-4">
+                    <h3 class="style="color: #8B4513;"">Information Collection</h3>
+                    <p>{{ settings.site_title or 'OWL COURSE' }} does not collect personal information from visitors. We do not require registration, login, or any personal data to browse and access free courses.</p>
+                    
+                    <h3 class="style="color: #8B4513;" mt-4">Course Data</h3>
+                    <p>All course information displayed on {{ settings.site_title or 'OWL COURSE' }} is publicly available and sourced from legitimate educational platforms. We aggregate free course listings to help learners discover educational opportunities.</p>
+                    
+                    <h3 class="style="color: #8B4513;" mt-4">Cookies and Tracking</h3>
+                    <p>{{ settings.site_title or 'OWL COURSE' }} uses minimal cookies for basic website functionality. We do not use tracking cookies or analytics that compromise user privacy.</p>
+                    
+                    <h3 class="style="color: #8B4513;" mt-4">Third-Party Links</h3>
+                    <p>Our website contains links to external educational platforms. When you click these links, you will be subject to the privacy policies of those respective platforms.</p>
+                    
+                    <h3 class="style="color: #8B4513;" mt-4">Data Security</h3>
+                    <p>We implement appropriate security measures to protect the integrity of our website and the course information we display.</p>
+                    
+                    <h3 class="style="color: #8B4513;" mt-4">Changes to Privacy Policy</h3>
+                    <p>We may update this privacy policy from time to time. Any changes will be posted on this page with an updated effective date.</p>
+                    
+                    <div class="text-muted mt-4">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Effective Date:</strong> This privacy policy is effective as of June 2025.
+                    </div>
+                </div>
+
+                <div class="text-center">
+                    <a href="{{ url_for('index') }}" class="btn btn-primary">
+                        <i class="fas fa-home me-1"></i>
+                        Back to Home
+                    </a>
+                    <a href="{{ url_for('about') }}" class="btn btn-outline-primary ms-2">
+                        <i class="fas fa-info me-1"></i>
+                        About Us
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
