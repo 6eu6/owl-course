@@ -1,0 +1,258 @@
+{% extends "merged_base.html" %}
+
+{% block title %}Free Udemy Courses | Online Learning | {{ settings.site_title or 'OWL COURSE' }}{% endblock %}
+
+{% block meta_description %}Discover thousands of free Udemy courses. Learn programming, business, design, marketing and more from top educators worldwide.{% endblock %}
+
+{% block meta_keywords %}free courses, udemy free, online learning, education, programming courses, business courses, free udemy courses, online education{% endblock %}
+
+{% set page_title = 'Free Courses' %}
+{% set page_description = 'Discover thousands of free courses from top universities and educators worldwide' %}
+{% set courses_label = 'Free Courses' %}
+{% set featured_title = 'Featured Courses' %}
+{% set featured_description = 'Updated daily with the latest free courses' %}
+{% set course_type_name = 'regular' %}
+{% set clear_filters_url = url_for('index') %}
+
+{% macro pagination_url_func(page, search=None, category=None, language=None, rating=None) -%}
+{{ url_for('index', page=page, search=search, category=category, language=language, rating=rating) }}
+{%- endmacro %}
+
+{# Override the default block content since everything is handled by the base template #}
+{% block content %}
+<!-- Header Ads -->
+{% if header_ads %}
+<section class="header-ads">
+    <div class="container">
+        {% for ad in header_ads %}
+        <div class="ad-banner">
+            {% if ad.link_url %}<a href="{{ ad.link_url }}" target="_blank" rel="noopener">{% endif %}
+                {% if ad.image_url %}
+                <img src="{{ ad.image_url }}" alt="{{ ad.title or 'Advertisement' }}" class="ad-image">
+                {% else %}
+                <div class="ad-content">
+                    <h4>{{ ad.title }}</h4>
+                    <p>{{ ad.content }}</p>
+                </div>
+                {% endif %}
+            {% if ad.link_url %}</a>{% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+
+
+<!-- Simple Filter Bar -->
+<section class="simple-filter-bar">
+    <div class="container">
+        <form class="filter-form" method="GET" id="searchForm">
+            <div class="filter-row">
+                <!-- Category Filter -->
+                <div class="filter-group">
+                    <label class="filter-label">Category:</label>
+                    <select name="category" class="simple-select">
+                        <option value="">All Categories</option>
+                        {% for category in categories %}
+                        <option value="{{ category }}" {% if category == selected_category %}selected{% endif %}>
+                            {{ category }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Language Filter -->
+                <div class="filter-group">
+                    <label class="filter-label">Language:</label>
+                    <select name="language" class="simple-select">
+                        <option value="">All Languages</option>
+                        {% for language in languages %}
+                        <option value="{{ language }}" {% if language == selected_language %}selected{% endif %}>
+                            {{ language }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Rating Filter -->
+                <div class="filter-group">
+                    <label class="filter-label">Rating:</label>
+                    <select name="rating" class="simple-select">
+                        <option value="">Any Rating</option>
+                        <option value="4" {% if selected_rating == '4' %}selected{% endif %}>4+ Stars</option>
+                        <option value="3" {% if selected_rating == '3' %}selected{% endif %}>3+ Stars</option>
+                    </select>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="filter-actions">
+                    <button type="submit" class="apply-btn">Apply</button>
+                    <a href="{{ clear_filters_url }}" class="clear-btn">Clear</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</section>
+
+<!-- Courses Section -->
+<section class="courses-section">
+    <div class="container">
+        {% if search_query or selected_category or selected_language or selected_rating %}
+        <div class="section-title">
+            <h2>
+                {% if search_query %}
+                    Search Results for "{{ search_query }}"
+                {% else %}
+                    Filtered Courses
+                {% endif %}
+            </h2>
+            <p class="text-muted">{{ total_courses }} courses found</p>
+        </div>
+        {% else %}
+        <div class="section-title">
+            <h2>Featured Courses</h2>
+            <p class="text-muted">Updated daily with new free courses</p>
+        </div>
+        {% endif %}
+
+        {% if courses %}
+        <!-- Course Grid -->
+        <div class="course-grid">
+            {% for course in courses %}
+            {% include 'partials/course_card.html' %}
+            {% endfor %}
+        </div>
+
+        <!-- Pagination -->
+        {% if total_pages > 1 %}
+        <div class="pagination-container">
+            <nav aria-label="Course pagination">
+                <ul class="pagination">
+                    <!-- Previous Page -->
+                    <li class="page-item {% if current_page <= 1 %}disabled{% endif %}">
+                        <a class="page-link {% if current_page <= 1 %}disabled{% endif %}" 
+                           href="{% if current_page > 1 %}{{ url_for('index', page=current_page-1, search=search_query, category=selected_category, language=selected_language, rating=selected_rating) }}{% else %}#{% endif %}"
+                           data-page="{% if current_page > 1 %}{{ current_page-1 }}{% endif %}">
+                            <i class="fas fa-chevron-left"></i>
+                        </a>
+                    </li>
+                    
+                    <!-- Page Numbers -->
+                    {% set start_page = [1, current_page - 2]|max %}
+                    {% set end_page = [total_pages, current_page + 2]|min %}
+                    
+                    {% if start_page > 1 %}
+                    <li class="page-item">
+                        <a class="page-link" 
+                           href="{{ url_for('index', page=1, search=search_query, category=selected_category, language=selected_language, rating=selected_rating) }}"
+                           data-page="1">1</a>
+                    </li>
+                    {% if start_page > 2 %}
+                    <li class="page-item disabled">
+                        <span class="page-link">...</span>
+                    </li>
+                    {% endif %}
+                    {% endif %}
+                    
+                    {% for page_num in range(start_page, end_page + 1) %}
+                    <li class="page-item {% if page_num == current_page %}active{% endif %}">
+                        <a class="page-link {% if page_num == current_page %}active{% endif %}" 
+                           href="{{ url_for('index', page=page_num, search=search_query, category=selected_category, language=selected_language, rating=selected_rating) }}"
+                           data-page="{{ page_num }}">{{ page_num }}</a>
+                    </li>
+                    {% endfor %}
+                    
+                    {% if end_page < total_pages %}
+                    {% if end_page < total_pages - 1 %}
+                    <li class="page-item disabled">
+                        <span class="page-link">...</span>
+                    </li>
+                    {% endif %}
+                    <li class="page-item">
+                        <a class="page-link" 
+                           href="{{ url_for('index', page=total_pages, search=search_query, category=selected_category, language=selected_language, rating=selected_rating) }}"
+                           data-page="{{ total_pages }}">{{ total_pages }}</a>
+                    </li>
+                    {% endif %}
+                    
+                    <!-- Next Page -->
+                    <li class="page-item {% if current_page >= total_pages %}disabled{% endif %}">
+                        <a class="page-link {% if current_page >= total_pages %}disabled{% endif %}" 
+                           href="{% if current_page < total_pages %}{{ url_for('index', page=current_page+1, search=search_query, category=selected_category, language=selected_language, rating=selected_rating) }}{% else %}#{% endif %}"
+                           data-page="{% if current_page < total_pages %}{{ current_page+1 }}{% endif %}">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+            
+
+        </div>
+        {% endif %}
+
+        {% else %}
+        <!-- No Courses Found -->
+        <div class="text-center py-5">
+            <i class="fas fa-search fa-3x text-muted mb-3"></i>
+            <h3 class="text-muted">No courses found</h3>
+            {% if search_query or selected_category or selected_language or selected_rating %}
+            <p class="text-muted">Try adjusting your search criteria or filters</p>
+            <a href="{{ url_for('index') }}" class="btn btn-primary">
+                <i class="fas fa-times"></i> Clear All Filters
+            </a>
+            {% else %}
+            <p class="text-muted">Check back soon for new free courses!</p>
+            <a href="{% if telegram_settings and telegram_settings.join_channel_username %}https://t.me/{{ telegram_settings.join_channel_username.lstrip('@') }}{% else %}https://t.me/{{ settings.site_title or 'OWL COURSE' }}{% endif %}" class="btn btn-primary telegram-btn" target="_blank">
+                <i class="fab fa-telegram"></i> Join {{ settings.site_title or 'OWL COURSE' }} for updates
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+<!-- Call to Action -->
+<section class="py-5" style="background: transparent;">
+    <div class="container text-center text-white">
+        <h2 class="mb-3">Never Miss a Free Course!</h2>
+        <p class="lead mb-4">Join our Telegram channel to get instant notifications about new free courses</p>
+        <a href="{% if telegram_settings and telegram_settings.join_channel_username %}https://t.me/{{ telegram_settings.join_channel_username.lstrip('@') }}{% else %}https://t.me/{{ settings.site_title or 'OWL COURSE' }}{% endif %}" class="btn btn-light btn-lg telegram-btn" target="_blank">
+            <i class="fab fa-telegram"></i> Join {{ settings.site_title or 'OWL COURSE' }} on Telegram
+        </a>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Auto-refresh page every 30 minutes to show new courses
+setTimeout(function() {
+    if ({{ current_page }} === 1 && !{{ 'true' if search_query else 'false' }}) {
+        window.location.reload();
+    }
+}, 1800000); // 30 minutes
+
+// Course card click handling
+document.addEventListener('DOMContentLoaded', function() {
+    const courseCards = document.querySelectorAll('.course-card');
+    
+    courseCards.forEach(card => {
+        card.addEventListener('click', function(e) {
+            // Don't trigger if clicking on links or buttons
+            if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON' || e.target.closest('a, button')) {
+                return;
+            }
+            
+            const courseLink = card.querySelector('.course-title a');
+            if (courseLink) {
+                window.location.href = courseLink.href;
+            }
+        });
+        
+        // Add hover effect
+        card.style.cursor = 'pointer';
+    });
+});
+</script>
+{% endblock %}
