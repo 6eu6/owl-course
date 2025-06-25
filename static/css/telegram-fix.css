@@ -1,0 +1,156 @@
+/* Telegram Button Color Fix - Keep Blue ONLY for Social Media Icon */
+
+/* Footer Telegram Text Links - Keep them BLACK like other links */
+.footer a[href*="t.me"]:not(.social-link), 
+.footer a[href*="telegram"]:not(.social-link) {
+    color: #1a1a1a !important;
+}
+
+.footer a[href*="t.me"]:not(.social-link):hover, 
+.footer a[href*="telegram"]:not(.social-link):hover {
+    color: #1a1a1a !important;
+    text-decoration: underline !important;
+}
+
+/* Telegram Social Media Button - Perfect Alignment with Other Icons */
+.social-links a[aria-label="Telegram"] {
+    background: #0088cc !important;
+    border: 2px solid #0088cc !important;
+    color: white !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: all 0.3s ease !important;
+    text-decoration: none !important;
+}
+
+.social-links a[aria-label="Telegram"] i {
+    color: white !important;
+    line-height: 1 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* Force white color on Telegram icon */
+.social-links a[aria-label="Telegram"] .fab,
+.social-links a[aria-label="Telegram"] .fa-telegram,
+.social-links a[aria-label="Telegram"] i.fa-telegram,
+.social-links a[aria-label="Telegram"] i.fab.fa-telegram {
+    color: white !important;
+    background: transparent !important;
+}
+
+/* Social Link Telegram Hover Effect */
+.social-links a[aria-label="Telegram"]:hover {
+    background: #0066aa !important;
+    border-color: #0066aa !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 12px rgba(0, 136, 204, 0.3) !important;
+}
+
+.social-links a[aria-label="Telegram"]:hover i {
+    color: white !important;
+}
+
+/* Quick Links Telegram */
+.footer-section p a[href*="t.me"],
+.footer-section p a[href*="telegram"] {
+    color: #0088cc !important;
+}
+
+.footer-section p a[href*="t.me"]:hover,
+.footer-section p a[href*="telegram"]:hover {
+    color: #0088cc !important;
+    text-decoration: underline !important;
+}
+
+/* UNIFIED TELEGRAM BUTTONS - All Pages Styling (Except Header/Footer) */
+
+/* All Telegram Buttons Unified Styling */
+.telegram-btn,
+.btn-telegram,
+.telegram-contact-btn,
+[class*="telegram"].btn,
+.btn[href*="t.me"],
+a.btn[href*="telegram"] {
+    background: linear-gradient(135deg, #0088cc, #0099dd) !important;
+    border: 2px solid #0088cc !important;
+    color: white !important;
+    font-weight: 500 !important;
+    padding: 8px 16px !important;
+    border-radius: 25px !important;
+    text-decoration: none !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    transition: all 0.3s ease !important;
+}
+
+.telegram-btn:hover,
+.btn-telegram:hover,
+[class*="telegram"].btn:hover,
+.btn[href*="t.me"]:hover,
+a.btn[href*="telegram"]:hover {
+    background: linear-gradient(135deg, #006699, #0088cc) !important;
+    border-color: #006699 !important;
+    color: white !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 12px rgba(0, 136, 204, 0.3) !important;
+}
+
+/* Telegram Icons in Buttons */
+.telegram-btn i,
+.btn-telegram i,
+[class*="telegram"].btn i,
+.btn[href*="t.me"] i,
+a.btn[href*="telegram"] i {
+    color: white !important;
+    margin-right: 8px !important;
+}
+
+/* Course Detail Page Telegram Button Full Width */
+.course-detail .telegram-btn,
+.course-detail .btn[href*="t.me"] {
+    width: 100% !important;
+    padding: 12px 16px !important;
+    font-size: 16px !important;
+    font-weight: 600 !important;
+}
+
+/* Outline Style Telegram Buttons */
+.btn-outline-primary.telegram-btn,
+.btn-outline-light.telegram-btn {
+    background: transparent !important;
+    border: 2px solid #0088cc !important;
+    color: #0088cc !important;
+}
+
+.btn-outline-primary.telegram-btn:hover,
+.btn-outline-light.telegram-btn:hover {
+    background: #0088cc !important;
+    border-color: #0088cc !important;
+    color: white !important;
+}
+
+.btn-outline-primary.telegram-btn i,
+.btn-outline-light.telegram-btn i {
+    color: #0088cc !important;
+}
+
+.btn-outline-primary.telegram-btn:hover i,
+.btn-outline-light.telegram-btn:hover i {
+    color: white !important;
+}
+
+/* Large Telegram Buttons */
+.btn-lg.telegram-btn {
+    padding: 12px 24px !important;
+    font-size: 18px !important;
+    border-radius: 30px !important;
+}
+
+/* Small Telegram Buttons */
+.btn-sm.telegram-btn {
+    padding: 6px 12px !important;
+    font-size: 14px !important;
+    border-radius: 20px !important;
+}
