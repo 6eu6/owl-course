@@ -1,0 +1,24 @@
+{% extends "merged_base.html" %}
+
+{% block title %}{{ category_name }} Courses - {{ settings.site_title or 'OWL COURSE' }}{% endblock %}
+
+{% block meta_tags %}
+<meta name="description" content="{{ settings.site_description or 'Discover free {{ category_name }} courses. Learn {{ category_name }} with our curated collection of high-quality educational content.' }}">
+<meta name="keywords" content="{{ category_name }}, free courses, online learning, education, {{ settings.site_title or 'OWL COURSE' }}">
+<meta property="og:title" content="{{ category_name }} Courses - {{ settings.site_title or 'OWL COURSE' }}">
+<meta property="og:description" content="Discover free {{ category_name }} courses. Learn {{ category_name }} with our curated collection of high-quality educational content.">
+<meta property="og:type" content="website">
+<meta name="twitter:title" content="{{ category_name }} Courses - {{ settings.site_title or 'OWL COURSE' }}">
+<meta name="twitter:description" content="Discover free {{ category_name }} courses. Learn {{ category_name }} with our curated collection of high-quality educational content.">
+{% endblock %}
+
+{% block page_title %}{{ category_name }} Courses{% endblock %}
+{% block page_subtitle %}Explore our collection of {{ total_courses }} free {{ category_name }} courses{% endblock %}
+
+{% set search_placeholder = 'Search in ' + category_name + ' courses...' %}
+
+{# Hero Section Variables #}
+{% set hero_count = total_courses or '50+' %}
+{% set hero_title = category_name + ' Courses' %}
+{% set hero_description = 'Master ' + category_name + ' with our curated collection of free courses' %}
+
