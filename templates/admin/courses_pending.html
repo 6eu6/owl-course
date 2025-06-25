@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>الكورسات المعلقة - {{ settings.site_title or 'OWL COURSE' }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="/static/css/admin.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <nav class="col-md-3 col-lg-2 d-md-block bg-dark sidebar collapse">
+                <div class="position-sticky pt-3">
+                    <div class="text-center mb-4">
+                        <img src="/static/images/{{ settings.site_title|lower or 'owl-course' }}_logo_symbol.png" alt="{{ settings.site_title or 'OWL COURSE' }}" style="width: 50px; height: 50px;">
+                        <h5 class="text-white mt-2">{{ settings.site_title or 'OWL COURSE' }}</h5>
+                    </div>
+                    
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="/eu6a-admin/dashboard">
+                                <i class="fas fa-tachometer-alt me-2"></i>
+                                لوحة التحكم
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white active" href="/eu6a-admin/courses">
+                                <i class="fas fa-book me-2"></i>
+                                إدارة الكورسات
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="/eu6a-admin/telegram">
+                                <i class="fab fa-telegram me-2"></i>
+                                إدارة التليجرام
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="/eu6a-admin/ads">
+                                <i class="fas fa-ad me-2"></i>
+                                إدارة الإعلانات
+                            </a>
+                        </li>
+                        <li class="nav-item mt-4">
+                            <a class="nav-link text-white" href="/eu6a-admin/logout">
+                                <i class="fas fa-sign-out-alt me-2"></i>
+                                تسجيل الخروج
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+
+            <!-- Main content -->
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                    <h1 class="h2">
+                        <i class="fas fa-clock me-2"></i>
+                        الكورسات المعلقة
+                        <span class="badge bg-warning text-dark ms-2">{{ total_courses }}</span>
+                    </h1>
+                    <div class="btn-toolbar mb-2 mb-md-0">
+                        <div class="btn-group me-2">
+                            <a href="/eu6a-admin/courses" class="btn btn-outline-secondary">
+                                <i class="fas fa-list me-1"></i>
+                                جميع الكورسات
+                            </a>
+                            <a href="/eu6a-admin/courses/create" class="btn btn-primary">
+                                <i class="fas fa-plus me-1"></i>
+                                إضافة كورس
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Flash Messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        <div class="row">
+                            <div class="col-12">
+                                {% for category, message in messages %}
+                                    <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show" role="alert">
+                                        {{ message }}
+                                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endwith %}
+
+                <!-- Search and Filters -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <form method="GET" class="d-flex">
+                            <input type="text" class="form-control me-2" name="search" 
+                                   placeholder="بحث في العنوان أو المدرب..." 
+                                   value="{{ search_query }}">
+                            <button type="submit" class="btn btn-outline-secondary">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </form>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        {% if search_query %}
+                            <a href="/eu6a-admin/courses/pending" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>
+                                إلغاء البحث
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Courses Table -->
+                {% if courses %}
+                    <div class="card">
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>الصورة</th>
+                                            <th>العنوان</th>
+                                            <th>المدرب</th>
+                                            <th>التصنيف</th>
+                                            <th>تاريخ الإضافة</th>
+                                            <th>الإجراءات</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for course in courses %}
+                                            <tr>
+                                                <td>
+                                                    {% if course.image_url %}
+                                                        <img src="{{ course.image_url }}" alt="{{ course.title }}" 
+                                                             class="rounded" style="width: 60px; height: 40px; object-fit: cover;">
+                                                    {% else %}
+                                                        <div class="bg-light rounded d-flex align-items-center justify-content-center" 
+                                                             style="width: 60px; height: 40px;">
+                                                            <i class="fas fa-image text-muted"></i>
+                                                        </div>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    <div class="fw-bold">{{ course.title[:50] }}...</div>
+                                                    <small class="text-muted">
+                                                        {{ course.language or 'English' }} | 
+                                                        {{ course.students_count or 0 }} طالب
+                                                    </small>
+                                                </td>
+                                                <td>{{ course.instructor or 'غير محدد' }}</td>
+                                                <td>
+                                                    {% if course.category %}
+                                                        <span class="badge bg-secondary">{{ course.category }}</span>
+                                                    {% else %}
+                                                        <span class="text-muted">غير محدد</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    {% if course.created_at %}
+                                                        {{ course.created_at.strftime('%Y-%m-%d') }}
+                                                    {% else %}
+                                                        غير محدد
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    <div class="btn-group" role="group">
+                                                        <form method="POST" action="/eu6a-admin/courses/publish/{{ course._id }}" 
+                                                              style="display: inline;" 
+                                                              onsubmit="return confirm('هل تريد نشر هذا الكورس؟')">
+                                                            <button type="submit" class="btn btn-success btn-sm" 
+                                                                    title="نشر الكورس">
+                                                                <i class="fas fa-check"></i>
+                                                            </button>
+                                                        </form>
+                                                        
+                                                        <a href="{{ course.udemy_url }}" target="_blank" 
+                                                           class="btn btn-outline-primary btn-sm" title="عرض في Udemy">
+                                                            <i class="fas fa-external-link-alt"></i>
+                                                        </a>
+                                                        
+                                                        <button type="button" class="btn btn-outline-danger btn-sm" 
+                                                                onclick="deleteCourse('{{ course._id }}')" title="حذف">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if total_pages > 1 %}
+                        <nav aria-label="صفحات الكورسات" class="mt-4">
+                            <ul class="pagination justify-content-center">
+                                {% if page > 1 %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page - 1 }}{% if search_query %}&search={{ search_query }}{% endif %}">
+                                            السابق
+                                        </a>
+                                    </li>
+                                {% endif %}
+                                
+                                {% for p in range(1, total_pages + 1) %}
+                                    {% if p == page %}
+                                        <li class="page-item active">
+                                            <span class="page-link">{{ p }}</span>
+                                        </li>
+                                    {% elif p <= 3 or p >= total_pages - 2 or (p >= page - 1 and p <= page + 1) %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ p }}{% if search_query %}&search={{ search_query }}{% endif %}">
+                                                {{ p }}
+                                            </a>
+                                        </li>
+                                    {% elif p == page - 2 or p == page + 2 %}
+                                        <li class="page-item disabled">
+                                            <span class="page-link">...</span>
+                                        </li>
+                                    {% endif %}
+                                {% endfor %}
+                                
+                                {% if page < total_pages %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page + 1 }}{% if search_query %}&search={{ search_query }}{% endif %}">
+                                            التالي
+                                        </a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                    {% endif %}
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-clock fa-3x text-muted mb-3"></i>
+                        <h4 class="text-muted">لا توجد كورسات معلقة</h4>
+                        <p class="text-muted">جميع الكورسات منشورة أو لم يتم إضافة أي كورسات بعد.</p>
+                        <a href="/eu6a-admin/courses/create" class="btn btn-primary">
+                            <i class="fas fa-plus me-1"></i>
+                            إضافة كورس جديد
+                        </a>
+                    </div>
+                {% endif %}
+            </main>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal fade" id="deleteModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">تأكيد الحذف</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    هل أنت متأكد من حذف هذا الكورس؟ لا يمكن التراجع عن هذا الإجراء.
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <form id="deleteForm" method="POST" style="display: inline;">
+                        <button type="submit" class="btn btn-danger">حذف</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function deleteCourse(courseId) {
+            const deleteForm = document.getElementById('deleteForm');
+            deleteForm.action = `/admin/courses/delete/${courseId}`;
+            
+            const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+            deleteModal.show();
+        }
+    </script>
+</body>
+</html>
