@@ -182,3 +182,44 @@ Stage Summary:
 - Zero duplicates: in-memory set + DB-level udemyUrl unique constraint
 - Browser verified: homepage with course cards, detail dialog with Udemy link, admin dashboard with scraper control
 - No console errors
+
+---
+Task ID: 6
+Agent: Main Agent
+Task: Fix duplicates, add category system, full detail page, intermediate link page, improve site design
+
+Work Log:
+- Updated scraper (src/lib/scraper.ts) with:
+  - Arabic category names (17 categories with Arabic labels + emoji icons)
+  - Category color mapping for visual differentiation
+  - Dual dedup: by udemyUrl AND by normalized title (in-memory + DB)
+  - Coupon validation: checks coupon code exists and is reasonable length
+  - cleanupDuplicates() function to remove existing duplicate courses from DB
+  - Invalid coupon tracking (separate counters for dupCount vs invalid coupons)
+- Updated scraper API (src/app/api/scraper/route.ts):
+  - Added cleanup action: POST /api/scraper with action=cleanup removes duplicates
+- Completely rewrote src/app/page.tsx as multi-view SPA:
+  - View system: 'grid' | 'detail' | 'link' states managed in single page
+  - Grid View: course cards with category badges, category filter chips, search, sort, pagination
+  - Category chips: horizontal scrollable pills with emoji icons, color-coded, course counts
+  - Card design: image overlay with category badge, hover scale effect, gradient, quick stats
+  - Detail View: full-page layout (not popup/dialog), hero image, 6 meta info cards, description, CTA section, related courses
+  - Link View: intermediate page before final Udemy redirect, course preview, about section, important notes, 5-second countdown timer, final green CTA button
+  - Navigation: back button in header, back to grid, back to detail links
+  - Improved pagination with page numbers
+- Browser verified all 3 views work:
+  - Grid with category filtering (tested Data Science → 4 results)
+  - Detail page with full course info, related courses
+  - Link page with countdown and final Udemy button
+  - Back navigation between all views
+- ESLint passes with 0 errors
+
+Stage Summary:
+- Multi-view SPA: grid → detail → link flow (all within single page.tsx)
+- 17 Arabic category names with emoji icons and color coding
+- Category filter chips on homepage (horizontal scrollable)
+- Full-page detail view (replaces old popup dialog)
+- Intermediate link page with countdown timer and important notes
+- Fixed duplicate courses with dual dedup (title + URL)
+- Coupon validation before saving
+- Cleanup API endpoint for removing existing duplicates

@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
-import { runFullScrape } from '@/lib/scraper';
+import { runFullScrape, cleanupDuplicates } from '@/lib/scraper';
 import { verifyAdminPassword, getRecentScraperLogs } from '@/lib/mongodb';
 
-// POST /api/scraper - Trigger scraper (protected by admin password)
+// POST /api/scraper - Trigger scraper or cleanup (protected by admin password)
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
-    const { password, pages } = body;
+    const { password, pages, action } = body;
 
     // Verify admin password
     const isValid = await verifyAdminPassword(password);
@@ -15,6 +15,16 @@ export async function POST(request: Request) {
         { success: false, error: 'Invalid admin password' },
         { status: 401 }
       );
+    }
+
+    // Cleanup duplicates action
+    if (action === 'cleanup') {
+      const result = await cleanupDuplicates();
+      return NextResponse.json({
+        success: true,
+        message: `Removed ${result.removed} duplicate courses`,
+        removed: result.removed,
+      });
     }
 
     // Run scraper with optional page count (default 5 pages)

@@ -16,44 +16,73 @@ function slugify(text: string): string {
     .slice(0, 120) || 'course';
 }
 
-function categorize(title: string, originalCategory: string = ''): string {
-  const text = title.toLowerCase();
-  const categories: Record<string, string[]> = {
-    'Web Development': ['web', 'html', 'css', 'javascript', 'react', 'angular', 'vue', 'node', 'frontend', 'backend', 'full stack', 'wordpress', 'php', 'django', 'flask', 'laravel', 'next.js', 'nextjs', 'typescript', 'tailwind', 'html5', 'css3', 'bootstrap', 'jquery'],
-    'Mobile Development': ['mobile', 'android', 'ios', 'flutter', 'react native', 'swift', 'kotlin', 'app development', 'swiftui'],
-    'Data Science': ['data science', 'machine learning', 'deep learning', 'ai', 'artificial intelligence', 'nlp', 'neural', 'tensorflow', 'pytorch', 'chatgpt', 'gpt', 'llm', 'data analysis'],
-    'Python': ['python', 'django', 'flask', 'pandas', 'numpy', 'matplotlib', 'scipy', 'python 3'],
-    'Cloud & DevOps': ['cloud', 'aws', 'azure', 'gcp', 'docker', 'kubernetes', 'devops', 'terraform', 'ci/cd', 'linux', 'vmware'],
-    'Cybersecurity': ['security', 'cybersecurity', 'ethical hacking', 'penetration', 'network security', 'infosec', 'ceh', 'hacking', 'cyber'],
-    'Design': ['design', 'graphic', 'ui/ux', 'ux', 'figma', 'photoshop', 'illustrator', 'adobe', 'canva', 'blender', '3d', 'after effects', 'premiere', 'video editing', 'revit', 'autocad', 'autodesk'],
-    'Marketing': ['marketing', 'seo', 'sem', 'social media marketing', 'digital marketing', 'google ads', 'facebook ads', 'branding', 'personal branding'],
-    'Business': ['business', 'management', 'project management', 'entrepreneurship', 'finance', 'accounting', 'excel', 'startup', 'agile', 'scrum', 'product management', 'leadership'],
-    'IT & Software': ['it', 'software', 'comptia', 'linux', 'git', 'database', 'sql', 'oracle', 'networking', 'java', 'c++', 'c#', '.net', 'microsoft', 'power bi', 'tableau'],
-    'Photography & Video': ['photography', 'photo', 'camera', 'video', 'video editing', 'premiere', 'after effects', 'filmora', 'davinci', 'filmmaking'],
-    'Personal Development': ['personal development', 'productivity', 'communication', 'leadership', 'motivation', 'mindset', 'life coaching', 'neuroscience', 'subconscious', 'brain', 'resume', 'cv', 'interview'],
-    'Music': ['music', 'guitar', 'piano', 'drums', 'singing', 'audio', 'music production', 'ableton'],
-    'Language': ['language', 'english', 'spanish', 'french', 'german', 'japanese', 'chinese', 'arabic', 'ielts', 'toefl'],
-    'Finance & Accounting': ['trading', 'forex', 'crypto', 'investment', 'stock', 'financial', 'accounting', 'bookkeeping', 'quickbooks'],
-    'Health & Fitness': ['health', 'fitness', 'yoga', 'meditation', 'nutrition', 'diet', 'mental health', 'wellness'],
-  };
+/** Normalize title for dedup comparison */
+function normalizeTitle(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+    .trim();
+}
 
-  for (const [category, keywords] of Object.entries(categories)) {
+const CATEGORY_MAP: Record<string, string[]> = {
+  'تطوير الويب': ['web', 'html', 'css', 'javascript', 'react', 'angular', 'vue', 'node', 'frontend', 'backend', 'full stack', 'wordpress', 'php', 'django', 'flask', 'laravel', 'next.js', 'nextjs', 'typescript', 'tailwind', 'html5', 'css3', 'bootstrap', 'jquery', 'express', 'svelte', 'graphql', 'rest api'],
+  'تطوير التطبيقات': ['mobile', 'android', 'ios', 'flutter', 'react native', 'swift', 'kotlin', 'app development', 'swiftui', 'xcode'],
+  'علوم البيانات والذكاء الاصطناعي': ['data science', 'machine learning', 'deep learning', 'ai', 'artificial intelligence', 'nlp', 'neural', 'tensorflow', 'pytorch', 'chatgpt', 'gpt', 'llm', 'data analysis', 'computer vision', 'opencv'],
+  'بايثون': ['python', 'django', 'flask', 'pandas', 'numpy', 'matplotlib', 'scipy', 'python 3', 'tkinter'],
+  'السحابة وال devops': ['cloud', 'aws', 'azure', 'gcp', 'docker', 'kubernetes', 'devops', 'terraform', 'ci/cd', 'linux', 'vmware', 'jenkins', 'ansible'],
+  'الأمن السيبراني': ['security', 'cybersecurity', 'ethical hacking', 'penetration', 'network security', 'infosec', 'ceh', 'hacking', 'cyber', 'bug bounty', ' kali linux'],
+  'التصميم': ['design', 'graphic', 'ui/ux', 'ux', 'figma', 'photoshop', 'illustrator', 'adobe', 'canva', 'blender', '3d', 'after effects', 'premiere', 'video editing', 'revit', 'autocad', 'autodesk', 'invision', 'sketch'],
+  'التسويق الرقمي': ['marketing', 'seo', 'sem', 'social media marketing', 'digital marketing', 'google ads', 'facebook ads', 'branding', 'personal branding', 'email marketing', 'content marketing'],
+  'إدارة الأعمال': ['business', 'management', 'project management', 'entrepreneurship', 'finance', 'accounting', 'excel', 'startup', 'agile', 'scrum', 'product management', 'leadership', 'hr', 'human resources'],
+  'البرمجة و IT': ['it', 'software', 'comptia', 'git', 'database', 'sql', 'oracle', 'networking', 'java', 'c++', 'c#', '.net', 'microsoft', 'power bi', 'tableau', 'rust', 'go', 'golang', 'assembly'],
+  'التصوير والفيديو': ['photography', 'photo', 'camera', 'video', 'video editing', 'premiere', 'after effects', 'filmora', 'davinci', 'filmmaking', 'youtube', 'motion graphics'],
+  'التطوير الشخصي': ['personal development', 'productivity', 'communication', 'leadership', 'motivation', 'mindset', 'life coaching', 'neuroscience', 'subconscious', 'brain', 'resume', 'cv', 'interview', 'time management'],
+  'الموسيقى': ['music', 'guitar', 'piano', 'drums', 'singing', 'audio', 'music production', 'ableton', 'fl studio'],
+  'اللغات': ['language', 'english', 'spanish', 'french', 'german', 'japanese', 'chinese', 'arabic', 'ielts', 'toefl'],
+  'التمويل والمحاسبة': ['trading', 'forex', 'crypto', 'investment', 'stock', 'financial', 'accounting', 'bookkeeping', 'quickbooks', 'real estate'],
+  'الصحة واللياقة': ['health', 'fitness', 'yoga', 'meditation', 'nutrition', 'diet', 'mental health', 'wellness'],
+};
+
+const CATEGORY_ICONS: Record<string, string> = {
+  'تطوير الويب': '💻',
+  'تطوير التطبيقات': '📱',
+  'علوم البيانات والذكاء الاصطناعي': '🤖',
+  'بايثون': '🐍',
+  'السحابة وال devops': '☁️',
+  'الأمن السيبراني': '🔒',
+  'التصميم': '🎨',
+  'التسويق الرقمي': '📢',
+  'إدارة الأعمال': '💼',
+  'البرمجة و IT': '⚙️',
+  'التصوير والفيديو': '📷',
+  'التطوير الشخصي': '🧠',
+  'الموسيقى': '🎵',
+  'اللغات': '🌍',
+  'التمويل والمحاسبة': '💰',
+  'الصحة واللياقة': '💪',
+  'أخرى': '📚',
+};
+
+export function categorize(title: string, originalCategory: string = ''): string {
+  const text = title.toLowerCase();
+
+  for (const [category, keywords] of Object.entries(CATEGORY_MAP)) {
     if (keywords.some(k => text.includes(k))) {
       return category;
     }
   }
-  return originalCategory || 'Other';
+  return 'أخرى';
 }
+
+export { CATEGORY_ICONS };
 
 function enhanceImageUrl(imageUrl: string): string {
   if (!imageUrl) return imageUrl;
   try {
-    // Remove query parameters
     if (imageUrl.includes('?')) {
       imageUrl = imageUrl.split('?')[0];
     }
 
-    // Upgrade Udemy CDN image quality from small to high-res
     if (imageUrl.includes('udemycdn.com')) {
       const replacements: Record<string, string> = {
         '/50x50/': '/750x422/',
@@ -68,7 +97,6 @@ function enhanceImageUrl(imageUrl: string): string {
           return imageUrl.replace(old, nw);
         }
       }
-      // Try regex for any NxN pattern
       imageUrl = imageUrl.replace(/\/course\/\d+x\d+\//, '/course/750x422/');
     }
     return imageUrl;
@@ -165,25 +193,21 @@ function extractCoursesFromPage(html: string, pageNum: number): ListingCourse[] 
   $('div.theme-block').each((_, el) => {
     const $block = $(el);
 
-    // Title & detail URL from h4 > a
     const $titleLink = $block.find('h4 a').first();
     const title = $titleLink.text().trim();
     const detailUrl = $titleLink.attr('href') || '';
 
     if (!title || title.length < 5) return;
 
-    // Image - enhance quality
     let imageUrl = '';
     const $img = $block.find('img').first();
     imageUrl = $img.attr('src') || $img.attr('data-src') || $img.attr('data-lazy-src') || '';
     imageUrl = enhanceImageUrl(imageUrl);
 
-    // Category from coupon-specility
     let category = '';
     const $cat = $block.find('.coupon-specility p').first();
     category = $cat.text().trim();
 
-    // Extract extra details from coupon-details-extra-3
     let language = '';
     let instructor = '';
     let rating: number | null = null;
@@ -196,22 +220,18 @@ function extractCoursesFromPage(html: string, pageNum: number): ListingCourse[] 
       const text = $(pEl).text().trim();
       const icon = $(pEl).find('i').attr('class') || '';
 
-      // Language (fa-comment icon)
       if (icon.includes('fa-comment') && text) {
         language = text;
       }
-      // Students (fa-users icon) — MUST check BEFORE fa-user since fa-users contains fa-user
       else if (icon.includes('fa-users') && text) {
         const enrollMatch = text.match(/Enroll:\s*([\d,]+)/i);
         if (enrollMatch) {
           studentsCount = parseInt(enrollMatch[1].replace(/,/g, ''));
         }
       }
-      // Instructor (fa-user icon, but NOT fa-users)
       else if (icon.includes('fa-user') && !icon.includes('fa-users') && text) {
         instructor = text.trim();
       }
-      // Rating (fa-star icon)
       else if (icon.includes('fa-star') && text) {
         const rateMatch = text.match(/Rate:\s*([\d.]+)\s*\/\s*([\d,]+)/i);
         if (rateMatch) {
@@ -219,7 +239,6 @@ function extractCoursesFromPage(html: string, pageNum: number): ListingCourse[] 
           reviewCount = parseInt(rateMatch[2].replace(/,/g, ''));
         }
       }
-      // Price (fa-money icon)
       else if (icon.includes('fa-money') && text) {
         const priceMatch = text.match(/\$(?:<del>)?([\d,.]+)/i);
         if (priceMatch) {
@@ -228,7 +247,6 @@ function extractCoursesFromPage(html: string, pageNum: number): ListingCourse[] 
       }
     });
 
-    // Date
     const $date = $block.find('small.text-muted').first();
     const date = $date.text().trim() || '';
 
@@ -269,7 +287,6 @@ async function fetchListingPage(pageNum: number): Promise<{ courses: ListingCour
   const html = await response.text();
   const courses = extractCoursesFromPage(html, pageNum);
 
-  // Check if there are more pages by looking for pagination
   const $ = cheerio.load(html);
   const nextLinks = $('a[href*="/free-udemy-courses/"]').length;
   const hasMore = courses.length > 0 && nextLinks > 0;
@@ -283,29 +300,22 @@ async function fetchListingPage(pageNum: number): Promise<{ courses: ListingCour
 
 async function extractUdemyUrl(detailUrl: string): Promise<{ udemyUrl: string; couponCode: string } | null> {
   try {
-    // Extract the slug from the detail URL
-    // e.g., https://www.udemyfreebies.com/free-udemy-course/design-engaging-products-using-design-thinking
-    // => /out/design-engaging-products-using-design-thinking
     const slugMatch = detailUrl.match(/free-udemy-course\/(.+?)$/);
     if (!slugMatch) return null;
 
     const outUrl = `https://www.udemyfreebies.com/out/${slugMatch[1]}`;
 
-    // Follow the redirect - use redirect: 'manual' to capture the Location header
-    // This is faster than downloading the redirect target body
     const response = await fetch(outUrl, {
       headers: getRandomHeaders(),
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(10000),
       redirect: 'manual',
     });
 
-    // Get redirect location
     const location = response.headers.get('location');
     if (!location || !location.includes('udemy.com')) {
-      // Fallback: try with redirect follow
       const followResp = await fetch(outUrl, {
         headers: getRandomHeaders(),
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(10000),
         redirect: 'follow',
       });
       const finalUrl = followResp.url;
@@ -325,27 +335,73 @@ async function extractUdemyUrl(detailUrl: string): Promise<{ udemyUrl: string; c
 }
 
 // ============================================
+// Step 2.5: Validate coupon is actually free
+// ============================================
+
+async function validateCouponFree(udemyUrl: string): Promise<boolean> {
+  try {
+    const resp = await fetch(udemyUrl, {
+      headers: getRandomHeaders(),
+      signal: AbortSignal.timeout(10000),
+      redirect: 'follow',
+    });
+
+    const html = await resp.text();
+
+    // If the page shows "Free" in the price area, it's valid
+    // If it shows original price without "Free", coupon is expired/paid
+    const isFree = html.includes('"isFree":true') ||
+                   html.includes('data-purpose="free-badge"') ||
+                   (html.includes('Free') && !html.includes('Buy now'));
+
+    // Check for common "not available" or "expired" patterns
+    const isExpired = html.includes('Coupon is no longer available') ||
+                      html.includes('coupon has expired') ||
+                      html.includes('This coupon is not available');
+
+    return isFree && !isExpired;
+  } catch {
+    // If validation fails, assume it's valid (don't lose courses due to network issues)
+    return true;
+  }
+}
+
+// ============================================
 // Step 3: Process course & save to DB
 // ============================================
 
 async function processCourse(
   course: ListingCourse,
-  existingUrls: Set<string>
-): Promise<{ saved: boolean; data?: ScrapedCourseData }> {
+  existingUrls: Set<string>,
+  existingTitles: Set<string>
+): Promise<{ saved: boolean; skipped?: string; data?: ScrapedCourseData }> {
   try {
-    // Get Udemy URL with coupon by following /out/ redirect
+    // Title-based dedup (fast, in-memory)
+    const normTitle = normalizeTitle(course.title);
+    if (existingTitles.has(normTitle)) {
+      return { saved: false, skipped: 'duplicate-title' };
+    }
+
+    // Get Udemy URL with coupon
     const result = await extractUdemyUrl(course.detailUrl);
-    if (!result) return { saved: false };
+    if (!result) return { saved: false, skipped: 'no-redirect' };
 
     const { udemyUrl, couponCode } = result;
 
-    // Quick dedup check (in-memory, fast)
-    if (existingUrls.has(udemyUrl)) return { saved: false };
+    // URL-based dedup
+    if (existingUrls.has(udemyUrl)) {
+      return { saved: false, skipped: 'duplicate-url' };
+    }
+
+    // Quick validation: check if coupon code exists and is reasonable
+    if (!couponCode || couponCode.length < 4) {
+      return { saved: false, skipped: 'invalid-coupon' };
+    }
 
     // Build course data
     const courseData: ScrapedCourseData = {
       title: course.title,
-      description: `Learn ${course.title} with this comprehensive free course. Topics include ${course.category.toLowerCase()} skills and real-world applications.`,
+      description: `تعلم ${course.title} مع هذه الدورة المجانية الشاملة. تشمل مهارات ${course.category} والتطبيقات العملية في العالم الحقيقي.`,
       instructor: course.instructor,
       category: course.category,
       imageUrl: course.imageUrl,
@@ -356,11 +412,11 @@ async function processCourse(
       studentsCount: course.studentsCount,
       originalPrice: course.originalPrice ? `$${course.originalPrice.toFixed(2)}` : null,
       language: course.language || null,
-      duration: null, // Not available on listing page
+      duration: null,
       source: 'udemyfreebies',
     };
 
-    // Save to database (with DB-level dedup)
+    // Save to database
     const dbResult = await createCourseIfNotExists({
       title: courseData.title,
       slug: slugify(courseData.title),
@@ -380,14 +436,14 @@ async function processCourse(
     });
 
     if (dbResult.created) {
-      // Add to in-memory set for subsequent dedup
       existingUrls.add(udemyUrl);
+      existingTitles.add(normTitle);
       return { saved: true, data: courseData };
     }
 
-    return { saved: false };
+    return { saved: false, skipped: 'db-duplicate' };
   } catch {
-    return { saved: false };
+    return { saved: false, skipped: 'error' };
   }
 }
 
@@ -400,15 +456,17 @@ async function scrapeUdemyFreebies(maxPages: number = 5): Promise<SourceResult> 
   let newCount = 0;
   let dupCount = 0;
   let errCount = 0;
+  let invalidCount = 0;
   const allCourses: ScrapedCourseData[] = [];
   const errors: string[] = [];
 
   try {
-    // Pre-load existing Udemy URLs for instant dedup
+    // Pre-load existing URLs AND titles for dedup
     const existingCourses = await db.course.findMany({
-      select: { udemyUrl: true },
+      select: { udemyUrl: true, title: true },
     });
     const existingUrls = new Set(existingCourses.map(c => c.udemyUrl));
+    const existingTitles = new Set(existingCourses.map(c => normalizeTitle(c.title)));
 
     // Step 1: Fetch ALL listing pages IN PARALLEL
     const pagePromises = Array.from({ length: maxPages }, (_, i) =>
@@ -427,14 +485,13 @@ async function scrapeUdemyFreebies(maxPages: number = 5): Promise<SourceResult> 
       }
     }
 
-    // Step 2: Process each course (follow /out/ redirect & save)
-    // Process in batches of 5 to avoid overwhelming the server
+    // Step 2: Process courses in batches
     const BATCH_SIZE = 5;
     for (let i = 0; i < allListedCourses.length; i += BATCH_SIZE) {
       const batch = allListedCourses.slice(i, i + BATCH_SIZE);
 
       const batchResults = await Promise.allSettled(
-        batch.map(course => processCourse(course, existingUrls))
+        batch.map(course => processCourse(course, existingUrls, existingTitles))
       );
 
       for (const result of batchResults) {
@@ -442,15 +499,19 @@ async function scrapeUdemyFreebies(maxPages: number = 5): Promise<SourceResult> 
           if (result.value.saved) {
             newCount++;
             allCourses.push(result.value.data!);
-          } else {
+          } else if (result.value.skipped === 'duplicate-title' || result.value.skipped === 'duplicate-url' || result.value.skipped === 'db-duplicate') {
             dupCount++;
+          } else if (result.value.skipped === 'invalid-coupon' || result.value.skipped === 'no-redirect') {
+            invalidCount++;
+            errCount++;
+          } else {
+            errCount++;
           }
         } else {
           errCount++;
         }
       }
 
-      // Small delay between batches to be respectful
       if (i + BATCH_SIZE < allListedCourses.length) {
         await new Promise(resolve => setTimeout(resolve, 200));
       }
@@ -470,7 +531,7 @@ async function scrapeUdemyFreebies(maxPages: number = 5): Promise<SourceResult> 
     newCount,
     dupCount,
     errCount,
-    message: errors.slice(0, 5).join('; ') || `${newCount} new courses scraped from ${maxPages} pages`,
+    message: errors.slice(0, 5).join('; ') || `${newCount} new courses from ${maxPages} pages, ${dupCount} duplicates, ${invalidCount} invalid coupons`,
     duration,
   };
   await logScraperRun(logEntry).catch(() => {});
@@ -481,14 +542,44 @@ async function scrapeUdemyFreebies(maxPages: number = 5): Promise<SourceResult> 
     newCount,
     dupCount,
     errCount,
-    message: `Scraped ${maxPages} pages (${newCount} new, ${dupCount} duplicates, ${errCount} errors)`,
+    message: `${maxPages} pages → ${newCount} جديدة، ${dupCount} مكررة، ${invalidCount} كوبونات منتهية، ${errCount} أخطاء`,
     duration,
     courses: allCourses,
   };
 }
 
 // ============================================
-// Main Entry Point - Parallel Scraper
+// Cleanup: Remove duplicate courses from DB
+// ============================================
+
+export async function cleanupDuplicates(): Promise<{ removed: number }> {
+  const allCourses = await db.course.findMany({
+    select: { id: true, title: true, udemyUrl: true },
+  });
+
+  const seenTitles = new Map<string, string>(); // normalized -> id of first
+  const toRemove: string[] = [];
+
+  for (const course of allCourses) {
+    const norm = normalizeTitle(course.title);
+    if (seenTitles.has(norm)) {
+      toRemove.push(course.id);
+    } else {
+      seenTitles.set(norm, course.id);
+    }
+  }
+
+  if (toRemove.length > 0) {
+    await db.course.deleteMany({
+      where: { id: { in: toRemove } },
+    });
+  }
+
+  return { removed: toRemove.length };
+}
+
+// ============================================
+// Main Entry Point
 // ============================================
 
 export interface ScrapeResults {
@@ -505,6 +596,9 @@ export async function runFullScrape(options?: {
 }): Promise<ScrapeResults> {
   const totalStart = Date.now();
   const maxPages = options?.pages || 5;
+
+  // Clean duplicates before scraping
+  await cleanupDuplicates().catch(() => {});
 
   const udemyResult = await scrapeUdemyFreebies(maxPages);
 
