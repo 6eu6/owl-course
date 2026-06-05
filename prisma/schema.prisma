@@ -1,13 +1,13 @@
 // OWL COURSE - Udemy Free Course Scraper
-// Prisma Schema (SQLite)
+// Prisma Schema (Prisma Postgres)
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./db/courses.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model Course {
@@ -65,4 +65,13 @@ model Setting {
   id        String   @id
   value     String
   updatedAt DateTime @updatedAt
+}
+
+model TelegramMessage {
+  id          String   @id @default(cuid())
+  courseId    String?
+  courseTitle String
+  channels    String   @default("[]")
+  status      String   @default("pending")
+  sentAt      DateTime @default(now())
 }
