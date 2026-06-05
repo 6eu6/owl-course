@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   BookOpen,
   Play,
@@ -28,6 +29,8 @@ import {
   Clock,
   Zap,
   AlertTriangle,
+  DollarSign,
+  Wifi,
 } from 'lucide-react'
 
 // ===== TYPES =====
@@ -42,7 +45,7 @@ interface Stats {
 
 interface TelegramSettings {
   bot_token: string
-  channels: Array<{ name: string; id: string; active: boolean }>
+  channels: Array<{ name: string; id: string; active: boolean; language: string }>
   auto_post: boolean
   message_template: string
 }
@@ -58,6 +61,33 @@ interface ScraperLog {
   duration: number
   timestamp: string
 }
+
+interface AdsSettings {
+  adsenseClientId: string
+  adsenseSlotId: string
+  headerAd: boolean
+  sidebarAd: boolean
+  betweenCoursesAd: boolean
+  customHeadScript: string
+  customBodyScript: string
+  customBannerUrl: string
+  customBannerLink: string
+}
+
+const LANGUAGE_OPTIONS = [
+  { value: 'en', label: 'English' },
+  { value: 'ar', label: 'Arabic' },
+  { value: 'es', label: 'Spanish' },
+  { value: 'fr', label: 'French' },
+  { value: 'pt', label: 'Portuguese' },
+  { value: 'tr', label: 'Turkish' },
+  { value: 'hi', label: 'Hindi' },
+  { value: 'zh', label: 'Chinese' },
+  { value: 'ja', label: 'Japanese' },
+  { value: 'ko', label: 'Korean' },
+  { value: 'de', label: 'German' },
+  { value: 'ru', label: 'Russian' },
+]
 
 // ===== MAIN ADMIN PAGE =====
 export default function AdminPage() {
@@ -150,7 +180,7 @@ export default function AdminPage() {
 
       <main className="flex-1 container mx-auto max-w-6xl px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4 mb-6">
+          <TabsList className="grid w-full grid-cols-5 mb-6">
             <TabsTrigger value="dashboard" className="text-xs sm:text-sm gap-1">
               <BarChart3 className="h-3.5 w-3.5" />
               Stats
@@ -166,6 +196,10 @@ export default function AdminPage() {
             <TabsTrigger value="settings" className="text-xs sm:text-sm gap-1">
               <Settings className="h-3.5 w-3.5" />
               Settings
+            </TabsTrigger>
+            <TabsTrigger value="ads" className="text-xs sm:text-sm gap-1">
+              <DollarSign className="h-3.5 w-3.5" />
+              Ads
             </TabsTrigger>
           </TabsList>
 
@@ -265,6 +299,11 @@ export default function AdminPage() {
           {/* Settings Tab */}
           <TabsContent value="settings">
             <SettingsPanel password={password} />
+          </TabsContent>
+
+          {/* Ads Tab */}
+          <TabsContent value="ads">
+            <AdsPanel password={password} />
           </TabsContent>
         </Tabs>
       </main>
@@ -418,15 +457,30 @@ function ScraperPanel({ password, onDone }: { password: string; onDone: () => vo
 // ===== TELEGRAM PANEL =====
 function TelegramPanel({ password, onDone }: { password: string; onDone: () => void }) {
   const [settings, setSettings] = useState<TelegramSettings | null>(null)
-  const [stats, setStats] = useState<{ total_courses: number; posted_courses: number; pending_courses: number } | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [testResult, setTestResult] = useState<string | null>(null)
+  const [testing, setTesting] = useState(false)
 
   const fetchData = useCallback(async () => {
     try {
       const res = await fetch('/api/telegram')
       const data = await res.json()
+      if (data.success && data.settings) {
+        // Ensure channels have language field
+        const channels = (data.settings.channels || []).map((ch: { name?: string; id?: string; active?: boolean; language?: string }) => ({
+          name: ch.name || 'Channel',
+          id: ch.id || '',
+          active: ch.active !== false,
+          language: ch.language || 'en',
+        }))
+        setSettings({
+          bot_token: data.settings.bot_token || '',
+          channels: channels.length > 0 ? channels : [{ name: 'Main Channel', id: '', active: true, language: 'en' }],
+          auto_post: data.settings.auto_post || false,
+          message_template: data.settings.message_template || '{title}\n\nInstructor: {instructor}\nRating: {rating}\nStudents: {students_count}\n\n{link}',
+        })
+      }
     } catch {
       // ignore
     } finally {
@@ -438,7 +492,7 @@ function TelegramPanel({ password, onDone }: { password: string; onDone: () => v
 
   const initSettings: TelegramSettings = {
     bot_token: '',
-    channels: [{ name: 'Main Channel', id: '', active: true }],
+    channels: [{ name: 'Main Channel', id: '', active: true, language: 'en' }],
     auto_post: false,
     message_template: '{title}\n\nInstructor: {instructor}\nRating: {rating}\nStudents: {students_count}\n\n{link}',
   }
@@ -467,9 +521,38 @@ function TelegramPanel({ password, onDone }: { password: string; onDone: () => v
     }
   }
 
+  const testConnection = async () => {
+    setTesting(true)
+    setTestResult(null)
+    try {
+      const activeChannel = currentSettings.channels.find(ch => ch.active)
+      const channelId = activeChannel?.id || ''
+      const res = await fetch('/api/telegram', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'test',
+          channel_id: channelId,
+          bot_token: currentSettings.bot_token,
+        }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setTestResult('Test message sent successfully!')
+      } else {
+        setTestResult(data.error || 'Test failed. Check bot token and channel ID.')
+      }
+    } catch {
+      setTestResult('Failed to test connection')
+    } finally {
+      setTesting(false)
+      setTimeout(() => setTestResult(null), 5000)
+    }
+  }
+
   const addChannel = () => {
     const newSettings = { ...currentSettings }
-    newSettings.channels = [...newSettings.channels, { name: `Channel ${newSettings.channels.length + 1}`, id: '', active: true }]
+    newSettings.channels = [...newSettings.channels, { name: `Channel ${newSettings.channels.length + 1}`, id: '', active: true, language: 'en' }]
     setSettings(newSettings)
   }
 
@@ -479,7 +562,7 @@ function TelegramPanel({ password, onDone }: { password: string; onDone: () => v
     setSettings(newSettings)
   }
 
-  const updateChannel = (idx: number, field: 'name' | 'id' | 'active', value: string | boolean) => {
+  const updateChannel = (idx: number, field: 'name' | 'id' | 'active' | 'language', value: string | boolean) => {
     const newSettings = { ...currentSettings }
     const channels = [...newSettings.channels]
     channels[idx] = { ...channels[idx], [field]: value }
@@ -540,7 +623,7 @@ function TelegramPanel({ password, onDone }: { password: string; onDone: () => v
             </div>
             <div className="space-y-2">
               {currentSettings.channels?.map((ch, idx) => (
-                <div key={idx} className="flex items-center gap-2 p-2 border rounded-md">
+                <div key={idx} className="flex flex-wrap items-center gap-2 p-2 border rounded-md">
                   <Switch
                     checked={ch.active}
                     onCheckedChange={(checked) => updateChannel(idx, 'active', checked)}
@@ -549,13 +632,28 @@ function TelegramPanel({ password, onDone }: { password: string; onDone: () => v
                     value={ch.name}
                     onChange={(e) => updateChannel(idx, 'name', e.target.value)}
                     placeholder="Channel name"
-                    className="flex-1 text-xs"
+                    className="flex-1 min-w-[120px] text-xs"
                   />
+                  <Select
+                    value={ch.language || 'en'}
+                    onValueChange={(val) => updateChannel(idx, 'language', val)}
+                  >
+                    <SelectTrigger className="w-[130px] text-xs h-9">
+                      <SelectValue placeholder="Language" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {LANGUAGE_OPTIONS.map((lang) => (
+                        <SelectItem key={lang.value} value={lang.value} className="text-xs">
+                          {lang.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Input
                     value={ch.id}
                     onChange={(e) => updateChannel(idx, 'id', e.target.value)}
                     placeholder="@channel_id"
-                    className="flex-1 text-xs font-mono"
+                    className="flex-1 min-w-[120px] text-xs font-mono"
                   />
                   {currentSettings.channels.length > 1 && (
                     <Button size="icon" variant="ghost" onClick={() => removeChannel(idx)}>
@@ -583,13 +681,19 @@ function TelegramPanel({ password, onDone }: { password: string; onDone: () => v
             </p>
           </div>
 
-          <Button onClick={saveSettings} disabled={saving}>
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Settings className="h-4 w-4" />}
-            <span className="ml-2">Save Settings</span>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={saveSettings} disabled={saving}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Settings className="h-4 w-4" />}
+              <span className="ml-2">Save Settings</span>
+            </Button>
+            <Button variant="outline" onClick={testConnection} disabled={testing || !currentSettings.bot_token}>
+              {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wifi className="h-4 w-4" />}
+              <span className="ml-2">Test Connection</span>
+            </Button>
+          </div>
 
           {testResult && (
-            <div className={`p-3 rounded-md text-xs ${testResult.includes('success') || testResult.includes('Saved') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+            <div className={`p-3 rounded-md text-xs ${testResult.includes('success') || testResult.includes('successfully') || testResult.includes('Saved') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
               {testResult}
             </div>
           )}
@@ -726,6 +830,242 @@ function SettingsPanel({ password }: { password: string }) {
           </div>
         </CardContent>
       </Card>
+    </div>
+  )
+}
+
+// ===== ADS PANEL =====
+function AdsPanel({ password }: { password: string }) {
+  const [settings, setSettings] = useState<AdsSettings>({
+    adsenseClientId: '',
+    adsenseSlotId: '',
+    headerAd: false,
+    sidebarAd: false,
+    betweenCoursesAd: false,
+    customHeadScript: '',
+    customBodyScript: '',
+    customBannerUrl: '',
+    customBannerLink: '',
+  })
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    const fetchAdsSettings = async () => {
+      try {
+        const res = await fetch('/api/ads')
+        const data = await res.json()
+        if (data.success && data.settings) {
+          setSettings({
+            adsenseClientId: data.settings.adsenseClientId || '',
+            adsenseSlotId: data.settings.adsenseSlotId || '',
+            headerAd: data.settings.headerAd === 'true' || data.settings.headerAd === true,
+            sidebarAd: data.settings.sidebarAd === 'true' || data.settings.sidebarAd === true,
+            betweenCoursesAd: data.settings.betweenCoursesAd === 'true' || data.settings.betweenCoursesAd === true,
+            customHeadScript: data.settings.customHeadScript || '',
+            customBodyScript: data.settings.customBodyScript || '',
+            customBannerUrl: data.settings.customBannerUrl || '',
+            customBannerLink: data.settings.customBannerLink || '',
+          })
+        }
+      } catch {
+        // use defaults
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchAdsSettings()
+  }, [])
+
+  const saveAds = async () => {
+    setSaving(true)
+    try {
+      await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          password,
+          action: 'set',
+          key: 'ads',
+          value: JSON.stringify(settings),
+        }),
+      })
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } catch {
+      alert('Failed to save ad settings')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loading) return <Skeleton className="h-64" />
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <DollarSign className="h-4 w-4 text-green-600" /> Google AdSense
+          </CardTitle>
+          <CardDescription>Configure Google AdSense integration for monetization</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <Label className="text-xs">AdSense Client ID</Label>
+              <Input
+                value={settings.adsenseClientId}
+                onChange={(e) => setSettings({ ...settings, adsenseClientId: e.target.value })}
+                placeholder="ca-pub-XXXXXXXXXXXXXXXX"
+                className="font-mono text-xs"
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">Your Google AdSense publisher ID</p>
+            </div>
+            <div>
+              <Label className="text-xs">AdSense Slot ID</Label>
+              <Input
+                value={settings.adsenseSlotId}
+                onChange={(e) => setSettings({ ...settings, adsenseSlotId: e.target.value })}
+                placeholder="1234567890"
+                className="font-mono text-xs"
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">Ad unit slot ID for display ads</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Zap className="h-4 w-4 text-amber-600" /> Ad Placements
+          </CardTitle>
+          <CardDescription>Toggle ad placements across the site</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center justify-between p-2 border rounded-md">
+            <div>
+              <Label className="text-xs font-medium">Header Ad</Label>
+              <p className="text-[10px] text-muted-foreground">Show banner ad in the header area</p>
+            </div>
+            <Switch
+              checked={settings.headerAd}
+              onCheckedChange={(checked) => setSettings({ ...settings, headerAd: checked })}
+            />
+          </div>
+          <div className="flex items-center justify-between p-2 border rounded-md">
+            <div>
+              <Label className="text-xs font-medium">Sidebar Ad</Label>
+              <p className="text-[10px] text-muted-foreground">Show ad in the sidebar section</p>
+            </div>
+            <Switch
+              checked={settings.sidebarAd}
+              onCheckedChange={(checked) => setSettings({ ...settings, sidebarAd: checked })}
+            />
+          </div>
+          <div className="flex items-center justify-between p-2 border rounded-md">
+            <div>
+              <Label className="text-xs font-medium">Between-Courses Ad</Label>
+              <p className="text-[10px] text-muted-foreground">Insert ad between course listings</p>
+            </div>
+            <Switch
+              checked={settings.betweenCoursesAd}
+              onCheckedChange={(checked) => setSettings({ ...settings, betweenCoursesAd: checked })}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Settings className="h-4 w-4" /> Custom Ad Scripts
+          </CardTitle>
+          <CardDescription>Add custom JavaScript for third-party ad networks</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label className="text-xs">Custom Ad Script (Head)</Label>
+            <Textarea
+              value={settings.customHeadScript}
+              onChange={(e) => setSettings({ ...settings, customHeadScript: e.target.value })}
+              rows={4}
+              className="font-mono text-xs"
+              placeholder="<!-- Paste ad script for &lt;head&gt; here -->"
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">This script will be injected into the &lt;head&gt; section</p>
+          </div>
+          <div>
+            <Label className="text-xs">Custom Ad Script (Body)</Label>
+            <Textarea
+              value={settings.customBodyScript}
+              onChange={(e) => setSettings({ ...settings, customBodyScript: e.target.value })}
+              rows={4}
+              className="font-mono text-xs"
+              placeholder="<!-- Paste ad script for &lt;body&gt; here -->"
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">This script will be injected at the end of the &lt;body&gt; section</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Zap className="h-4 w-4 text-amber-600" /> Custom Banner
+          </CardTitle>
+          <CardDescription>Display a custom banner ad image with a clickable link</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label className="text-xs">Custom Banner Image URL</Label>
+            <Input
+              value={settings.customBannerUrl}
+              onChange={(e) => setSettings({ ...settings, customBannerUrl: e.target.value })}
+              placeholder="https://example.com/banner.jpg"
+              className="text-xs"
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">URL of the banner image to display</p>
+          </div>
+          <div>
+            <Label className="text-xs">Custom Banner Link URL</Label>
+            <Input
+              value={settings.customBannerLink}
+              onChange={(e) => setSettings({ ...settings, customBannerLink: e.target.value })}
+              placeholder="https://example.com/offer"
+              className="text-xs"
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">URL users will be redirected to when clicking the banner</p>
+          </div>
+          {settings.customBannerUrl && (
+            <div className="border rounded-md p-2 bg-muted">
+              <p className="text-[10px] text-muted-foreground mb-1">Banner Preview:</p>
+              <div className="relative aspect-[728/90] max-w-md bg-background rounded overflow-hidden border">
+                <img
+                  src={settings.customBannerUrl}
+                  alt="Custom banner preview"
+                  className="w-full h-full object-contain"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none'
+                  }}
+                />
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="flex items-center gap-2">
+        <Button onClick={saveAds} disabled={saving}>
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? <CheckCircle className="h-4 w-4" /> : <DollarSign className="h-4 w-4" />}
+          <span className="ml-2">{saving ? 'Saving...' : saved ? 'Saved!' : 'Save Ad Settings'}</span>
+        </Button>
+        {saved && (
+          <span className="text-xs text-green-600">Ad settings updated successfully</span>
+        )}
+      </div>
     </div>
   )
 }

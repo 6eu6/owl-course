@@ -43,14 +43,12 @@ import {
   Heart,
   Moon,
   Sun,
-  Languages,
   Infinity,
   Timer,
   Zap,
   Gift,
 } from 'lucide-react'
 import { tx, getCat } from '@/lib/translations'
-import type { Lang } from '@/lib/translations'
 
 // ============================================
 // Types
@@ -118,33 +116,28 @@ type View = 'grid' | 'detail' | 'link'
 // ============================================
 
 interface SourceInfo {
-  ar: string
-  en: string
+  name: string
   color: string
 }
 
 const SOURCE_LABELS: Record<string, SourceInfo> = {
   udemyfreebies: {
-    ar: 'UdemyFreebies',
-    en: 'UdemyFreebies',
+    name: 'UdemyFreebies',
     color:
       'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400 border-blue-200 dark:border-blue-800',
   },
   discudemy: {
-    ar: 'DiscUdemy',
-    en: 'DiscUdemy',
+    name: 'DiscUdemy',
     color:
       'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-400 border-purple-200 dark:border-purple-800',
   },
   freebiesglobal: {
-    ar: 'FreebiesGlobal',
-    en: 'FreebiesGlobal',
+    name: 'FreebiesGlobal',
     color:
       'bg-teal-100 text-teal-700 dark:bg-teal-950 dark:text-teal-400 border-teal-200 dark:border-teal-800',
   },
   manual: {
-    ar: '\u064A\u062F\u0648\u064A',
-    en: 'Manual',
+    name: 'Manual',
     color:
       'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border-gray-200 dark:border-gray-700',
   },
@@ -169,24 +162,18 @@ function cn(
 
 type TxFn = (key: string) => string
 
-function createTx(lang: Lang): TxFn {
-  return function (key: string): string {
-    return tx(key as Parameters<typeof tx>[0], lang)
-  }
-}
-
 // ============================================
 // Source Badge Component
 // ============================================
 
-function SourceBadge(props: { source: string; lang: Lang }) {
+function SourceBadge(props: { source: string }) {
   const info = SOURCE_LABELS[props.source] || SOURCE_LABELS.manual
   return (
     <Badge
       variant="outline"
       className={cn('text-[10px] font-medium border', info.color)}
     >
-      {info[props.lang]}
+      {info.name}
     </Badge>
   )
 }
@@ -199,15 +186,14 @@ function CouponBadge(props: {
   isFreeForever: boolean
   couponExpiresAt: string | null
   couponVerified: boolean
-  lang: Lang
 }) {
-  const { isFreeForever, couponExpiresAt, couponVerified, lang } = props
+  const { isFreeForever, couponExpiresAt, couponVerified } = props
 
   if (isFreeForever) {
     return (
       <Badge className="text-[10px] bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-800">
         <Infinity className="h-2.5 w-2.5 ml-0.5" />
-        {lang === 'ar' ? '\u0645\u062C\u0627\u0646\u064A \u0644\u0644\u0623\u0628\u062F' : 'Free Forever'}
+        Free Forever
       </Badge>
     )
   }
@@ -228,16 +214,10 @@ function CouponBadge(props: {
         : 'text-[10px] bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-800'
 
     const label = isExpired
-      ? lang === 'ar'
-        ? '\u0645\u0646\u062A\u0647\u064A'
-        : 'Expired'
+      ? 'Expired'
       : daysLeft <= 1
-        ? lang === 'ar'
-          ? '\u064A\u0648\u0645 \u0648\u0627\u062D\u062F'
-          : '1d left'
-        : daysLeft +
-          'd ' +
-          (lang === 'ar' ? '\u0645\u062A\u0628\u0642\u064A' : 'left')
+        ? '1d left'
+        : daysLeft + 'd left'
 
     return (
       <Badge className={badgeClass}>
@@ -251,7 +231,7 @@ function CouponBadge(props: {
   return (
     <Badge className="text-[10px] bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-800">
       <Tag className="h-2.5 w-2.5 ml-0.5" />
-      {lang === 'ar' ? '\u0628\u0643\u0648\u0628\u0648\u0646' : 'Coupon'}
+      Coupon
     </Badge>
   )
 }
@@ -282,25 +262,15 @@ function InfoCard(props: {
 
 function CourseCard(props: {
   course: Course
-  lang: Lang
   t: TxFn
   onClick: () => void
 }) {
-  const { course, lang, t, onClick } = props
+  const { course, t, onClick } = props
   const info = getCat(course.category)
-  const isRtl = lang === 'ar'
 
-  const topLeftClass = isRtl
-    ? 'absolute top-2 right-2 flex flex-col gap-1'
-    : 'absolute top-2 left-2 flex flex-col gap-1'
-
-  const topRightClass = isRtl
-    ? 'absolute top-2 left-2 flex flex-col gap-1 items-end'
-    : 'absolute top-2 right-2 flex flex-col gap-1 items-end'
-
-  const arrowClass = isRtl
-    ? 'inline h-2.5 w-2.5'
-    : 'inline h-2.5 w-2.5 rotate-180'
+  const topLeftClass = 'absolute top-2 left-2 flex flex-col gap-1'
+  const topRightClass = 'absolute top-2 right-2 flex flex-col gap-1 items-end'
+  const arrowClass = 'inline h-2.5 w-2.5 rotate-180'
 
   const studentsLabel =
     course.students_count != null && course.students_count > 0
@@ -331,9 +301,7 @@ function CourseCard(props: {
         <div className={topLeftClass}>
           <Badge className="text-[10px] font-bold bg-green-600 text-white border-0">
             <Gift className="h-2.5 w-2.5 ml-0.5" />
-            {course.isFreeForever
-              ? 'FREE'
-              : (lang === 'ar' ? 'كوبون' : 'COUPON')}
+            {course.isFreeForever ? 'FREE' : 'COUPON'}
           </Badge>
           {course.isFreeForever && (
             <Badge className="text-[9px] bg-emerald-500 text-white border-0">
@@ -345,7 +313,7 @@ function CourseCard(props: {
 
         <div className={topRightClass}>
           <span className="text-[10px] px-1.5 py-0.5 rounded-md border bg-white/90 dark:bg-black/60 text-foreground dark:text-white backdrop-blur-sm">
-            {info.icon} {info[lang]}
+            {info.icon} {info.name}
           </span>
         </div>
 
@@ -379,12 +347,11 @@ function CourseCard(props: {
         </div>
         <div className="flex items-center justify-between pt-0.5">
           <div className="flex items-center gap-1">
-            <SourceBadge source={course.source} lang={lang} />
+            <SourceBadge source={course.source} />
             <CouponBadge
               isFreeForever={course.isFreeForever}
               couponExpiresAt={course.couponExpiresAt}
               couponVerified={course.couponVerified}
-              lang={lang}
             />
           </div>
           <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
@@ -401,8 +368,6 @@ function CourseCard(props: {
 // ============================================
 
 interface GridPageProps {
-  lang: Lang
-  dir: string
   t: TxFn
   courses: Course[]
   categories: CategoryInfo[]
@@ -427,7 +392,6 @@ interface GridPageProps {
 
 function GridPage(props: GridPageProps) {
   const {
-    lang,
     t,
     courses,
     categories,
@@ -463,9 +427,7 @@ function GridPage(props: GridPageProps) {
   }
 
   function chevronClass(isPrev: boolean): string {
-    return lang === 'en'
-      ? 'h-3.5 w-3.5 rotate-180'
-      : 'h-3.5 w-3.5'
+    return isPrev ? 'h-3.5 w-3.5 rotate-180' : 'h-3.5 w-3.5'
   }
 
   function getPaginationNumbers(): number[] {
@@ -536,7 +498,7 @@ function GridPage(props: GridPageProps) {
                 className={catChipClass(selectedCategory === cat.name)}
               >
                 <span>{info.icon}</span>
-                <span>{info[lang]}</span>
+                <span>{info.name}</span>
                 <span className="text-[10px] opacity-40">{cat.count}</span>
               </button>
             )
@@ -591,7 +553,7 @@ function GridPage(props: GridPageProps) {
               className="gap-1 text-xs cursor-pointer"
               onClick={() => onCategory('all')}
             >
-              {getCat(selectedCategory).icon} {getCat(selectedCategory)[lang]}{' '}
+              {getCat(selectedCategory).icon} {getCat(selectedCategory).name}{' '}
               <X className="h-2.5 w-2.5" />
             </Badge>
           )}
@@ -629,7 +591,6 @@ function GridPage(props: GridPageProps) {
               <CourseCard
                 key={course.id}
                 course={course}
-                lang={lang}
                 t={t}
                 onClick={() => onCardClick(course.slug)}
               />
@@ -682,8 +643,6 @@ function GridPage(props: GridPageProps) {
 // ============================================
 
 interface DetailPageProps {
-  lang: Lang
-  dir: string
   t: TxFn
   course: CourseDetail | null
   relatedCourses: Course[]
@@ -695,7 +654,6 @@ interface DetailPageProps {
 
 function DetailPage(props: DetailPageProps) {
   const {
-    lang,
     t,
     course,
     relatedCourses,
@@ -705,10 +663,9 @@ function DetailPage(props: DetailPageProps) {
     onCardClick,
   } = props
 
-  const backArrowClass =
-    lang === 'en' ? 'h-3.5 w-3.5 rotate-180' : 'h-3.5 w-3.5'
-  const ctaArrowClass =
-    lang === 'en' ? 'h-3.5 w-3.5 rotate-180' : 'h-3.5 w-3.5'
+  const backArrowClass = 'h-3.5 w-3.5 rotate-180'
+  const ctaArrowClass = 'h-3.5 w-3.5 rotate-180'
+  const badgesPositionClass = 'absolute top-3 left-3 flex gap-1.5 flex-wrap'
 
   function handleImgError(e: React.SyntheticEvent<HTMLImageElement>) {
     e.currentTarget.src = PLACEHOLDER_IMG
@@ -742,11 +699,6 @@ function DetailPage(props: DetailPageProps) {
 
   const catInfo = getCat(course.category)
 
-  const badgesPositionClass =
-    lang === 'ar'
-      ? 'absolute top-3 right-3 flex gap-1.5 flex-wrap'
-      : 'absolute top-3 left-3 flex gap-1.5 flex-wrap'
-
   return (
     <div className="max-w-4xl mx-auto px-4 py-5 space-y-5">
       {/* Hero */}
@@ -759,12 +711,11 @@ function DetailPage(props: DetailPageProps) {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
         <div className={badgesPositionClass}>
-          <SourceBadge source={course.source} lang={lang} />
+          <SourceBadge source={course.source} />
           <CouponBadge
             isFreeForever={course.isFreeForever}
             couponExpiresAt={course.couponExpiresAt}
             couponVerified={course.couponVerified}
-            lang={lang}
           />
           <Badge className="text-[11px] bg-green-600 text-white border-0 font-bold">
             <Gift className="h-2.5 w-2.5 ml-1" />
@@ -773,7 +724,7 @@ function DetailPage(props: DetailPageProps) {
         </div>
         <div className="absolute bottom-3 left-3 right-3">
           <span className="text-[10px] px-2 py-0.5 rounded-md border bg-white/90 dark:bg-black/60 text-foreground dark:text-white backdrop-blur-sm">
-            {catInfo.icon} {catInfo[lang]}
+            {catInfo.icon} {catInfo.name}
           </span>
           <h2 className="text-white font-bold text-base sm:text-xl leading-tight mt-1.5 drop-shadow-md line-clamp-2">
             {course.title}
@@ -842,9 +793,7 @@ function DetailPage(props: DetailPageProps) {
         <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-900">
           <Infinity className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
           <p className="text-xs text-emerald-800 dark:text-emerald-300 font-medium">
-            {lang === 'ar'
-              ? '\u0647\u0630\u0647 \u0627\u0644\u062F\u0648\u0631\u0629 \u0645\u062C\u0627\u0646\u064A\u0629 \u0644\u0644\u0623\u0628\u062F - \u0633\u062A\u062D\u062A\u0641\u0638 \u0628\u0647\u0627 \u0645\u062F\u0649 \u0627\u0644\u062D\u064A\u0627\u0629 \u0628\u0639\u062F \u0627\u0644\u062A\u0633\u062C\u064A\u0644'
-              : 'This course is free forever - you keep it for life after enrolling'}
+            This course is free forever - you keep it for life after enrolling
           </p>
         </div>
       )}
@@ -891,7 +840,7 @@ function DetailPage(props: DetailPageProps) {
       {/* CTA */}
       <Card className="p-4 bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-900">
         <div className="flex flex-col sm:flex-row items-center gap-3">
-          <div className="flex-1 text-center sm:text-right">
+          <div className="flex-1 text-center sm:text-left">
             <h3 className="font-bold text-sm text-green-800 dark:text-green-300">
               {t('getCourseFree')}
             </h3>
@@ -945,9 +894,9 @@ function DetailPage(props: DetailPageProps) {
                   </h5>
                   <div className="flex items-center gap-1 mt-1">
                     <span className="text-[10px] px-1 py-0.5 rounded border bg-muted">
-                      {getCat(rc.category).icon} {getCat(rc.category)[lang]}
+                      {getCat(rc.category).icon} {getCat(rc.category).name}
                     </span>
-                    <SourceBadge source={rc.source} lang={lang} />
+                    <SourceBadge source={rc.source} />
                   </div>
                 </CardContent>
               </Card>
@@ -964,15 +913,13 @@ function DetailPage(props: DetailPageProps) {
 // ============================================
 
 interface LinkPageProps {
-  lang: Lang
-  dir: string
   t: TxFn
   course: CourseDetail | null
   onBack: () => void
 }
 
 function LinkPage(props: LinkPageProps) {
-  const { lang, t, course, onBack } = props
+  const { t, course, onBack } = props
   const [countdown, setCountdown] = useState(5)
   const [couponStatus, setCouponStatus] = useState<'checking' | 'valid' | 'expired' | 'unknown'>('checking')
 
@@ -1028,8 +975,7 @@ function LinkPage(props: LinkPageProps) {
     return () => controller.abort()
   }, [course?.slug])
 
-  const isRtl = lang === 'ar'
-  const backArrowClass = isRtl ? 'h-3 w-3' : 'h-3 w-3 rotate-180'
+  const backArrowClass = 'h-3 w-3 rotate-180'
 
   function handleImgError(e: React.SyntheticEvent<HTMLImageElement>) {
     e.currentTarget.src = PLACEHOLDER_IMG
@@ -1118,14 +1064,13 @@ function LinkPage(props: LinkPageProps) {
             </span>
           )}
           <span className="flex items-center gap-1">
-            <SourceBadge source={course.source} lang={lang} />
+            <SourceBadge source={course.source} />
           </span>
           {/* Coupon status badge */}
           <CouponBadge
             isFreeForever={course.isFreeForever}
             couponExpiresAt={course.couponExpiresAt}
             couponVerified={course.couponVerified}
-            lang={lang}
           />
         </CardContent>
       </Card>
@@ -1136,12 +1081,10 @@ function LinkPage(props: LinkPageProps) {
           <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 shrink-0" />
           <div>
             <p className="text-xs font-medium text-red-800 dark:text-red-300">
-              {lang === 'ar' ? 'الكوبون منتهي الصلاحية' : 'Coupon Expired'}
+              Coupon Expired
             </p>
             <p className="text-[10px] text-red-600 dark:text-red-400">
-              {lang === 'ar'
-                ? 'هذا الكوبون لم يعد يعمل. يمكن أن تجد كوبونات جديدة بتشغيل الزاحف مرة أخرى.'
-                : 'This coupon is no longer valid. New coupons may be available after the next scrape.'}
+              This coupon is no longer valid. New coupons may be available after the next scrape.
             </p>
           </div>
         </div>
@@ -1152,12 +1095,10 @@ function LinkPage(props: LinkPageProps) {
           <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" />
           <div>
             <p className="text-xs font-medium text-green-800 dark:text-green-300">
-              {lang === 'ar' ? 'الكوبون يعمل - الدورة مجانية حالياً' : 'Coupon Active - Course is Free Now'}
+              Coupon Active - Course is Free Now
             </p>
             <p className="text-[10px] text-green-600 dark:text-green-400">
-              {lang === 'ar'
-                ? 'تم التحقق في الوقت الحقيقي. اضغط للانتقال إلى Udemy والتسجيل مجاناً.'
-                : 'Verified in real-time. Click to go to Udemy and enroll for free.'}
+              Verified in real-time. Click to go to Udemy and enroll for free.
             </p>
           </div>
         </div>
@@ -1168,12 +1109,10 @@ function LinkPage(props: LinkPageProps) {
           <Shield className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
           <div>
             <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
-              {lang === 'ar' ? 'جاري التحقق من الكوبون...' : 'Verifying Coupon...'}
+              Verifying Coupon...
             </p>
             <p className="text-[10px] text-amber-600 dark:text-amber-400">
-              {lang === 'ar'
-                ? 'يتم التحقق مما إذا كان الكوبون لا يزال يعمل. انتظر قليلاً.'
-                : 'Checking if the coupon is still active. Please wait...'}
+              Checking if the coupon is still active. Please wait...
             </p>
           </div>
         </div>
@@ -1186,7 +1125,7 @@ function LinkPage(props: LinkPageProps) {
             <div className="flex items-center gap-2 text-xs">
               <Tag className="h-3.5 w-3.5 text-muted-foreground" />
               <span className="text-muted-foreground">
-                {lang === 'ar' ? 'كود الكوبون' : 'Coupon Code'}
+                Coupon Code
               </span>
             </div>
             <code className="text-xs font-mono bg-muted px-2 py-1 rounded select-all">
@@ -1215,11 +1154,11 @@ function LinkPage(props: LinkPageProps) {
         </h3>
         <div className="flex items-start gap-2 text-[11px] text-muted-foreground">
           <CheckCircle className="h-3.5 w-3.5 text-green-600 shrink-0 mt-0.5" />
-          <p className="leading-relaxed">{lang === 'ar' ? 'بمجرد التسجيل في الدورة مجاناً عبر الكوبون، ستبقى في حسابك للأبد حتى لو انتهى الكوبون.' : 'Once you enroll for free using a coupon, the course stays in your account forever even after the coupon expires.'}</p>
+          <p className="leading-relaxed">Once you enroll for free using a coupon, the course stays in your account forever even after the coupon expires.</p>
         </div>
         <div className="flex items-start gap-2 text-[11px] text-muted-foreground">
           <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
-          <p className="leading-relaxed">{lang === 'ar' ? 'الكوبونات مؤقتة وقد تنتهي في أي وقت. إذا وجدت الدورة مدفوعة، جرب العودة لاحقاً بعد تشغيل الزاحف.' : 'Coupons are time-limited and may expire at any time. If you find the course is paid, try again after the next scraper run.'}</p>
+          <p className="leading-relaxed">Coupons are time-limited and may expire at any time. If you find the course is paid, try again after the next scraper run.</p>
         </div>
       </Card>
 
@@ -1252,7 +1191,7 @@ function LinkPage(props: LinkPageProps) {
             </div>
             <p className="text-[11px] text-muted-foreground">
               {couponStatus === 'checking'
-                ? (lang === 'ar' ? 'جاري التحضير والتحقق...' : 'Preparing & verifying...')
+                ? 'Preparing & verifying...'
                 : t('preparing')}
             </p>
           </>
@@ -1261,12 +1200,10 @@ function LinkPage(props: LinkPageProps) {
             <div className="p-4 rounded-lg bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-900 text-center">
               <AlertTriangle className="h-8 w-8 mx-auto text-red-500 mb-2" />
               <p className="text-sm font-medium text-red-800 dark:text-red-300">
-                {lang === 'ar' ? 'الكوبون منتهي الصلاحية' : 'Coupon Has Expired'}
+                Coupon Has Expired
               </p>
               <p className="text-[11px] text-red-600 dark:text-red-400 mt-1">
-                {lang === 'ar'
-                  ? 'لا يمكن التسجيل مجاناً حالياً. عُد لاحقاً بعد تحديث الكوبونات.'
-                  : 'Cannot enroll for free right now. Check back after coupons are refreshed.'}
+                Cannot enroll for free right now. Check back after coupons are refreshed.
               </p>
             </div>
           </>
@@ -1285,9 +1222,7 @@ function LinkPage(props: LinkPageProps) {
               </Button>
             </a>
             <p className="text-[11px] text-muted-foreground">
-              {lang === 'ar'
-                ? 'سيتم إعادة توجيهك إلى Udemy مع تطبيق الكوبون تلقائياً'
-                : t('udemyRedirect')}
+              {t('udemyRedirect')}
             </p>
           </>
         )}
@@ -1310,16 +1245,12 @@ function LinkPage(props: LinkPageProps) {
 // ============================================
 
 export default function Home() {
-  const [lang, setLang] = useState<Lang>('ar')
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     setMounted(true)
   }, [])
-
-  const toggleLang = () => setLang((l) => (l === 'ar' ? 'en' : 'ar'))
-  const dir = lang === 'ar' ? 'rtl' : 'ltr'
 
   // Grid view state
   const [courses, setCourses] = useState<Course[]>([])
@@ -1341,8 +1272,6 @@ export default function Home() {
   )
   const [relatedCourses, setRelatedCourses] = useState<Course[]>([])
   const [detailLoading, setDetailLoading] = useState(false)
-
-  const t = createTx(lang)
 
   const fetchCourses = useCallback(
     async (p: number, s: string, cat: string, sortVal: string) => {
@@ -1460,11 +1389,10 @@ export default function Home() {
 
   if (!mounted) return null
 
-  const backBtnArrowClass =
-    lang === 'en' ? 'h-3.5 w-3.5 rotate-180' : 'h-3.5 w-3.5'
+  const backBtnArrowClass = 'h-3.5 w-3.5 rotate-180'
 
   return (
-    <div className={cn('min-h-screen bg-background flex flex-col', dir)}>
+    <div className="min-h-screen bg-background flex flex-col">
       {/* ===== HEADER ===== */}
       <header className="border-b bg-card/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-5xl mx-auto px-4 py-2.5 flex items-center justify-between">
@@ -1496,7 +1424,7 @@ export default function Home() {
                 className="text-[11px] bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-800"
               >
                 <Gift className="h-3 w-3 ml-1" />
-                {total} {t('freeCourses')}
+                {total} {tx('freeCourses')}
               </Badge>
             )}
             {view === 'grid' && (
@@ -1510,15 +1438,6 @@ export default function Home() {
               </Button>
             )}
             <Separator orientation="vertical" className="h-5 mx-0.5" />
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleLang}
-              className="h-8 w-8"
-              title={lang === 'ar' ? 'English' : '\u0639\u0631\u0628\u064A'}
-            >
-              <Languages className="h-3.5 w-3.5" />
-            </Button>
             <Button
               variant="ghost"
               size="icon"
@@ -1540,9 +1459,7 @@ export default function Home() {
         {view === 'grid' && (
           <div className="view-enter">
             <GridPage
-              lang={lang}
-              dir={dir}
-              t={t}
+              t={tx}
               courses={courses}
               categories={categories}
               totalCourses={totalCourses}
@@ -1568,9 +1485,7 @@ export default function Home() {
         {view === 'detail' && (
           <div className="view-enter">
             <DetailPage
-              lang={lang}
-              dir={dir}
-              t={t}
+              t={tx}
               course={selectedCourse}
               relatedCourses={relatedCourses}
               loading={detailLoading}
@@ -1583,9 +1498,7 @@ export default function Home() {
         {view === 'link' && (
           <div className="view-enter">
             <LinkPage
-              lang={lang}
-              dir={dir}
-              t={t}
+              t={tx}
               course={selectedCourse}
               onBack={goBackToDetail}
             />
@@ -1603,20 +1516,20 @@ export default function Home() {
             </span>
           </div>
           <p className="text-[11px] text-muted-foreground text-center max-w-sm">
-            {t('footerDesc')}
+            {tx('footerDesc')}
           </p>
           <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
             <span className="flex items-center gap-1">
               <Heart className="h-3 w-3 text-rose-400" />
-              {t('footerFree')}
+              {tx('footerFree')}
             </span>
             <span className="flex items-center gap-1">
               <Sparkles className="h-3 w-3 text-amber-400" />
-              {t('footerUpdated')}
+              {tx('footerUpdated')}
             </span>
             <span className="flex items-center gap-1">
               <Shield className="h-3 w-3 text-green-500" />
-              {t('footerVerified')}
+              {tx('footerVerified')}
             </span>
           </div>
         </div>

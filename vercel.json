@@ -3,5 +3,11 @@
   "framework": "nextjs",
   "buildCommand": "npx prisma generate && next build",
   "installCommand": "npm install",
-  "outputDirectory": ".next"
+  "outputDirectory": ".next",
+  "crons": [
+    {
+      "path": "/api/cron/scrape",
+      "schedule": "0 */4 * * *"
+    }
+  ]
 }

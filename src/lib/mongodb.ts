@@ -254,9 +254,10 @@ export async function verifyAdminPassword(password: string): Promise<boolean> {
 
 export interface TelegramSettingsConfig {
   bot_token: string;
-  channels: Array<{ name: string; id: string; active: boolean }>;
+  channels: Array<{ name: string; id: string; active: boolean; language: string }>;
   auto_post: boolean;
   message_template: string;
+  message_template_ar: string;
 }
 
 export async function getTelegramSettings(): Promise<TelegramSettingsConfig> {
@@ -264,19 +265,32 @@ export async function getTelegramSettings(): Promise<TelegramSettingsConfig> {
   if (!raw) {
     return {
       bot_token: '',
-      channels: [{ name: 'Main Channel', id: '', active: true }],
+      channels: [{ name: 'Main Channel', id: '', active: true, language: 'en' }],
       auto_post: false,
       message_template: '{title}\n\nInstructor: {instructor}\nRating: {rating}\nStudents: {students_count}\n\n{link}',
+      message_template_ar: '{title}\n\nالمدرب: {instructor}\nالتقييم: {rating}\nالطلاب: {students_count}\n\n{link}',
     };
   }
   try {
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    // Backfill defaults for older configs that lack new fields
+    if (!parsed.message_template_ar) {
+      parsed.message_template_ar = '{title}\n\nالمدرب: {instructor}\nالتقييم: {rating}\nالطلاب: {students_count}\n\n{link}';
+    }
+    if (Array.isArray(parsed.channels)) {
+      parsed.channels = parsed.channels.map((c: { language?: string }) => ({
+        ...c,
+        language: c.language || 'en',
+      }));
+    }
+    return parsed;
   } catch {
     return {
       bot_token: '',
-      channels: [{ name: 'Main Channel', id: '', active: true }],
+      channels: [{ name: 'Main Channel', id: '', active: true, language: 'en' }],
       auto_post: false,
       message_template: '{title}\n{link}',
+      message_template_ar: '{title}\n\nالمدرب: {instructor}\nالتقييم: {rating}\nالطلاب: {students_count}\n\n{link}',
     };
   }
 }
@@ -317,6 +331,20 @@ export async function getRecentTelegramMessages(limit: number = 10) {
     status: m.status,
     sent_at: m.sentAt.toISOString(),
   }));
+}
+
+// ============================================
+// Ad Settings
+// ============================================
+
+export async function getAdSettings(): Promise<Record<string, string>> {
+  const raw = await getSetting('ads');
+  if (!raw) return {};
+  try { return JSON.parse(raw); } catch { return {}; }
+}
+
+export async function saveAdSettings(settings: Record<string, string>) {
+  await setSetting('ads', JSON.stringify(settings));
 }
 
 // ============================================
