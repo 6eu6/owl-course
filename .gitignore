@@ -1,7 +1,59 @@
+# Dependencies
 node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
 .next/
+out/
+dist/
+build/
+*.tsbuildinfo
+next-env.d.ts
+
+# Environment
 .env
 .env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 *.log
+dev.log
+server.log
+
+# OS
 .DS_Store
-*.png\nss-*
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Database
+*.db
+*.db-journal
+prisma/db/
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+
+# Misc
+*.bak
+*.tmp
+*.temp

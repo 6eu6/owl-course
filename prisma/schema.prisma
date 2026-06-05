@@ -1,5 +1,5 @@
 // OWL COURSE - Udemy Free Course Scraper
-// Prisma Schema (Prisma Postgres)
+// Prisma Schema
 
 generator client {
   provider = "prisma-client-js"
