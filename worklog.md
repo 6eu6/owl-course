@@ -140,3 +140,45 @@ Stage Summary:
 - Admin panel: login, stats, scraper control, telegram config, settings
 - API: 7 endpoints all working with admin password protection
 - Admin password: owl2024 (stored in Settings table)
+
+---
+Task ID: 5
+Agent: Main Agent
+Task: Fix scraper to scrape from udemyfreebies.com (not Udemy directly)
+
+Work Log:
+- Analyzed uploaded ultra_fast_scraper.py (Python) - the correct approach to scraping
+- Verified udemyfreebies.com HTML structure using web-reader skill:
+  - Page 1: https://www.udemyfreebies.com/
+  - Page 2+: https://www.udemyfreebies.com/free-udemy-courses/{n}
+  - 12 courses per page, 222+ pages total
+  - Course cards: div.theme-block with h4 > a (title + detail URL), img (Udemy CDN), div.coupon-specility (category)
+  - Extra details in coupon-details-extra-3: language (fa-comment), instructor (fa-user), rating (fa-star), enroll (fa-users), price (fa-money)
+  - Detail page has /out/{slug} redirect link
+  - /out/ redirect goes to https://www.udemy.com/course-slug/?couponCode=CODE
+- Completely rewrote src/lib/scraper.ts:
+  - Correct URL structure matching the Python scraper
+  - Correct cheerio selectors: div.theme-block, h4 a, img src, div.coupon-specility
+  - Two-step scraping: listing page → /out/ redirect → Udemy URL with coupon
+  - Image quality enhancement: upgrades 240x135 to 750x422 from Udemy CDN
+  - Smart fa-users/fa-user bug fix (fa-users contains fa-user string)
+  - Parallel page fetching with Promise.allSettled
+  - Batch processing of redirect follows (batch size 5)
+  - In-memory dedup set pre-loaded from DB for instant checks
+  - Removed StudyBullet scraper (not the correct source)
+- Updated API route: POST /api/scraper now accepts pages parameter
+- Updated homepage: removed studybullet source filter, added sort options
+- Updated course cards: show rating/students on hover, instructor name, price strikethrough
+- Updated course detail dialog: green CTA button, gradient overlay, improved layout
+- Fixed DATABASE_URL env issue (was set to old SQLite path, overriding .env)
+- Admin page: removed StudyBullet references
+- Successfully tested: scraped 11 courses from 1 page in 8 seconds
+- Verified data quality: real instructors, correct ratings, valid coupon codes
+
+Stage Summary:
+- Scraper correctly scrapes udemyfreebies.com (free Udemy course provider with coupon codes)
+- 11 real courses scraped with: titles, instructors, categories, ratings, enroll counts, languages, Udemy URLs with valid coupon codes
+- Smart parallel processing: all pages fetched in parallel, redirects followed in batches
+- Zero duplicates: in-memory set + DB-level udemyUrl unique constraint
+- Browser verified: homepage with course cards, detail dialog with Udemy link, admin dashboard with scraper control
+- No console errors

@@ -34,6 +34,8 @@ import {
   Tag,
   Loader2,
   ArrowRight,
+  Gift,
+  TrendingUp,
 } from 'lucide-react'
 
 interface Course {
@@ -68,13 +70,14 @@ interface CourseDetail {
   original_price: string | null
   language: string | null
   duration: string | null
+  couponCode: string | null
   scraped_at: string
 }
 
 interface Filters {
   search: string
   category: string
-  source: string
+  sort: string
 }
 
 export default function Home() {
@@ -84,8 +87,8 @@ export default function Home() {
   const [totalPages, setTotalPages] = useState(1)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
-  const [stats, setStats] = useState({ total_courses: 0, udemy_courses: 0, studybullet_courses: 0 })
-  const [filters, setFilters] = useState<Filters>({ search: '', category: '', source: '' })
+  const [total, setTotal] = useState(0)
+  const [filters, setFilters] = useState<Filters>({ search: '', category: '', sort: 'newest' })
   const [showFilters, setShowFilters] = useState(false)
 
   // Course detail dialog state
@@ -103,7 +106,7 @@ export default function Home() {
       })
       if (f.search) params.set('search', f.search)
       if (f.category) params.set('category', f.category)
-      if (f.source) params.set('source', f.source)
+      if (f.sort) params.set('sort', f.sort)
 
       const res = await fetch(`/api/courses?${params}`)
       const data = await res.json()
@@ -111,7 +114,7 @@ export default function Home() {
       setCategories(data.filters?.categories || [])
       setTotalPages(data.pagination?.total_pages || 1)
       setTotalCourses(data.pagination?.total || 0)
-      setStats(data.stats || { total_courses: 0, udemy_courses: 0, studybullet_courses: 0 })
+      setTotal(data.stats?.total_courses || 0)
     } catch {
       setCourses([])
     } finally {
@@ -133,17 +136,17 @@ export default function Home() {
     setPage(1)
   }
 
-  const handleSource = (value: string) => {
-    setFilters(prev => ({ ...prev, source: value === 'all' ? '' : value }))
+  const handleSort = (value: string) => {
+    setFilters(prev => ({ ...prev, sort: value }))
     setPage(1)
   }
 
   const clearFilters = () => {
-    setFilters({ search: '', category: '', source: '' })
+    setFilters({ search: '', category: '', sort: 'newest' })
     setPage(1)
   }
 
-  const hasActiveFilters = filters.search || filters.category || filters.source
+  const hasActiveFilters = filters.search || filters.category || filters.sort !== 'newest'
 
   const openCourseDetail = async (slug: string) => {
     setDetailLoading(true)
@@ -173,17 +176,25 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <header className="border-b bg-card sticky top-0 z-50">
+      <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto max-w-7xl px-4 py-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <GraduationCap className="h-7 w-7 text-amber-600" />
-              <h1 className="text-lg font-bold">OWL COURSE</h1>
+            <div className="flex items-center gap-2.5">
+              <div className="bg-amber-100 rounded-lg p-1.5">
+                <GraduationCap className="h-6 w-6 text-amber-600" />
+              </div>
+              <div>
+                <h1 className="text-lg font-bold leading-tight">OWL COURSE</h1>
+                <p className="text-[10px] text-muted-foreground leading-tight">دورات يودمي مجانية</p>
+              </div>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant="secondary" className="text-xs">
-                {stats.total_courses} كورس مجاني
-              </Badge>
+              {total > 0 && (
+                <Badge variant="secondary" className="text-xs font-medium">
+                  <Gift className="h-3 w-3 mr-1" />
+                  {total} كورس
+                </Badge>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
@@ -199,27 +210,32 @@ export default function Home() {
 
       <main className="flex-1 container mx-auto max-w-7xl px-4 py-6 space-y-6">
         {/* Hero / Search Section */}
-        <section className="text-center space-y-4">
+        <section className="text-center space-y-3">
+          <div className="inline-flex items-center gap-2 bg-amber-50 text-amber-700 text-xs font-medium px-3 py-1.5 rounded-full border border-amber-200">
+            <Zap className="h-3 w-3" />
+            <span>محدّثة تلقائياً من UdemyFreebies</span>
+          </div>
           <h2 className="text-2xl sm:text-3xl font-bold">
             دورات مجانية <span className="text-amber-600">عالية الجودة</span>
           </h2>
-          <p className="text-muted-foreground text-sm">
-            اكتشف أفضل الدورات المجانية من يودمي — محدّثة تلقائياً
+          <p className="text-muted-foreground text-sm max-w-lg mx-auto">
+            اكتشف أفضل الدورات المجانية من يودمي مع كوبونات 100% مجانية — تسجيل مباشر
           </p>
           <div className="flex gap-2 max-w-xl mx-auto">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="ابحث عن دورة..."
+                placeholder="ابحث عن دورة... (Python, React, Design...)"
                 value={filters.search}
                 onChange={(e) => handleSearch(e.target.value)}
-                className="pl-9"
+                className="pl-9 h-10"
               />
             </div>
             <Button
               variant="outline"
               size="icon"
               onClick={() => setShowFilters(!showFilters)}
+              className={showFilters ? 'bg-amber-50 border-amber-200' : ''}
             >
               <Filter className="h-4 w-4" />
             </Button>
@@ -241,14 +257,15 @@ export default function Home() {
               </SelectContent>
             </Select>
 
-            <Select value={filters.source || 'all'} onValueChange={handleSource}>
+            <Select value={filters.sort} onValueChange={handleSort}>
               <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="المصدر" />
+                <SelectValue placeholder="ترتيب" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">كل المصادر</SelectItem>
-                <SelectItem value="udemyfreebies">UdemyFreebies</SelectItem>
-                <SelectItem value="studybullet">StudyBullet</SelectItem>
+                <SelectItem value="newest">الأحدث</SelectItem>
+                <SelectItem value="rating">الأعلى تقييماً</SelectItem>
+                <SelectItem value="students">الأكثر طلاباً</SelectItem>
+                <SelectItem value="title">الاسم A-Z</SelectItem>
               </SelectContent>
             </Select>
 
@@ -276,10 +293,10 @@ export default function Home() {
                 <X className="h-3 w-3 cursor-pointer" onClick={() => handleCategory('all')} />
               </Badge>
             )}
-            {filters.source && (
+            {filters.sort !== 'newest' && (
               <Badge variant="secondary" className="gap-1">
-                {filters.source}
-                <X className="h-3 w-3 cursor-pointer" onClick={() => handleSource('all')} />
+                {filters.sort === 'rating' ? 'الأعلى تقييماً' : filters.sort === 'students' ? 'الأكثر طلاباً' : 'الاسم'}
+                <X className="h-3 w-3 cursor-pointer" onClick={() => handleSort('newest')} />
               </Badge>
             )}
             <span className="text-xs text-muted-foreground self-center">
@@ -287,18 +304,6 @@ export default function Home() {
             </span>
           </div>
         )}
-
-        {/* Stats Bar */}
-        <div className="flex gap-4 justify-center text-xs text-muted-foreground">
-          <span className="flex items-center gap-1">
-            <Zap className="h-3 w-3 text-amber-500" />
-            {stats.udemy_courses} من UdemyFreebies
-          </span>
-          <span className="flex items-center gap-1">
-            <BookOpen className="h-3 w-3 text-green-500" />
-            {stats.studybullet_courses} من StudyBullet
-          </span>
-        </div>
 
         <Separator />
 
@@ -319,7 +324,7 @@ export default function Home() {
         ) : courses.length === 0 ? (
           <div className="text-center py-16 text-muted-foreground">
             <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-30" />
-            <p className="text-lg">لا توجد دورات</p>
+            <p className="text-lg font-medium">لا توجد دورات</p>
             <p className="text-sm mt-1">جرّب تغيير الفلاتر أو عد لاحقاً</p>
           </div>
         ) : (
@@ -364,7 +369,7 @@ export default function Home() {
       <footer className="border-t bg-card mt-auto">
         <div className="container mx-auto max-w-7xl px-4 py-4 text-center">
           <p className="text-xs text-muted-foreground">
-            OWL COURSE — دورات مجانية من يودمي — محدّثة تلقائياً
+            OWL COURSE — دورات مجانية من يودمي مع كوبونات 100% — المصدر: UdemyFreebies
           </p>
         </div>
       </footer>
@@ -395,13 +400,20 @@ export default function Home() {
                     target.src = 'https://img-b.udemycdn.com/course/480x270/placeholder.jpg'
                   }}
                 />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                 <div className="absolute top-3 right-3 flex gap-1.5">
-                  <Badge className="text-xs bg-white/90 text-foreground">
-                    {selectedCourse.source === 'udemyfreebies' ? 'Udemy' : 'StudyBullet'}
+                  <Badge className="text-xs bg-white/90 text-foreground backdrop-blur-sm">
+                    Udemy
                   </Badge>
                   <Badge className="text-xs bg-green-600 text-white">
-                    FREE
+                    <Gift className="h-3 w-3 mr-1" />
+                    FREE 100%
                   </Badge>
+                </div>
+                <div className="absolute bottom-3 left-3 right-3">
+                  <h3 className="text-white font-bold text-base leading-tight line-clamp-2 drop-shadow-md">
+                    {selectedCourse.title}
+                  </h3>
                 </div>
               </div>
 
@@ -409,49 +421,41 @@ export default function Home() {
               <ScrollArea className="max-h-[60vh]">
                 <div className="p-6 space-y-5">
                   <DialogHeader>
-                    <DialogTitle className="text-lg font-bold leading-relaxed">
-                      {selectedCourse.title}
-                    </DialogTitle>
+                    <DialogTitle className="sr-only">{selectedCourse.title}</DialogTitle>
                   </DialogHeader>
 
                   {/* Meta Info Grid */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                     {selectedCourse.instructor && (
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground p-2 bg-muted rounded-md">
-                        <User className="h-3.5 w-3.5 shrink-0" />
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground p-2.5 bg-muted/50 rounded-lg">
+                        <User className="h-3.5 w-3.5 shrink-0 text-amber-600" />
                         <span className="truncate">{selectedCourse.instructor}</span>
                       </div>
                     )}
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground p-2 bg-muted rounded-md">
-                      <Tag className="h-3.5 w-3.5 shrink-0" />
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground p-2.5 bg-muted/50 rounded-lg">
+                      <Tag className="h-3.5 w-3.5 shrink-0 text-amber-600" />
                       <span className="truncate">{selectedCourse.category}</span>
                     </div>
-                    {selectedCourse.rating && (
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground p-2 bg-muted rounded-md">
+                    {selectedCourse.rating ? (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground p-2.5 bg-muted/50 rounded-lg">
                         <Star className="h-3.5 w-3.5 shrink-0 text-amber-500" />
-                        <span>{selectedCourse.rating}/5</span>
+                        <span className="font-medium">{selectedCourse.rating}/5</span>
                       </div>
-                    )}
-                    {selectedCourse.students_count && (
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground p-2 bg-muted rounded-md">
-                        <Users className="h-3.5 w-3.5 shrink-0" />
+                    ) : null}
+                    {selectedCourse.students_count ? (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground p-2.5 bg-muted/50 rounded-lg">
+                        <TrendingUp className="h-3.5 w-3.5 shrink-0 text-green-600" />
                         <span>{selectedCourse.students_count.toLocaleString()} طالب</span>
                       </div>
-                    )}
+                    ) : null}
                     {selectedCourse.language && (
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground p-2 bg-muted rounded-md">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground p-2.5 bg-muted/50 rounded-lg">
                         <Globe className="h-3.5 w-3.5 shrink-0" />
                         <span>{selectedCourse.language}</span>
                       </div>
                     )}
-                    {selectedCourse.duration && (
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground p-2 bg-muted rounded-md">
-                        <Clock className="h-3.5 w-3.5 shrink-0" />
-                        <span>{selectedCourse.duration}</span>
-                      </div>
-                    )}
                     {selectedCourse.original_price && (
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground p-2 bg-muted rounded-md">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground p-2.5 bg-muted/50 rounded-lg">
                         <Zap className="h-3.5 w-3.5 shrink-0 text-green-600" />
                         <span className="line-through">{selectedCourse.original_price}</span>
                       </div>
@@ -463,7 +467,7 @@ export default function Home() {
                     <div>
                       <h4 className="text-sm font-semibold mb-2">وصف الدورة</h4>
                       <p className="text-sm text-muted-foreground leading-relaxed">
-                        {selectedCourse.description || 'لا يوجد وصف متاح لهذه الدورة.'}
+                        {selectedCourse.description}
                       </p>
                     </div>
                   )}
@@ -477,18 +481,18 @@ export default function Home() {
                       rel="noopener noreferrer"
                       className="flex-1"
                     >
-                      <Button className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold h-12 text-sm gap-2">
+                      <Button className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold h-12 text-sm gap-2 rounded-lg">
                         <ExternalLink className="h-4 w-4" />
-                        احصل على الدورة مجاناً
+                        احصل على الدورة مجاناً على Udemy
                         <ArrowRight className="h-4 w-4" />
                       </Button>
                     </a>
-                    <Button variant="outline" onClick={closeDetail} className="h-12">
+                    <Button variant="outline" onClick={closeDetail} className="h-12 rounded-lg">
                       رجوع
                     </Button>
                   </div>
                   <p className="text-[10px] text-center text-muted-foreground">
-                    سيتم توجيهك إلى صفحة الدورة على يودمي — الاشتراك مجاني 100%
+                    سيتم توجيهك إلى صفحة الدورة على يودمي مع كوبون مجاني 100% — اشتراك مباشر بدون دفع
                   </p>
 
                   {/* Related Courses */}
@@ -550,7 +554,7 @@ export default function Home() {
 function CourseCard({ course, onClick }: { course: Course; onClick: () => void }) {
   return (
     <Card
-      className="overflow-hidden hover:shadow-md transition-shadow group cursor-pointer"
+      className="overflow-hidden hover:shadow-lg transition-all group cursor-pointer border hover:border-amber-200"
       onClick={onClick}
     >
       <div className="relative aspect-[16/10] bg-muted">
@@ -564,24 +568,46 @@ function CourseCard({ course, onClick }: { course: Course; onClick: () => void }
           }}
           loading="lazy"
         />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
         <div className="absolute top-2 right-2 flex gap-1">
-          <Badge variant="secondary" className="text-[10px] bg-white/90">
-            {course.source === 'udemyfreebies' ? 'Udemy' : 'StudyBullet'}
-          </Badge>
-          <Badge variant="secondary" className="text-[10px] bg-red-500 text-white">
+          <Badge className="text-[10px] bg-green-600 text-white">
+            <Gift className="h-2.5 w-2.5 mr-0.5" />
             FREE
           </Badge>
         </div>
+        {/* Quick info overlay on hover */}
+        <div className="absolute bottom-2 left-2 right-2 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          {course.rating && (
+            <Badge className="text-[10px] bg-white/90 text-foreground">
+              <Star className="h-2.5 w-2.5 mr-0.5 text-amber-500" />
+              {course.rating}
+            </Badge>
+          )}
+          {course.students_count && (
+            <Badge className="text-[10px] bg-white/90 text-foreground">
+              <TrendingUp className="h-2.5 w-2.5 mr-0.5" />
+              {course.students_count.toLocaleString()}
+            </Badge>
+          )}
+        </div>
       </div>
-      <CardContent className="p-4 space-y-2">
-        <h3 className="font-semibold text-sm line-clamp-2 group-hover:text-amber-600 transition-colors">
+      <CardContent className="p-4 space-y-2.5">
+        <h3 className="font-semibold text-sm line-clamp-2 group-hover:text-amber-600 transition-colors leading-snug">
           {course.title}
         </h3>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Badge variant="outline" className="text-[10px]">{course.category}</Badge>
-          {course.instructor && <span className="truncate">{course.instructor}</span>}
+          <Badge variant="outline" className="text-[10px] shrink-0">{course.category}</Badge>
+          {course.instructor && (
+            <span className="truncate text-[11px]">{course.instructor}</span>
+          )}
         </div>
-        <div className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 mt-1">
+        {course.original_price && (
+          <div className="flex items-center gap-1.5 text-[11px]">
+            <span className="line-through text-muted-foreground">{course.original_price}</span>
+            <span className="font-semibold text-green-600">Free</span>
+          </div>
+        )}
+        <div className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 pt-1">
           <BookOpen className="h-3 w-3" />
           عرض التفاصيل
           <ArrowRight className="h-3 w-3" />

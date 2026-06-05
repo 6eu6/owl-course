@@ -347,7 +347,7 @@ function ScraperPanel({ password, onDone }: { password: string; onDone: () => vo
           <CardTitle className="text-sm flex items-center gap-2">
             <Zap className="h-4 w-4 text-amber-600" /> Run Scraper
           </CardTitle>
-          <CardDescription>Scrape free courses from UdemyFreebies and StudyBullet in parallel</CardDescription>
+          <CardDescription>Scrape free courses from UdemyFreebies with 100% free coupon codes</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex flex-wrap gap-2">
@@ -358,9 +358,7 @@ function ScraperPanel({ password, onDone }: { password: string; onDone: () => vo
             <Button variant="outline" onClick={() => runScraper('udemyfreebies')} disabled={running}>
               UdemyFreebies
             </Button>
-            <Button variant="outline" onClick={() => runScraper('studybullet')} disabled={running}>
-              StudyBullet
-            </Button>
+
           </div>
           {result && (
             <div className={`p-4 rounded-md text-sm space-y-1 ${result.success ? 'bg-green-50 text-green-700 border border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800' : 'bg-red-50 text-red-700 border border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-800'}`}>

@@ -6,7 +6,7 @@ import { verifyAdminPassword, getRecentScraperLogs } from '@/lib/mongodb';
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
-    const { password, source } = body;
+    const { password, pages } = body;
 
     // Verify admin password
     const isValid = await verifyAdminPassword(password);
@@ -17,22 +17,22 @@ export async function POST(request: Request) {
       );
     }
 
-    // Run scraper with optional source filter
-    const sources: string[] | undefined = source && source !== 'all' ? [source] : undefined;
-    const results = await runFullScrape(sources);
+    // Run scraper with optional page count (default 5 pages)
+    const results = await runFullScrape({
+      pages: pages || 5,
+    });
 
     return NextResponse.json({
       success: true,
       message: results.totalNew > 0
-        ? `Added ${results.totalNew} new courses`
-        : 'No new courses found',
+        ? `Added ${results.totalNew} new courses from ${pages || 5} pages`
+        : 'No new courses found (all duplicates)',
       totalNew: results.totalNew,
       totalDup: results.totalDup,
       totalErr: results.totalErr,
       totalDuration: results.totalDuration,
       details: {
         udemyfreebies: results.udemyfreebies,
-        studybullet: results.studybullet,
       },
     });
   } catch (e) {
