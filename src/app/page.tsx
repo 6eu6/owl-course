@@ -39,6 +39,9 @@ import {
   Moon,
   Sun,
   Languages,
+  Infinity,
+  Timer,
+  Zap,
 } from 'lucide-react'
 import { tx, getCat, Lang, CATEGORIES } from '@/lib/translations'
 
@@ -54,12 +57,15 @@ interface Course {
   instructor: string
   category: string
   image_url: string
-  udemy_url?: string
   source: string
+  sourceDetail?: string | null
   rating: number | null
   students_count: number | null
   original_price: string | null
   language: string | null
+  duration: string | null
+  couponExpiresAt?: string | null
+  isFreeForever?: boolean
   scraped_at: string
 }
 
@@ -74,6 +80,7 @@ interface CourseDetail {
   udemy_url: string
   udemyUrl: string
   source: string
+  sourceDetail?: string | null
   rating: number | null
   students_count: number | null
   original_price: string | null
@@ -84,6 +91,8 @@ interface CourseDetail {
   whatLearn: string
   lastUpdated: string | null
   couponCode: string | null
+  couponExpiresAt?: string | null
+  isFreeForever?: boolean
   scraped_at: string
 }
 
@@ -95,14 +104,15 @@ interface CategoryInfo {
 type View = 'grid' | 'detail' | 'link'
 
 // ============================================
-// Lang context
-// ============================================
-
-// Lang context removed — using direct prop passing instead
-
-// ============================================
 // Main Component
 // ============================================
+
+const SOURCE_LABELS: Record<string, { ar: string; en: string; color: string }> = {
+  udemyfreebies: { ar: 'UdemyFreebies', en: 'UdemyFreebies', color: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400 border-blue-200 dark:border-blue-800' },
+  discudemy: { ar: 'DiscUdemy', en: 'DiscUdemy', color: 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-400 border-purple-200 dark:border-purple-800' },
+  freebiesglobal: { ar: 'FreebiesGlobal', en: 'FreebiesGlobal', color: 'bg-teal-100 text-teal-700 dark:bg-teal-950 dark:text-teal-400 border-teal-200 dark:border-teal-800' },
+  manual: { ar: 'يدوي', en: 'Manual', color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border-gray-200 dark:border-gray-700' },
+}
 
 export default function Home() {
   const [lang, setLang] = useState<Lang>('ar')
@@ -282,6 +292,50 @@ export default function Home() {
 }
 
 // ============================================
+// SOURCE BADGE COMPONENT
+// ============================================
+
+function SourceBadge({ source, lang }: { source: string; lang: Lang }) {
+  const info = SOURCE_LABELS[source] || SOURCE_LABELS.manual
+  return (
+    <Badge variant="outline" className={`text-[10px] font-medium border ${info.color}`}>
+      {info[lang]}
+    </Badge>
+  )
+}
+
+// ============================================
+// FREE FOREVER / EXPIRY BADGE
+// ============================================
+
+function CouponBadge({ isFreeForever, couponExpiresAt, lang }: { isFreeForever?: boolean; couponExpiresAt?: string | null; lang: Lang }) {
+  if (isFreeForever) {
+    return (
+      <Badge className="text-[10px] bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-800">
+        <Infinity className="h-2.5 w-2.5 ml-0.5" />
+        {lang === 'ar' ? 'مجاني للأبد' : 'Free Forever'}
+      </Badge>
+    )
+  }
+  if (couponExpiresAt) {
+    const expiryDate = new Date(couponExpiresAt)
+    const now = new Date()
+    const isExpired = expiryDate < now
+    const daysLeft = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+    return (
+      <Badge className={`text-[10px] ${isExpired ? 'bg-red-100 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-400 dark:border-red-800' : 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-800'}`}>
+        <Timer className="h-2.5 w-2.5 ml-0.5" />
+        {isExpired
+          ? (lang === 'ar' ? 'منتهي' : 'Expired')
+          : `${daysLeft}d ${lang === 'ar' ? 'متبقي' : 'left'}`
+        }
+      </Badge>
+    )
+  }
+  return null
+}
+
+// ============================================
 // GRID PAGE
 // ============================================
 
@@ -447,10 +501,13 @@ function CourseCard({ course, lang, t, onClick }: any) {
       <div className="relative aspect-[16/10] bg-muted overflow-hidden">
         <img src={course.image_url} alt={course.title} className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300" onError={(e: any) => { e.target.src = 'https://img-b.udemycdn.com/course/480x270/placeholder.jpg' }} loading="lazy" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
-        <div className={`absolute top-2 ${isRtl ? 'right-2' : 'left-2'}`}>
+        <div className={`absolute top-2 ${isRtl ? 'right-2' : 'left-2'} flex flex-col gap-1`}>
           <Badge className="text-[10px] font-bold bg-green-600 text-white border-0"><Gift className="h-2.5 w-2.5 ml-0.5" />FREE</Badge>
+          {course.isFreeForever && (
+            <Badge className="text-[9px] bg-emerald-500 text-white border-0"><Infinity className="h-2 w-2 ml-0.5" />∞</Badge>
+          )}
         </div>
-        <div className={`absolute top-2 ${isRtl ? 'left-2' : 'right-2'}`}>
+        <div className={`absolute top-2 ${isRtl ? 'left-2' : 'right-2'} flex flex-col gap-1 items-end`}>
           <span className="text-[10px] px-1.5 py-0.5 rounded-md border bg-white/90 dark:bg-black/60 text-foreground dark:text-white backdrop-blur-sm">
             {info.icon} {info[lang]}
           </span>
@@ -462,11 +519,16 @@ function CourseCard({ course, lang, t, onClick }: any) {
       </div>
       <CardContent className="p-3 space-y-1.5">
         <h3 className="font-medium text-[13px] line-clamp-2 group-hover:text-amber-700 dark:group-hover:text-amber-400 transition-colors leading-snug">{course.title}</h3>
-        {course.instructor && (
-          <div className="flex items-center gap-1 text-[11px] text-muted-foreground truncate"><User className="h-3 w-3 shrink-0" /><span className="truncate">{course.instructor}</span></div>
-        )}
+        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          {course.instructor && (
+            <span className="flex items-center gap-1 truncate"><User className="h-3 w-3 shrink-0" /><span className="truncate">{course.instructor}</span></span>
+          )}
+        </div>
         <div className="flex items-center justify-between pt-0.5">
-          <Badge variant="secondary" className="text-[10px] font-bold bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-400 dark:border-green-900">{t('free100')}</Badge>
+          <div className="flex items-center gap-1">
+            <SourceBadge source={course.source} lang={lang} />
+            <CouponBadge isFreeForever={course.isFreeForever} couponExpiresAt={course.couponExpiresAt} lang={lang} />
+          </div>
           <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
             {t('details')} <ArrowLeft className={`inline h-2.5 w-2.5 ${isRtl ? '' : 'rotate-180'}`} />
           </span>
@@ -494,8 +556,9 @@ function DetailPage({ lang, dir, t, course, relatedCourses, loading, onGoToLink,
       <div className="relative aspect-[16/7] bg-muted rounded-xl overflow-hidden">
         <img src={course.image_url} alt={course.title} className="w-full h-full object-cover" onError={(e: any) => { e.target.src = 'https://img-b.udemycdn.com/course/480x270/placeholder.jpg' }} />
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-        <div className={`absolute top-3 ${lang === 'ar' ? 'right-3' : 'left-3'} flex gap-1.5`}>
-          <Badge className="text-[11px] bg-white/90 dark:bg-black/60 text-foreground dark:text-white backdrop-blur-sm border-0 font-medium">Udemy</Badge>
+        <div className={`absolute top-3 ${lang === 'ar' ? 'right-3' : 'left-3'} flex gap-1.5 flex-wrap">
+          <SourceBadge source={course.source} lang={lang} />
+          <CouponBadge isFreeForever={course.isFreeForever} couponExpiresAt={course.couponExpiresAt} lang={lang} />
           <Badge className="text-[11px] bg-green-600 text-white border-0 font-bold"><Gift className="h-2.5 w-2.5 ml-1" />FREE 100%</Badge>
         </div>
         <div className="absolute bottom-3 left-3 right-3">
@@ -507,14 +570,24 @@ function DetailPage({ lang, dir, t, course, relatedCourses, loading, onGoToLink,
       {/* Info cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {course.instructor && <InfoCard icon={<User className="h-3.5 w-3.5 text-amber-600" />} label={t('instructor')} value={course.instructor} />}
-        <InfoCard icon={<Star className="h-3.5 w-3.5 text-amber-500" />} label={t('rating')} value={course.rating ? `${course.rating}/5` : '—'} />
+        <InfoCard icon={<Star className="h-3.5 w-3.5 text-amber-500" />} label={t('rating')} value={course.rating ? (course.rating + '/5') : '-'} />
         {course.students_count > 0 && <InfoCard icon={<TrendingUp className="h-3.5 w-3.5 text-green-600" />} label={t('students')} value={course.students_count.toLocaleString()} />}
         {course.language && <InfoCard icon={<Globe className="h-3.5 w-3.5 text-teal-600" />} label={t('language')} value={course.language} />}
         {course.duration && <InfoCard icon={<Clock className="h-3.5 w-3.5 text-orange-600" />} label={t('duration')} value={course.duration} />}
         {course.original_price && <InfoCard icon={<Tag className="h-3.5 w-3.5 text-rose-600" />} label={t('originalPrice')} value={<span className="line-through">{course.original_price}</span>} />}
         {course.lastUpdated && <InfoCard icon={<Calendar className="h-3.5 w-3.5 text-violet-600" />} label={t('lastUpdated')} value={course.lastUpdated} />}
-        <InfoCard icon={<Sparkles className="h-3.5 w-3.5 text-amber-600" />} label={t('source')} value="UdemyFreebies" />
+        <InfoCard icon={<Zap className="h-3.5 w-3.5 text-amber-600" />} label={t('source')} value={course.sourceDetail || course.source} />
       </div>
+
+      {/* Free forever banner */}
+      {course.isFreeForever && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-900">
+          <Infinity className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+          <p className="text-xs text-emerald-800 dark:text-emerald-300 font-medium">
+            {lang === 'ar' ? 'هذه الدورة مجانية للأبد - ستحتفظ بها مدى الحياة بعد التسجيل' : 'This course is free forever - you keep it for life after enrolling'}
+          </p>
+        </div>
+      )}
 
       {/* Sections */}
       {course.description && (
@@ -549,10 +622,16 @@ function DetailPage({ lang, dir, t, course, relatedCourses, loading, onGoToLink,
               <Card key={rc.id} className="overflow-hidden cursor-pointer group" onClick={() => onCardClick(rc.slug)}>
                 <div className="relative aspect-[16/9] bg-muted">
                   <img src={rc.image_url} alt={rc.title} className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300" onError={(e: any) => { e.target.src = 'https://img-b.udemycdn.com/course/480x270/placeholder.jpg' }} loading="lazy" />
+                  {rc.isFreeForever && (
+                    <Badge className="absolute top-1 left-1 text-[9px] bg-emerald-500 text-white border-0"><Infinity className="h-2 w-2 ml-0.5" />∞</Badge>
+                  )}
                 </div>
                 <CardContent className="p-2">
                   <h5 className="text-[11px] font-medium line-clamp-2 group-hover:text-amber-700 dark:group-hover:text-amber-400 leading-snug">{rc.title}</h5>
-                  <span className="text-[10px] mt-1 inline-block px-1 py-0.5 rounded border bg-muted">{getCat(rc.category).icon} {getCat(rc.category)[lang]}</span>
+                  <div className="flex items-center gap-1 mt-1">
+                    <span className="text-[10px] px-1 py-0.5 rounded border bg-muted">{getCat(rc.category).icon} {getCat(rc.category)[lang]}</span>
+                    <SourceBadge source={rc.source} lang={lang} />
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -610,6 +689,8 @@ function LinkPage({ lang, dir, t, course, onBack }: any) {
           {course.instructor && <span className="flex items-center gap-1"><User className="h-3 w-3" />{course.instructor}</span>}
           {course.rating && <span className="flex items-center gap-1"><Star className="h-3 w-3 text-amber-500" />{course.rating}/5</span>}
           {course.students_count > 0 && <span className="flex items-center gap-1"><TrendingUp className="h-3 w-3" />{course.students_count.toLocaleString()}</span>}
+          <span className="flex items-center gap-1"><SourceBadge source={course.source} lang={lang} /></span>
+          {course.isFreeForever && <span className="flex items-center gap-1"><CouponBadge isFreeForever={course.isFreeForever} lang={lang} /></span>}
         </CardContent>
       </Card>
 

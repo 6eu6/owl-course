@@ -32,6 +32,10 @@ model Course {
   lastUpdated    String?
   couponCode     String?   @default("")
   couponUrl      String?   @default("")
+  couponExpiresAt DateTime?
+  isFreeForever  Boolean   @default(false)
+  sourceDetail   String?
+  scrapeRunId    String?
   isPublished    Boolean   @default(true)
   telegramPosted Boolean   @default(false)
   telegramPostedAt DateTime?
@@ -46,6 +50,8 @@ model Course {
   @@index([isPublished])
   @@index([telegramPosted])
   @@index([scrapedAt])
+  @@index([couponExpiresAt])
+  @@index([isFreeForever])
 }
 
 model Category {

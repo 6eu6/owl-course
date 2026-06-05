@@ -6,7 +6,7 @@ import { verifyAdminPassword, getRecentScraperLogs } from '@/lib/mongodb';
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
-    const { password, pages, action } = body;
+    const { password, pages, action, sources } = body;
 
     // Verify admin password
     const isValid = await verifyAdminPassword(password);
@@ -27,16 +27,18 @@ export async function POST(request: Request) {
       });
     }
 
-    // Run scraper with optional page count (default 20 pages)
+    // Run scraper with optional page count and sources
     const maxPages = Math.min(Math.max(parseInt(String(pages)) || 20, 1), 223);
+    const sourceList = Array.isArray(sources) ? sources : undefined;
     const results = await runFullScrape({
       pages: maxPages,
+      sources: sourceList,
     });
 
     return NextResponse.json({
       success: true,
       message: results.totalNew > 0
-        ? `Added ${results.totalNew} new courses from ${maxPages} pages in ${Math.round(results.totalDuration / 1000)}s`
+        ? `Added ${results.totalNew} new courses in ${Math.round(results.totalDuration / 1000)}s`
         : 'No new courses found (all duplicates or expired coupons)',
       totalNew: results.totalNew,
       totalDup: results.totalDup,
@@ -45,7 +47,15 @@ export async function POST(request: Request) {
       details: {
         udemyfreebies: {
           ...results.udemyfreebies,
-          courses: undefined, // Don't return full course data in response
+          courses: undefined,
+        },
+        discudemy: {
+          ...results.discudemy,
+          courses: undefined,
+        },
+        freebiesglobal: {
+          ...results.freebiesglobal,
+          courses: undefined,
         },
       },
     });

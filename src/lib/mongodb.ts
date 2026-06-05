@@ -85,6 +85,10 @@ export async function createCourseIfNotExists(data: {
   lastUpdated?: string | null;
   couponCode?: string | null;
   couponUrl?: string | null;
+  couponExpiresAt?: Date | null;
+  isFreeForever?: boolean;
+  sourceDetail?: string;
+  scrapeRunId?: string;
 }): Promise<{ created: boolean; course?: Prisma.PromiseReturnType<typeof db.course.create> }> {
   // Check for duplicate by udemyUrl
   const existing = await getCourseByUrl(data.udemyUrl);

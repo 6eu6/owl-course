@@ -12,6 +12,7 @@ export async function GET(request: Request) {
     const category = searchParams.get('category') || '';
     const source = searchParams.get('source') || '';
     const sort = searchParams.get('sort') || 'newest';
+    const freeForever = searchParams.get('freeForever') || '';
 
     let settings: { site_name: string; site_description: string; courses_per_page: number };
     try {
@@ -25,9 +26,6 @@ export async function GET(request: Request) {
     const totalCourses = await countCourses({ isPublished: true });
     const bySource = await countCoursesBySource();
 
-    const udemyCount = bySource.find(s => s._id === 'udemyfreebies')?.count || 0;
-    const studybulletCount = bySource.find(s => s._id === 'studybullet')?.count || 0;
-
     return NextResponse.json({
       success: true,
       courses: courses.map(c => ({
@@ -40,11 +38,14 @@ export async function GET(request: Request) {
         imageUrl: c.imageUrl,
         image_url: c.imageUrl,
         source: c.source,
+        sourceDetail: c.sourceDetail || null,
         rating: c.rating || null,
         students_count: c.studentsCount || null,
         original_price: c.originalPrice || null,
         language: c.language || null,
         duration: c.duration || null,
+        couponExpiresAt: c.couponExpiresAt?.toISOString() || null,
+        isFreeForever: c.isFreeForever || false,
         scraped_at: c.scrapedAt,
       })),
       pagination: {
@@ -59,11 +60,14 @@ export async function GET(request: Request) {
         current_search: search,
         current_source: source,
         current_sort: sort,
+        current_freeForever: freeForever,
       },
       stats: {
         total_courses: totalCourses,
-        udemy_courses: udemyCount,
-        studybullet_courses: studybulletCount,
+        by_source: bySource.reduce((acc, s) => {
+          acc[s._id] = s.count;
+          return acc;
+        }, {} as Record<string, number>),
       },
       settings,
     });
@@ -74,8 +78,8 @@ export async function GET(request: Request) {
         success: false,
         courses: [],
         pagination: { page: 1, limit: 12, total: 0, total_pages: 0 },
-        filters: { categories: [], current_category: '', current_search: '', current_source: '', current_sort: 'newest' },
-        stats: { total_courses: 0, udemy_courses: 0, studybullet_courses: 0 },
+        filters: { categories: [], current_category: '', current_search: '', current_source: '', current_sort: 'newest', current_freeForever: '' },
+        stats: { total_courses: 0, by_source: {} },
         settings: { site_name: 'OWL COURSE', site_description: '', courses_per_page: 12 },
         error: String(e),
       },
