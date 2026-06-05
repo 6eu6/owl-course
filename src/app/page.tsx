@@ -102,6 +102,7 @@ interface CourseDetail {
   couponUrl: string | null
   couponExpiresAt: string | null
   isFreeForever: boolean
+  couponVerified: boolean
   scraped_at: string
 }
 

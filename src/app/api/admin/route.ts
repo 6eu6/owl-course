@@ -95,7 +95,7 @@ export async function POST(request: Request) {
     if (action === 'scrape') {
       const { source } = body;
       const sources: string[] | undefined = source && source !== 'all' ? [source] : undefined;
-      const results = await runFullScrape(sources);
+      const results = await runFullScrape({ sources });
 
       return NextResponse.json({
         success: true,
@@ -108,7 +108,8 @@ export async function POST(request: Request) {
         totalDuration: results.totalDuration,
         details: {
           udemyfreebies: results.udemyfreebies,
-          studybullet: results.studybullet,
+          discudemy: results.discudemy,
+          freebiesglobal: results.freebiesglobal,
         },
       });
     }

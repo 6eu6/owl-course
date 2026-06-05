@@ -83,8 +83,8 @@ export async function createCourseIfNotExists(data: {
   whoFor?: string;
   whatLearn?: string;
   lastUpdated?: string | null;
-  couponCode?: string | null;
-  couponUrl?: string | null;
+  couponCode?: string;
+  couponUrl?: string;
   couponExpiresAt?: Date | null;
   isFreeForever?: boolean;
   sourceDetail?: string;
@@ -97,14 +97,25 @@ export async function createCourseIfNotExists(data: {
 
   // Try to create, handle slug uniqueness
   try {
-    const course = await db.course.create({ data });
+    const course = await db.course.create({
+      data: {
+        ...data,
+        couponCode: data.couponCode ?? '',
+        couponUrl: data.couponUrl ?? '',
+      },
+    });
     return { created: true, course };
   } catch (err: unknown) {
     const prismaErr = err as { code?: string };
     if (prismaErr?.code === 'P2002') {
       // Slug collision - add timestamp suffix
       const course = await db.course.create({
-        data: { ...data, slug: `${data.slug}-${Date.now()}` },
+        data: {
+          ...data,
+          slug: `${data.slug}-${Date.now()}`,
+          couponCode: data.couponCode ?? '',
+          couponUrl: data.couponUrl ?? '',
+        },
       });
       return { created: true, course };
     }
@@ -367,7 +378,7 @@ export async function cleanupInvalidCourses(): Promise<{
     where: {
       OR: [
         { couponCode: { in: badCouponCodes } },
-        { couponCode: { isEmpty: true } },
+        { couponCode: { equals: '' } },
         { couponCode: 'DIRECT' },
       ],
     },

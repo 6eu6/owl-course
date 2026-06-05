@@ -17,7 +17,7 @@ export interface SiteSettings {
 }
 
 export async function getSiteSettings(): Promise<SiteSettings> {
-  const settings = await getAllSettings().catch(() => ({}));
+  const settings: Record<string, string> = await getAllSettings().catch(() => ({} as Record<string, string>));
   return {
     site_name: settings.site_name || DEFAULT_SITE_SETTINGS.site_name,
     site_description: settings.site_description || DEFAULT_SITE_SETTINGS.site_description,
