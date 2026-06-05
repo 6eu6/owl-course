@@ -173,21 +173,10 @@ export async function upsertCourseCoupon(
     couponVerified?: boolean;
   }
 ): Promise<{ updated: boolean }> {
-  // Find course by udemyUrl (normalized - without couponCode param)
   try {
-    const urlObj = new URL(udemyUrl);
-    urlObj.searchParams.delete('couponCode');
-    urlObj.searchParams.delete('coupon');
-    const normalizedUrl = urlObj.toString().replace(/\?$/, '');
-
-    // Try to find by the normalized URL
-    const existing = await db.course.findFirst({
-      where: {
-        OR: [
-          { udemyUrl: normalizedUrl },
-          { udemyUrl: { contains: urlObj.pathname } },
-        ],
-      },
+    // udemyUrl is now the BASE URL (without couponCode), so we can find directly
+    const existing = await db.course.findUnique({
+      where: { udemyUrl },
     });
 
     if (!existing) {

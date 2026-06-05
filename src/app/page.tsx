@@ -1049,23 +1049,26 @@ function LinkPage(props: LinkPageProps) {
     )
   }
 
-  // Build the correct Udemy URL with coupon code
-  // The couponUrl should contain the coupon code, but construct it properly
+  // Build the Udemy URL with coupon code applied
   const baseUdemyUrl = course.udemy_url || course.udemyUrl || ''
   const couponCode = course.couponCode || ''
-  let udemyUrl = course.couponUrl || baseUdemyUrl
-
-  // Ensure the URL has the coupon code
-  if (couponCode && udemyUrl) {
+  const storedCouponUrl = course.couponUrl || ''
+  
+  // Always construct URL from base + coupon code for correctness
+  let udemyUrl = ''
+  if (couponCode && baseUdemyUrl) {
     try {
-      const urlObj = new URL(udemyUrl)
-      if (!urlObj.searchParams.get('couponCode') && !urlObj.searchParams.get('coupon')) {
-        urlObj.searchParams.set('couponCode', couponCode)
-        udemyUrl = urlObj.toString()
-      }
+      const urlObj = new URL(baseUdemyUrl)
+      urlObj.searchParams.set('couponCode', couponCode)
+      udemyUrl = urlObj.toString()
     } catch {
-      // invalid URL, keep as-is
+      // If base URL is invalid, fall back to stored couponUrl
+      udemyUrl = storedCouponUrl
     }
+  } else if (storedCouponUrl) {
+    udemyUrl = storedCouponUrl
+  } else {
+    udemyUrl = baseUdemyUrl
   }
 
   const couponIsValid = couponStatus === 'valid'

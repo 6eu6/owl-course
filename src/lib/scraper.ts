@@ -763,14 +763,15 @@ async function processCourse(
       return { saved: false, skipped: 'no-valid-coupon' };
     }
 
-    const normalizedUrl = normalizeUdemyUrl(udemyUrl);
+    // Store BASE URL (no coupon) in udemyUrl for proper dedup
+    const baseUrl = normalizeUdemyUrl(udemyUrl);
     const couponUrl = udemyUrl; // Full URL with couponCode param
 
     // --- DEDUP UPDATE: If existing course found, update its coupon ---
-    if (existingUrls.has(normalizedUrl)) {
+    if (existingUrls.has(baseUrl)) {
       // Try to update the existing course with the new coupon
       const couponExpiry = estimateCouponExpiry(couponCode);
-      const upsertResult = await upsertCourseCoupon(normalizedUrl, {
+      const upsertResult = await upsertCourseCoupon(baseUrl, {
         couponCode,
         couponUrl,
         couponExpiresAt: couponExpiry,
@@ -786,7 +787,7 @@ async function processCourse(
           const verifyResult = await verifyCouponOnUdemy(couponUrl);
           if (verifyResult.verified) {
             // Update verified status
-            await upsertCourseCoupon(normalizedUrl, {
+            await upsertCourseCoupon(baseUrl, {
               couponCode,
               couponUrl,
               couponExpiresAt: couponExpiry,
@@ -835,7 +836,7 @@ async function processCourse(
       instructor: course.instructor,
       category: course.category,
       imageUrl: course.imageUrl,
-      udemyUrl,
+      udemyUrl: baseUrl,  // Store BASE URL (no coupon) for dedup
       couponUrl,
       couponCode,
       couponExpiresAt: couponExpiry,
@@ -896,7 +897,7 @@ async function processCourse(
     });
 
     if (dbResult.created) {
-      existingUrls.add(normalizedUrl);
+      existingUrls.add(baseUrl);
       existingTitles.add(normTitle);
       return { saved: true, data: courseData };
     }
@@ -908,7 +909,7 @@ async function processCourse(
   }
 }
 
-async function scrapeUdemyFreebies(maxPages: number = 20): Promise<SourceResult> {
+async function scrapeUdemyFreebies(maxPages: number = 5): Promise<SourceResult> {
   const start = Date.now();
   let newCount = 0;
   let dupCount = 0;
@@ -956,7 +957,8 @@ async function scrapeUdemyFreebies(maxPages: number = 20): Promise<SourceResult>
       const batchResults: PromiseSettledResult<{ saved: boolean; updated?: boolean; skipped?: string; data?: ScrapedCourseData }>[] = [];
 
       // Check if any course in this batch needs verification
-      const needsVerification = batch.some(c => shouldVerifyCoupon(c.pageIndex ?? 99, extractCouponCodeFromContext(c)));
+      // Always verify since we only scrape first 5 pages (quality over quantity)
+      const needsVerification = true;
 
       if (needsVerification) {
         // Sequential processing to respect rate limits
@@ -1174,7 +1176,7 @@ async function processDiscUdemyCourse(
       instructor: '',
       category: categorize(title),
       imageUrl,
-      udemyUrl,
+      udemyUrl: normalizedUrl,  // Store BASE URL (no coupon) for dedup
       couponUrl,
       couponCode,
       couponExpiresAt: couponExpiry,
@@ -1566,7 +1568,7 @@ async function scrapeFreebiesGlobal(): Promise<SourceResult> {
               instructor: '',
               category: categorize(course.title),
               imageUrl: course.imageUrl,
-              udemyUrl: course.udemyUrl,
+              udemyUrl: normalizedUrl,  // Store BASE URL (no coupon) for dedup
               couponUrl,
               couponCode,
               couponExpiresAt: couponExpiry,
