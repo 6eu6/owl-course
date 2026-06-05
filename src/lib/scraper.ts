@@ -228,18 +228,6 @@ function couponHasMonthYear(couponCode: string): boolean {
   return monthPattern.test(couponCode);
 }
 
-/**
- * Detect if a course is genuinely free forever on Udemy.
- * CRITICAL: This should almost NEVER return true.
- * Only courses that are free on Udemy without ANY coupon should be marked as free forever.
- * We can't easily verify this, so we only trust specific patterns.
- */
-function detectFreeForever(couponCode: string): boolean {
-  // Courses with no coupon code are NOT free - they are paid!
-  // Only mark as free forever if we have strong evidence.
-  // For now, we NEVER auto-detect free forever.
-  return false;
-}
 
 // ============================================
 // Coupon Expiry Estimation
@@ -402,7 +390,7 @@ async function verifyCouponOnUdemy(couponUrl: string): Promise<{ isFree: boolean
 
     for (const block of scriptBlocks) {
       // Check __NEXT_DATA__ for pricing info
-      if (block.includes('__NEXT_DATA__') || block.includes('__NEXT_DATA__')) {
+      if (block.includes('__NEXT_DATA__')) {
         // Look for isFree, price patterns in JSON
         const jsonPatterns = [
           { pattern: /"isFree"\s*:\s*true/i, free: true },
@@ -1000,21 +988,10 @@ async function scrapeUdemyFreebies(maxPages: number = 5): Promise<SourceResult> 
       const batchResults: PromiseSettledResult<{ saved: boolean; updated?: boolean; skipped?: string; data?: ScrapedCourseData }>[] = [];
 
       // Check if any course in this batch needs verification
-      // Always verify since we only scrape first 5 pages (quality over quantity)
-      const needsVerification = true;
-
-      if (needsVerification) {
-        // Sequential processing to respect rate limits
-        for (const course of batch) {
-          const result = await processCourse(course, existingUrls, existingTitles);
-          batchResults.push({ status: 'fulfilled', value: result });
-        }
-      } else {
-        // Parallel processing when no verification needed
-        const results = await Promise.allSettled(
-          batch.map(course => processCourse(course, existingUrls, existingTitles))
-        );
-        batchResults.push(...results);
+      // Sequential processing to respect rate limits
+      for (const course of batch) {
+        const result = await processCourse(course, existingUrls, existingTitles);
+        batchResults.push({ status: 'fulfilled', value: result });
       }
 
       for (const result of batchResults) {

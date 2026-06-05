@@ -13,26 +13,17 @@ import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import {
   BookOpen,
-  Send,
   Play,
   Settings,
   Plus,
   Trash2,
   RefreshCw,
-  ExternalLink,
   GraduationCap,
   BarChart3,
   MessageSquare,
   Bot,
   CheckCircle,
-  XCircle,
   Loader2,
   Clock,
   Zap,

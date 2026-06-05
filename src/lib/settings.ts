@@ -1,4 +1,4 @@
-import { getAllSettings, getSetting } from './mongodb';
+import { getAllSettings } from './mongodb';
 
 const DEFAULT_SITE_SETTINGS = {
   site_name: 'OWL COURSE',
@@ -26,5 +26,3 @@ export async function getSiteSettings(): Promise<SiteSettings> {
     scraper_interval_hours: parseInt(settings.scraper_interval_hours || String(DEFAULT_SITE_SETTINGS.scraper_interval_hours)),
   };
 }
-
-export { getSetting, getAllSettings };
