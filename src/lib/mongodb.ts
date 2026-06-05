@@ -1,36 +1,44 @@
 import { db } from '@/lib/db';
+import { Prisma } from '@prisma/client';
 
-// Course operations
-export async function getAllCourses(options: {
+// ============================================
+// Course Operations
+// ============================================
+
+export interface CourseQueryOptions {
   page?: number;
   limit?: number;
   search?: string;
   category?: string;
   source?: string;
   published?: boolean;
-}) {
-  const { page = 1, limit = 12, search, category, source, published = true } = options;
+  sort?: string;
+}
+
+export async function getAllCourses(options: CourseQueryOptions) {
+  const { page = 1, limit = 12, search, category, source, published = true, sort } = options;
   const skip = (page - 1) * limit;
 
-  const where: Record<string, unknown> = {};
+  const where: Prisma.CourseWhereInput = {};
   if (published !== undefined) where.isPublished = published;
   if (search) {
     where.OR = [
-      { title: { contains: search } },
-      { description: { contains: search } },
-      { instructor: { contains: search } },
+      { title: { contains: search, mode: 'insensitive' } },
+      { description: { contains: search, mode: 'insensitive' } },
+      { instructor: { contains: search, mode: 'insensitive' } },
     ];
   }
   if (category) where.category = category;
   if (source) where.source = source;
 
+  let orderBy: Prisma.CourseOrderByWithRelationInput = { scrapedAt: 'desc' };
+  if (sort === 'rating') orderBy = { rating: 'desc' };
+  else if (sort === 'title') orderBy = { title: 'asc' };
+  else if (sort === 'oldest') orderBy = { scrapedAt: 'asc' };
+  else if (sort === 'students') orderBy = { studentsCount: 'desc' };
+
   const [courses, total] = await Promise.all([
-    db.course.findMany({
-      where,
-      orderBy: { scrapedAt: 'desc' },
-      skip,
-      take: limit,
-    }),
+    db.course.findMany({ where, orderBy, skip, take: limit }),
     db.course.count({ where }),
   ]);
 
@@ -38,7 +46,11 @@ export async function getAllCourses(options: {
 }
 
 export async function getCourseBySlug(slug: string) {
-  return db.course.findUnique({ where: { slug, isPublished: true } });
+  return db.course.findUnique({ where: { slug } });
+}
+
+export async function getCourseByUrl(udemyUrl: string) {
+  return db.course.findUnique({ where: { udemyUrl } });
 }
 
 export async function getRelatedCourses(category: string, excludeSlug: string, limit: number = 4) {
@@ -49,11 +61,11 @@ export async function getRelatedCourses(category: string, excludeSlug: string, l
   });
 }
 
-export async function getCourseByUrl(udemyUrl: string) {
-  return db.course.findUnique({ where: { udemyUrl } });
+export async function createCourse(data: Prisma.CourseCreateInput) {
+  return db.course.create({ data });
 }
 
-export async function createCourse(data: {
+export async function createCourseIfNotExists(data: {
   title: string;
   slug: string;
   description?: string;
@@ -62,17 +74,46 @@ export async function createCourse(data: {
   imageUrl?: string;
   udemyUrl: string;
   source: string;
-}) {
-  return db.course.create({ data });
+  rating?: number | null;
+  studentsCount?: number | null;
+  originalPrice?: string | null;
+  language?: string | null;
+  duration?: string | null;
+  couponCode?: string | null;
+  couponUrl?: string | null;
+}): Promise<{ created: boolean; course?: Prisma.PromiseReturnType<typeof db.course.create> }> {
+  // Check for duplicate by udemyUrl
+  const existing = await getCourseByUrl(data.udemyUrl);
+  if (existing) return { created: false };
+
+  // Try to create, handle slug uniqueness
+  try {
+    const course = await db.course.create({ data });
+    return { created: true, course };
+  } catch (err: unknown) {
+    const prismaErr = err as { code?: string };
+    if (prismaErr?.code === 'P2002') {
+      // Slug collision - add timestamp suffix
+      const course = await db.course.create({
+        data: { ...data, slug: `${data.slug}-${Date.now()}` },
+      });
+      return { created: true, course };
+    }
+    throw err;
+  }
 }
 
 export async function getAllCategories() {
-  const courses = await db.course.findMany({
+  const results = await db.course.groupBy({
+    by: ['category'],
     where: { isPublished: true },
-    select: { category: true },
-    distinct: ['category'],
+    _count: { category: true },
   });
-  return courses.map(c => c.category);
+  return results.map(r => ({ name: r.category, count: r._count.category }));
+}
+
+export async function countCourses(where?: Prisma.CourseWhereInput) {
+  return db.course.count({ where });
 }
 
 export async function countCoursesBySource() {
@@ -83,11 +124,15 @@ export async function countCoursesBySource() {
   return results.map(r => ({ _id: r.source, count: r._count.source }));
 }
 
-export async function countCourses(where?: Record<string, unknown>) {
-  return db.course.count({ where });
+export async function countNewToday() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return db.course.count({
+    where: { createdAt: { gte: today } },
+  });
 }
 
-export async function updateCourse(id: string, data: Record<string, unknown>) {
+export async function updateCourse(id: string, data: Prisma.CourseUpdateInput) {
   return db.course.update({ where: { id }, data });
 }
 
@@ -106,7 +151,10 @@ export async function getUnpostedCourses(limit: number = 5) {
   });
 }
 
-// Settings operations
+// ============================================
+// Settings Operations
+// ============================================
+
 export async function getSetting(key: string): Promise<string | null> {
   const setting = await db.setting.findUnique({ where: { id: key } });
   return setting?.value || null;
@@ -129,15 +177,35 @@ export async function getAllSettings(): Promise<Record<string, string>> {
   return result;
 }
 
-// Telegram settings (stored as JSON in a single Setting row)
-export async function getTelegramSettings() {
+export async function getAdminPassword(): Promise<string> {
+  const password = await getSetting('admin_password');
+  return password || 'owl2024';
+}
+
+export async function verifyAdminPassword(password: string): Promise<boolean> {
+  const adminPassword = await getAdminPassword();
+  return password === adminPassword;
+}
+
+// ============================================
+// Telegram Settings (JSON in Setting row)
+// ============================================
+
+export interface TelegramSettingsConfig {
+  bot_token: string;
+  channels: Array<{ name: string; id: string; active: boolean }>;
+  auto_post: boolean;
+  message_template: string;
+}
+
+export async function getTelegramSettings(): Promise<TelegramSettingsConfig> {
   const raw = await getSetting('telegram');
   if (!raw) {
     return {
       bot_token: '',
-      channels: [{ name: 'القناة الرئيسية', id: '', active: true }],
+      channels: [{ name: 'Main Channel', id: '', active: true }],
       auto_post: false,
-      message_template: '🔰 {title}\n\n👨‍🏫 {instructor}\n⭐ {rating}\n🎓 {students_count} students\n\n🔗 {link}',
+      message_template: '{title}\n\nInstructor: {instructor}\nRating: {rating}\nStudents: {students_count}\n\n{link}',
     };
   }
   try {
@@ -145,18 +213,21 @@ export async function getTelegramSettings() {
   } catch {
     return {
       bot_token: '',
-      channels: [{ name: 'القناة الرئيسية', id: '', active: true }],
+      channels: [{ name: 'Main Channel', id: '', active: true }],
       auto_post: false,
       message_template: '{title}\n{link}',
     };
   }
 }
 
-export async function saveTelegramSettings(settings: Record<string, unknown>) {
+export async function saveTelegramSettings(settings: TelegramSettingsConfig) {
   await setSetting('telegram', JSON.stringify(settings));
 }
 
+// ============================================
 // Telegram Messages
+// ============================================
+
 export async function logTelegramMessage(data: {
   courseId?: string;
   courseTitle: string;
@@ -183,29 +254,49 @@ export async function getRecentTelegramMessages(limit: number = 10) {
     course_title: m.courseTitle,
     channels: JSON.parse(m.channels || '[]'),
     status: m.status,
-    sent_at: m.sentAt,
+    sent_at: m.sentAt.toISOString(),
   }));
 }
 
+// ============================================
 // Scraper Logs
-export async function logScraperRun(type: string, results: Record<string, unknown>) {
+// ============================================
+
+export interface ScraperLogEntry {
+  source: string;
+  status: string;
+  newCount: number;
+  dupCount: number;
+  errCount: number;
+  message: string;
+  duration: number;
+}
+
+export async function logScraperRun(entry: ScraperLogEntry) {
   return db.scraperLog.create({
     data: {
-      type,
-      results: JSON.stringify(results),
+      source: entry.source,
+      status: entry.status,
+      newCount: entry.newCount,
+      dupCount: entry.dupCount,
+      errCount: entry.errCount,
+      message: entry.message,
+      duration: entry.duration,
     },
   });
 }
 
-export async function getRecentScraperLogs(limit: number = 10) {
-  const logs = await db.scraperLog.findMany({
+export async function getRecentScraperLogs(limit: number = 20) {
+  return db.scraperLog.findMany({
     orderBy: { timestamp: 'desc' },
     take: limit,
   });
-  return logs.map(l => ({
-    id: l.id,
-    type: l.type,
-    results: JSON.parse(l.results || '{}'),
-    timestamp: l.timestamp,
-  }));
+}
+
+export async function getLastScrapeTime(): Promise<Date | null> {
+  const lastLog = await db.scraperLog.findFirst({
+    orderBy: { timestamp: 'desc' },
+    select: { timestamp: true },
+  });
+  return lastLog?.timestamp || null;
 }

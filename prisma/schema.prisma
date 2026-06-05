@@ -1,12 +1,13 @@
 // OWL COURSE - Udemy Free Course Scraper
-// Prisma Schema (SQLite)
+// Prisma Schema (Prisma Postgres)
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -25,10 +26,13 @@ model Course {
   originalPrice  String?
   language       String?
   duration       String?
+  couponCode     String?   @default("")
+  couponUrl      String?   @default("")
   isPublished    Boolean   @default(true)
   telegramPosted Boolean   @default(false)
   telegramPostedAt DateTime?
   scrapedAt      DateTime  @default(now())
+  expiresAt      DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
@@ -37,26 +41,57 @@ model Course {
   @@index([category])
   @@index([isPublished])
   @@index([telegramPosted])
+  @@index([scrapedAt])
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  icon        String   @default("📚")
+  courseCount Int      @default(0)
+  createdAt   DateTime @default(now())
+}
+
+model TelegramChannel {
+  id        String   @id @default(cuid())
+  name      String
+  chatId    String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Setting {
   id        String   @id
   value     String
+  group     String   @default("general") // general | scraper | telegram | ui
   updatedAt DateTime @updatedAt
+}
+
+model ScraperLog {
+  id        String   @id @default(cuid())
+  source    String   // udemyfreebies | studybullet
+  status    String   @default("success") // success | error | partial
+  newCount  Int      @default(0)
+  dupCount  Int      @default(0)
+  errCount  Int      @default(0)
+  message   String   @default("")
+  duration  Int      @default(0) // ms
+  timestamp DateTime @default(now())
+
+  @@index([source])
+  @@index([timestamp])
 }
 
 model TelegramMessage {
   id          String   @id @default(cuid())
   courseId    String?
-  courseTitle String   @default("")
-  channels    String   // JSON array stored as string
-  status      String   @default("sent")
+  courseTitle String
+  channels    String   // JSON array of channel names
+  status      String   @default("sent") // sent | failed | pending
   sentAt      DateTime @default(now())
-}
 
-model ScraperLog {
-  id        String   @id @default(cuid())
-  type      String   @default("full_scrape")
-  results   String   // JSON stored as string
-  timestamp DateTime @default(now())
+  @@index([status])
+  @@index([sentAt])
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCourseBySlug, getRelatedCourses } from '@/lib/mongodb';
 
+// GET /api/courses/[slug] - Get single course by slug
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ slug: string }> }
@@ -8,13 +9,19 @@ export async function GET(
   try {
     const { slug } = await params;
     const course = await getCourseBySlug(slug);
+
     if (!course) {
-      return NextResponse.json({ error: 'Course not found' }, { status: 404 });
+      return NextResponse.json(
+        { success: false, error: 'Course not found' },
+        { status: 404 }
+      );
     }
 
+    // Get related courses from the same category
     const related = await getRelatedCourses(course.category, slug, 4);
 
     return NextResponse.json({
+      success: true,
       course: {
         id: course.id,
         title: course.title,
@@ -22,7 +29,9 @@ export async function GET(
         description: course.description,
         instructor: course.instructor || '',
         category: course.category,
+        imageUrl: course.imageUrl,
         image_url: course.imageUrl,
+        udemyUrl: course.udemyUrl,
         udemy_url: course.udemyUrl,
         source: course.source,
         rating: course.rating || null,
@@ -30,18 +39,30 @@ export async function GET(
         original_price: course.originalPrice || null,
         language: course.language || null,
         duration: course.duration || null,
+        couponCode: course.couponCode || null,
+        couponUrl: course.couponUrl || null,
+        isPublished: course.isPublished,
+        telegramPosted: course.telegramPosted,
         scraped_at: course.scrapedAt,
+        created_at: course.createdAt,
       },
       related: related.map(c => ({
         id: c.id,
         title: c.title,
         slug: c.slug,
+        imageUrl: c.imageUrl,
         image_url: c.imageUrl,
         category: c.category,
         rating: c.rating || null,
+        students_count: c.studentsCount || null,
+        instructor: c.instructor,
       })),
     });
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 });
+    console.error('Course detail error:', e);
+    return NextResponse.json(
+      { success: false, error: String(e) },
+      { status: 500 }
+    );
   }
 }

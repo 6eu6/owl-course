@@ -1,4 +1,4 @@
-// Course document interface (matches Prisma model)
+// Course type matching the Prisma model
 export interface Course {
   id: string;
   title: string;
@@ -6,23 +6,26 @@ export interface Course {
   description: string;
   instructor: string;
   category: string;
-  image_url: string;
-  udemy_url: string;
+  imageUrl: string;
+  udemyUrl: string;
   source: 'udemyfreebies' | 'studybullet' | 'manual';
-  rating?: number | null;
-  students_count?: number | null;
-  original_price?: string | null;
-  language?: string | null;
-  duration?: string | null;
-  is_published: boolean;
-  telegram_posted: boolean;
-  telegram_posted_at?: Date | null;
-  scraped_at: Date;
-  created_at: Date;
-  updated_at: Date;
+  rating: number | null;
+  studentsCount: number | null;
+  originalPrice: string | null;
+  language: string | null;
+  duration: string | null;
+  couponCode: string | null;
+  couponUrl: string | null;
+  isPublished: boolean;
+  telegramPosted: boolean;
+  telegramPostedAt: Date | null;
+  scrapedAt: Date;
+  expiresAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-// Telegram settings
+// Telegram settings interface
 export interface TelegramSettings {
   bot_token: string;
   channels: TelegramChannel[];
@@ -47,7 +50,6 @@ export interface SiteSettings {
   scraper_interval_hours: number;
 }
 
-// Default settings
 export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   site_name: 'OWL COURSE',
   site_description: 'Free Online Courses Platform',
@@ -55,3 +57,32 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   scraper_enabled: true,
   scraper_interval_hours: 6,
 };
+
+// Scraper result types
+export interface SourceResult {
+  source: string;
+  status: 'success' | 'error' | 'partial';
+  newCount: number;
+  dupCount: number;
+  errCount: number;
+  message: string;
+  duration: number;
+  courses: ScrapedCourseData[];
+}
+
+export interface ScrapedCourseData {
+  title: string;
+  description: string;
+  instructor: string;
+  category: string;
+  imageUrl: string;
+  udemyUrl: string;
+  couponUrl: string;
+  couponCode: string;
+  rating: number | null;
+  studentsCount: number | null;
+  originalPrice: string | null;
+  language: string | null;
+  duration: string | null;
+  source: string;
+}
