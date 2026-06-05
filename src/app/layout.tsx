@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
+import { ThemeProvider } from "next-themes";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,7 +16,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "OWL COURSE — Free Udemy Courses",
-  description: "Discover the best free Udemy courses. Automatically updated from UdemyFreebies and StudyBullet.",
+  description: "Discover the best free Udemy courses. Automatically updated from UdemyFreebies.",
   keywords: ["free courses", "udemy", "online learning", "free udemy courses"],
   icons: {
     icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
@@ -32,8 +33,15 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
-        {children}
-        <Toaster />
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="light"
+          enableSystem
+          disableTransitionOnChange
+        >
+          {children}
+          <Toaster />
+        </ThemeProvider>
       </body>
     </html>
   );
