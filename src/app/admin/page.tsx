@@ -63,15 +63,15 @@ interface ScraperLog {
 }
 
 interface AdsSettings {
-  adsenseClientId: string
-  adsenseSlotId: string
-  headerAd: boolean
-  sidebarAd: boolean
-  betweenCoursesAd: boolean
-  customHeadScript: string
-  customBodyScript: string
-  customBannerUrl: string
-  customBannerLink: string
+  google_adsense_client_id: string
+  google_adsense_slot_id: string
+  header_ad_enabled: string
+  sidebar_ad_enabled: string
+  between_courses_ad_enabled: string
+  custom_ad_script_head: string
+  custom_ad_script_body: string
+  ad_banner_url: string
+  ad_banner_link: string
 }
 
 const LANGUAGE_OPTIONS = [
@@ -502,17 +502,24 @@ function TelegramPanel({ password, onDone }: { password: string; onDone: () => v
   const saveSettings = async () => {
     setSaving(true)
     try {
-      await fetch('/api/admin', {
+      const res = await fetch('/api/telegram', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           password,
-          action: 'set',
-          key: 'telegram',
-          value: JSON.stringify(currentSettings),
+          action: 'save_settings',
+          bot_token: currentSettings.bot_token,
+          channels: currentSettings.channels,
+          auto_post: currentSettings.auto_post,
+          message_template: currentSettings.message_template,
         }),
       })
-      setTestResult('Settings saved successfully!')
+      const data = await res.json()
+      if (data.success) {
+        setTestResult('Settings saved successfully!')
+      } else {
+        setTestResult(data.error || 'Failed to save settings')
+      }
       setTimeout(() => setTestResult(null), 3000)
     } catch {
       setTestResult('Failed to save settings')
@@ -531,6 +538,7 @@ function TelegramPanel({ password, onDone }: { password: string; onDone: () => v
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          password,
           action: 'test',
           channel_id: channelId,
           bot_token: currentSettings.bot_token,
@@ -837,15 +845,15 @@ function SettingsPanel({ password }: { password: string }) {
 // ===== ADS PANEL =====
 function AdsPanel({ password }: { password: string }) {
   const [settings, setSettings] = useState<AdsSettings>({
-    adsenseClientId: '',
-    adsenseSlotId: '',
-    headerAd: false,
-    sidebarAd: false,
-    betweenCoursesAd: false,
-    customHeadScript: '',
-    customBodyScript: '',
-    customBannerUrl: '',
-    customBannerLink: '',
+    google_adsense_client_id: '',
+    google_adsense_slot_id: '',
+    header_ad_enabled: 'false',
+    sidebar_ad_enabled: 'false',
+    between_courses_ad_enabled: 'false',
+    custom_ad_script_head: '',
+    custom_ad_script_body: '',
+    ad_banner_url: '',
+    ad_banner_link: '',
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -858,15 +866,15 @@ function AdsPanel({ password }: { password: string }) {
         const data = await res.json()
         if (data.success && data.settings) {
           setSettings({
-            adsenseClientId: data.settings.adsenseClientId || '',
-            adsenseSlotId: data.settings.adsenseSlotId || '',
-            headerAd: data.settings.headerAd === 'true' || data.settings.headerAd === true,
-            sidebarAd: data.settings.sidebarAd === 'true' || data.settings.sidebarAd === true,
-            betweenCoursesAd: data.settings.betweenCoursesAd === 'true' || data.settings.betweenCoursesAd === true,
-            customHeadScript: data.settings.customHeadScript || '',
-            customBodyScript: data.settings.customBodyScript || '',
-            customBannerUrl: data.settings.customBannerUrl || '',
-            customBannerLink: data.settings.customBannerLink || '',
+            google_adsense_client_id: data.settings.google_adsense_client_id || '',
+            google_adsense_slot_id: data.settings.google_adsense_slot_id || '',
+            header_ad_enabled: data.settings.header_ad_enabled === true ? 'true' : 'false',
+            sidebar_ad_enabled: data.settings.sidebar_ad_enabled === true ? 'true' : 'false',
+            between_courses_ad_enabled: data.settings.between_courses_ad_enabled === true ? 'true' : 'false',
+            custom_ad_script_head: data.settings.custom_ad_script_head || '',
+            custom_ad_script_body: data.settings.custom_ad_script_body || '',
+            ad_banner_url: data.settings.ad_banner_url || '',
+            ad_banner_link: data.settings.ad_banner_link || '',
           })
         }
       } catch {
@@ -881,18 +889,21 @@ function AdsPanel({ password }: { password: string }) {
   const saveAds = async () => {
     setSaving(true)
     try {
-      await fetch('/api/admin', {
+      const res = await fetch('/api/ads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           password,
-          action: 'set',
-          key: 'ads',
-          value: JSON.stringify(settings),
+          ...settings,
         }),
       })
-      setSaved(true)
-      setTimeout(() => setSaved(false), 3000)
+      const data = await res.json()
+      if (data.success) {
+        setSaved(true)
+        setTimeout(() => setSaved(false), 3000)
+      } else {
+        alert(data.error || 'Failed to save ad settings')
+      }
     } catch {
       alert('Failed to save ad settings')
     } finally {
@@ -916,8 +927,8 @@ function AdsPanel({ password }: { password: string }) {
             <div>
               <Label className="text-xs">AdSense Client ID</Label>
               <Input
-                value={settings.adsenseClientId}
-                onChange={(e) => setSettings({ ...settings, adsenseClientId: e.target.value })}
+                value={settings.google_adsense_client_id}
+                onChange={(e) => setSettings({ ...settings, google_adsense_client_id: e.target.value })}
                 placeholder="ca-pub-XXXXXXXXXXXXXXXX"
                 className="font-mono text-xs"
               />
@@ -926,8 +937,8 @@ function AdsPanel({ password }: { password: string }) {
             <div>
               <Label className="text-xs">AdSense Slot ID</Label>
               <Input
-                value={settings.adsenseSlotId}
-                onChange={(e) => setSettings({ ...settings, adsenseSlotId: e.target.value })}
+                value={settings.google_adsense_slot_id}
+                onChange={(e) => setSettings({ ...settings, google_adsense_slot_id: e.target.value })}
                 placeholder="1234567890"
                 className="font-mono text-xs"
               />
@@ -951,8 +962,8 @@ function AdsPanel({ password }: { password: string }) {
               <p className="text-[10px] text-muted-foreground">Show banner ad in the header area</p>
             </div>
             <Switch
-              checked={settings.headerAd}
-              onCheckedChange={(checked) => setSettings({ ...settings, headerAd: checked })}
+              checked={settings.header_ad_enabled === 'true'}
+              onCheckedChange={(checked) => setSettings({ ...settings, header_ad_enabled: checked ? 'true' : 'false' })}
             />
           </div>
           <div className="flex items-center justify-between p-2 border rounded-md">
@@ -961,8 +972,8 @@ function AdsPanel({ password }: { password: string }) {
               <p className="text-[10px] text-muted-foreground">Show ad in the sidebar section</p>
             </div>
             <Switch
-              checked={settings.sidebarAd}
-              onCheckedChange={(checked) => setSettings({ ...settings, sidebarAd: checked })}
+              checked={settings.sidebar_ad_enabled === 'true'}
+              onCheckedChange={(checked) => setSettings({ ...settings, sidebar_ad_enabled: checked ? 'true' : 'false' })}
             />
           </div>
           <div className="flex items-center justify-between p-2 border rounded-md">
@@ -971,8 +982,8 @@ function AdsPanel({ password }: { password: string }) {
               <p className="text-[10px] text-muted-foreground">Insert ad between course listings</p>
             </div>
             <Switch
-              checked={settings.betweenCoursesAd}
-              onCheckedChange={(checked) => setSettings({ ...settings, betweenCoursesAd: checked })}
+              checked={settings.between_courses_ad_enabled === 'true'}
+              onCheckedChange={(checked) => setSettings({ ...settings, between_courses_ad_enabled: checked ? 'true' : 'false' })}
             />
           </div>
         </CardContent>
@@ -989,8 +1000,8 @@ function AdsPanel({ password }: { password: string }) {
           <div>
             <Label className="text-xs">Custom Ad Script (Head)</Label>
             <Textarea
-              value={settings.customHeadScript}
-              onChange={(e) => setSettings({ ...settings, customHeadScript: e.target.value })}
+              value={settings.custom_ad_script_head}
+              onChange={(e) => setSettings({ ...settings, custom_ad_script_head: e.target.value })}
               rows={4}
               className="font-mono text-xs"
               placeholder="<!-- Paste ad script for &lt;head&gt; here -->"
@@ -1000,8 +1011,8 @@ function AdsPanel({ password }: { password: string }) {
           <div>
             <Label className="text-xs">Custom Ad Script (Body)</Label>
             <Textarea
-              value={settings.customBodyScript}
-              onChange={(e) => setSettings({ ...settings, customBodyScript: e.target.value })}
+              value={settings.custom_ad_script_body}
+              onChange={(e) => setSettings({ ...settings, custom_ad_script_body: e.target.value })}
               rows={4}
               className="font-mono text-xs"
               placeholder="<!-- Paste ad script for &lt;body&gt; here -->"
@@ -1022,8 +1033,8 @@ function AdsPanel({ password }: { password: string }) {
           <div>
             <Label className="text-xs">Custom Banner Image URL</Label>
             <Input
-              value={settings.customBannerUrl}
-              onChange={(e) => setSettings({ ...settings, customBannerUrl: e.target.value })}
+              value={settings.ad_banner_url}
+              onChange={(e) => setSettings({ ...settings, ad_banner_url: e.target.value })}
               placeholder="https://example.com/banner.jpg"
               className="text-xs"
             />
@@ -1032,19 +1043,19 @@ function AdsPanel({ password }: { password: string }) {
           <div>
             <Label className="text-xs">Custom Banner Link URL</Label>
             <Input
-              value={settings.customBannerLink}
-              onChange={(e) => setSettings({ ...settings, customBannerLink: e.target.value })}
+              value={settings.ad_banner_link}
+              onChange={(e) => setSettings({ ...settings, ad_banner_link: e.target.value })}
               placeholder="https://example.com/offer"
               className="text-xs"
             />
             <p className="text-[10px] text-muted-foreground mt-1">URL users will be redirected to when clicking the banner</p>
           </div>
-          {settings.customBannerUrl && (
+          {settings.ad_banner_url && (
             <div className="border rounded-md p-2 bg-muted">
               <p className="text-[10px] text-muted-foreground mb-1">Banner Preview:</p>
               <div className="relative aspect-[728/90] max-w-md bg-background rounded overflow-hidden border">
                 <img
-                  src={settings.customBannerUrl}
+                  src={settings.ad_banner_url}
                   alt="Custom banner preview"
                   className="w-full h-full object-contain"
                   onError={(e) => {
