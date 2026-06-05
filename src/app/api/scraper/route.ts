@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { runFullScrape } from '@/lib/scraper';
+import { getRecentScraperLogs } from '@/lib/mongodb';
 
 export async function POST(request: Request) {
   try {
@@ -33,10 +34,7 @@ export async function POST(request: Request) {
 
 export async function GET() {
   try {
-    const { getCollection } = await import('@/lib/mongodb');
-    const { COLLECTIONS } = await import('@/lib/types');
-    const col = await getCollection(COLLECTIONS.SCRAPER_LOGS);
-    const logs = await col.find({}).sort({ timestamp: -1 }).limit(10).toArray();
+    const logs = await getRecentScraperLogs(10);
     return NextResponse.json({ logs });
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 });

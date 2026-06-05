@@ -1,5 +1,4 @@
-import { COLLECTIONS } from './types';
-import { getCollection } from './mongodb';
+import { getTelegramSettings, getUnpostedCourses, markCourseTelegramPosted, logTelegramMessage } from './mongodb';
 
 const TELEGRAM_API = 'https://api.telegram.org';
 
@@ -67,38 +66,25 @@ export async function postCourseToTelegram(course: Record<string, unknown>, sett
 
 // Auto-post unpublished courses to Telegram
 export async function autoPostToTelegram(limit: number = 5): Promise<{ posted: number; errors: string[] }> {
-  const settings = await (await import('./settings')).getTelegramSettings();
+  const settings = await getTelegramSettings();
   if (!settings.bot_token || !settings.auto_post) {
     return { posted: 0, errors: ['Telegram not configured or auto-post disabled'] };
   }
 
-  const coursesCol = await getCollection(COLLECTIONS.COURSES);
-  const unposted = await coursesCol
-    .find({ is_published: true, telegram_posted: { $ne: true } })
-    .sort({ scraped_at: -1 })
-    .limit(limit)
-    .toArray();
-
+  const unposted = await getUnpostedCourses(limit);
   const errors: string[] = [];
   let posted = 0;
 
   for (const course of unposted) {
-    const result = await postCourseToTelegram(course as Record<string, unknown>, settings as Record<string, unknown>);
+    const result = await postCourseToTelegram(course as unknown as Record<string, unknown>, settings as unknown as Record<string, unknown>);
     if (result.success) {
-      await coursesCol.updateOne(
-        { _id: course._id },
-        { $set: { telegram_posted: true, telegram_posted_at: new Date() } }
-      );
+      await markCourseTelegramPosted(course.id);
       posted++;
-
-      // Save to telegram messages log
-      const msgCol = await getCollection(COLLECTIONS.TELEGRAM_MESSAGES);
-      await msgCol.insertOne({
-        course_id: course._id,
-        course_title: course.title,
+      await logTelegramMessage({
+        courseId: course.id,
+        courseTitle: course.title,
         channels: result.channels,
         status: 'sent',
-        sent_at: new Date(),
       });
     } else {
       errors.push(`Failed to post: ${course.title}`);

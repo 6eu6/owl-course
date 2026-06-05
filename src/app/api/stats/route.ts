@@ -1,33 +1,29 @@
 import { NextResponse } from 'next/server';
-import { getCollection } from '@/lib/mongodb';
-import { COLLECTIONS } from '@/lib/types';
+import { countCourses, countCoursesBySource, getAllCategories, getRecentTelegramMessages } from '@/lib/mongodb';
 
 export async function GET() {
   try {
-    const coursesCol = await getCollection(COLLECTIONS.COURSES);
-
-    const [total, published, unpublished, bySource, byCategory] = await Promise.all([
-      coursesCol.countDocuments({}),
-      coursesCol.countDocuments({ is_published: true }),
-      coursesCol.countDocuments({ is_published: false }),
-      coursesCol.aggregate([{ $group: { _id: '$source', count: { $sum: 1 } } }]).toArray(),
-      coursesCol.distinct('category'),
+    const [total, published, unpublished, bySource, categories] = await Promise.all([
+      countCourses({}),
+      countCourses({ isPublished: true }),
+      countCourses({ isPublished: false }),
+      countCoursesBySource(),
+      getAllCategories(),
     ]);
 
-    const msgCol = await getCollection(COLLECTIONS.TELEGRAM_MESSAGES);
-    const telegramStats = {
-      total_posted: await coursesCol.countDocuments({ telegram_posted: true }),
-      total_messages: await msgCol.countDocuments({}),
-    };
+    const telegramPosted = await countCourses({ telegramPosted: true });
+    const messages = await getRecentTelegramMessages(10);
 
     return NextResponse.json({
       courses: { total, published, unpublished },
       by_source: bySource,
-      categories: byCategory.sort(),
-      telegram: telegramStats,
+      categories: categories.sort(),
+      telegram: {
+        total_posted: telegramPosted,
+        total_messages: messages.length,
+      },
     });
   } catch (e) {
-    // Return empty stats if MongoDB is not connected
     return NextResponse.json({
       courses: { total: 0, published: 0, unpublished: 0 },
       by_source: [],

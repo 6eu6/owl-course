@@ -1,8 +1,5 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// OWL COURSE - Udemy Free Course Scraper
+// Prisma Schema (SQLite)
 
 generator client {
   provider = "prisma-client-js"
@@ -13,20 +10,53 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
+model Course {
+  id             String    @id @default(cuid())
+  title          String
+  slug           String    @unique
+  description    String    @default("")
+  instructor     String    @default("")
+  category       String    @default("Other")
+  imageUrl       String    @default("")
+  udemyUrl       String    @unique
+  source         String    @default("manual") // udemyfreebies | studybullet | manual
+  rating         Float?
+  studentsCount  Int?
+  originalPrice  String?
+  language       String?
+  duration       String?
+  isPublished    Boolean   @default(true)
+  telegramPosted Boolean   @default(false)
+  telegramPostedAt DateTime?
+  scrapedAt      DateTime  @default(now())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([slug])
+  @@index([source])
+  @@index([category])
+  @@index([isPublished])
+  @@index([telegramPosted])
+}
+
+model Setting {
+  id        String   @id
+  value     String
   updatedAt DateTime @updatedAt
 }
 
-model Post {
+model TelegramMessage {
+  id          String   @id @default(cuid())
+  courseId    String?
+  courseTitle String   @default("")
+  channels    String   // JSON array stored as string
+  status      String   @default("sent")
+  sentAt      DateTime @default(now())
+}
+
+model ScraperLog {
   id        String   @id @default(cuid())
-  title     String
-  content   String?
-  published Boolean  @default(false)
-  authorId  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  type      String   @default("full_scrape")
+  results   String   // JSON stored as string
+  timestamp DateTime @default(now())
 }

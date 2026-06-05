@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getCollection } from '@/lib/mongodb';
-import { COLLECTIONS } from '@/lib/types';
+import { getCourseBySlug, getRelatedCourses } from '@/lib/mongodb';
 
 export async function GET(
   request: Request,
@@ -8,42 +7,36 @@ export async function GET(
 ) {
   try {
     const { slug } = await params;
-    const col = await getCollection(COLLECTIONS.COURSES);
-
-    const course = await col.findOne({ slug, is_published: true });
+    const course = await getCourseBySlug(slug);
     if (!course) {
       return NextResponse.json({ error: 'Course not found' }, { status: 404 });
     }
 
-    // Get related courses (same category, different course)
-    const related = await col
-      .find({ category: course.category, slug: { $ne: slug }, is_published: true })
-      .limit(4)
-      .toArray();
+    const related = await getRelatedCourses(course.category, slug, 4);
 
     return NextResponse.json({
       course: {
-        id: String(course._id),
+        id: course.id,
         title: course.title,
         slug: course.slug,
         description: course.description,
         instructor: course.instructor || '',
         category: course.category,
-        image_url: course.image_url,
-        udemy_url: course.udemy_url,
+        image_url: course.imageUrl,
+        udemy_url: course.udemyUrl,
         source: course.source,
         rating: course.rating || null,
-        students_count: course.students_count || null,
-        original_price: course.original_price || null,
+        students_count: course.studentsCount || null,
+        original_price: course.originalPrice || null,
         language: course.language || null,
         duration: course.duration || null,
-        scraped_at: course.scraped_at,
+        scraped_at: course.scrapedAt,
       },
       related: related.map(c => ({
-        id: String(c._id),
+        id: c.id,
         title: c.title,
         slug: c.slug,
-        image_url: c.image_url,
+        image_url: c.imageUrl,
         category: c.category,
         rating: c.rating || null,
       })),

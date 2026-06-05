@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { setSetting } from '@/lib/settings';
+import { setSetting } from '@/lib/mongodb';
 
 export async function POST(request: Request) {
   try {

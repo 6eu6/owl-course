@@ -9,6 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import {
   Search,
   BookOpen,
   ExternalLink,
@@ -19,6 +26,14 @@ import {
   X,
   Zap,
   RefreshCw,
+  User,
+  Star,
+  Users,
+  Globe,
+  Clock,
+  Tag,
+  Loader2,
+  ArrowRight,
 } from 'lucide-react'
 
 interface Course {
@@ -29,11 +44,30 @@ interface Course {
   instructor: string
   category: string
   image_url: string
+  udemy_url?: string
   source: string
   rating: number | null
   students_count: number | null
   original_price: string | null
   language: string | null
+  scraped_at: string
+}
+
+interface CourseDetail {
+  id: string
+  title: string
+  slug: string
+  description: string
+  instructor: string
+  category: string
+  image_url: string
+  udemy_url: string
+  source: string
+  rating: number | null
+  students_count: number | null
+  original_price: string | null
+  language: string | null
+  duration: string | null
   scraped_at: string
 }
 
@@ -53,6 +87,12 @@ export default function Home() {
   const [stats, setStats] = useState({ total_courses: 0, udemy_courses: 0, studybullet_courses: 0 })
   const [filters, setFilters] = useState<Filters>({ search: '', category: '', source: '' })
   const [showFilters, setShowFilters] = useState(false)
+
+  // Course detail dialog state
+  const [selectedCourse, setSelectedCourse] = useState<CourseDetail | null>(null)
+  const [relatedCourses, setRelatedCourses] = useState<Array<{ id: string; title: string; slug: string; image_url: string; category: string }>>([])
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [detailOpen, setDetailOpen] = useState(false)
 
   const fetchCourses = useCallback(async (p: number, f: Filters) => {
     setLoading(true)
@@ -104,6 +144,31 @@ export default function Home() {
   }
 
   const hasActiveFilters = filters.search || filters.category || filters.source
+
+  const openCourseDetail = async (slug: string) => {
+    setDetailLoading(true)
+    setDetailOpen(true)
+    setSelectedCourse(null)
+    setRelatedCourses([])
+    try {
+      const res = await fetch(`/api/courses/${slug}`)
+      const data = await res.json()
+      if (data.course) {
+        setSelectedCourse(data.course)
+        setRelatedCourses(data.related || [])
+      }
+    } catch {
+      // ignore
+    } finally {
+      setDetailLoading(false)
+    }
+  }
+
+  const closeDetail = () => {
+    setDetailOpen(false)
+    setSelectedCourse(null)
+    setRelatedCourses([])
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -261,7 +326,7 @@ export default function Home() {
           <>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {courses.map((course) => (
-                <CourseCard key={course.id} course={course} />
+                <CourseCard key={course.id} course={course} onClick={() => openCourseDetail(course.slug)} />
               ))}
             </div>
 
@@ -286,8 +351,8 @@ export default function Home() {
                   disabled={page >= totalPages}
                   onClick={() => setPage(p => p + 1)}
                 >
-                  التالي
                   <ChevronLeft className="h-4 w-4" />
+                  التالي
                 </Button>
               </div>
             )}
@@ -303,14 +368,191 @@ export default function Home() {
           </p>
         </div>
       </footer>
+
+      {/* ===== COURSE DETAIL DIALOG ===== */}
+      <Dialog open={detailOpen} onOpenChange={(open) => { if (!open) closeDetail() }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] p-0 overflow-hidden">
+          {detailLoading ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="sr-only">جارٍ التحميل...</DialogTitle>
+              </DialogHeader>
+              <div className="p-8 flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-amber-600" />
+                <span className="mr-3 text-sm">جارٍ تحميل تفاصيل الدورة...</span>
+              </div>
+            </>
+          ) : selectedCourse ? (
+            <>
+              {/* Course Image */}
+              <div className="relative aspect-[16/7] bg-muted w-full">
+                <img
+                  src={selectedCourse.image_url}
+                  alt={selectedCourse.title}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement
+                    target.src = 'https://img-b.udemycdn.com/course/480x270/placeholder.jpg'
+                  }}
+                />
+                <div className="absolute top-3 right-3 flex gap-1.5">
+                  <Badge className="text-xs bg-white/90 text-foreground">
+                    {selectedCourse.source === 'udemyfreebies' ? 'Udemy' : 'StudyBullet'}
+                  </Badge>
+                  <Badge className="text-xs bg-green-600 text-white">
+                    FREE
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Course Details */}
+              <ScrollArea className="max-h-[60vh]">
+                <div className="p-6 space-y-5">
+                  <DialogHeader>
+                    <DialogTitle className="text-lg font-bold leading-relaxed">
+                      {selectedCourse.title}
+                    </DialogTitle>
+                  </DialogHeader>
+
+                  {/* Meta Info Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {selectedCourse.instructor && (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground p-2 bg-muted rounded-md">
+                        <User className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">{selectedCourse.instructor}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground p-2 bg-muted rounded-md">
+                      <Tag className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{selectedCourse.category}</span>
+                    </div>
+                    {selectedCourse.rating && (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground p-2 bg-muted rounded-md">
+                        <Star className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+                        <span>{selectedCourse.rating}/5</span>
+                      </div>
+                    )}
+                    {selectedCourse.students_count && (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground p-2 bg-muted rounded-md">
+                        <Users className="h-3.5 w-3.5 shrink-0" />
+                        <span>{selectedCourse.students_count.toLocaleString()} طالب</span>
+                      </div>
+                    )}
+                    {selectedCourse.language && (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground p-2 bg-muted rounded-md">
+                        <Globe className="h-3.5 w-3.5 shrink-0" />
+                        <span>{selectedCourse.language}</span>
+                      </div>
+                    )}
+                    {selectedCourse.duration && (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground p-2 bg-muted rounded-md">
+                        <Clock className="h-3.5 w-3.5 shrink-0" />
+                        <span>{selectedCourse.duration}</span>
+                      </div>
+                    )}
+                    {selectedCourse.original_price && (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground p-2 bg-muted rounded-md">
+                        <Zap className="h-3.5 w-3.5 shrink-0 text-green-600" />
+                        <span className="line-through">{selectedCourse.original_price}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Description */}
+                  {selectedCourse.description && (
+                    <div>
+                      <h4 className="text-sm font-semibold mb-2">وصف الدورة</h4>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        {selectedCourse.description || 'لا يوجد وصف متاح لهذه الدورة.'}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* CTA - Get Course Link */}
+                  <Separator />
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <a
+                      href={selectedCourse.udemy_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1"
+                    >
+                      <Button className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold h-12 text-sm gap-2">
+                        <ExternalLink className="h-4 w-4" />
+                        احصل على الدورة مجاناً
+                        <ArrowRight className="h-4 w-4" />
+                      </Button>
+                    </a>
+                    <Button variant="outline" onClick={closeDetail} className="h-12">
+                      رجوع
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-center text-muted-foreground">
+                    سيتم توجيهك إلى صفحة الدورة على يودمي — الاشتراك مجاني 100%
+                  </p>
+
+                  {/* Related Courses */}
+                  {relatedCourses.length > 0 && (
+                    <>
+                      <Separator />
+                      <div>
+                        <h4 className="text-sm font-semibold mb-3">دورات مشابهة</h4>
+                        <div className="grid grid-cols-2 gap-3">
+                          {relatedCourses.map(rc => (
+                            <Card
+                              key={rc.id}
+                              className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
+                              onClick={() => {
+                                closeDetail()
+                                setTimeout(() => openCourseDetail(rc.slug), 200)
+                              }}
+                            >
+                              <div className="relative aspect-[16/9] bg-muted">
+                                <img
+                                  src={rc.image_url}
+                                  alt={rc.title}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement
+                                    target.src = 'https://img-b.udemycdn.com/course/480x270/placeholder.jpg'
+                                  }}
+                                  loading="lazy"
+                                />
+                              </div>
+                              <CardContent className="p-2.5">
+                                <h5 className="text-xs font-medium line-clamp-2">{rc.title}</h5>
+                                <Badge variant="outline" className="text-[10px] mt-1">{rc.category}</Badge>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </ScrollArea>
+            </>
+          ) : (
+            <div className="p-8">
+              <DialogHeader className="sr-only">
+                <DialogTitle>Error</DialogTitle>
+              </DialogHeader>
+              <p className="text-center text-muted-foreground">Could not load course details</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
 
 // ===== Course Card Component =====
-function CourseCard({ course }: { course: Course }) {
+function CourseCard({ course, onClick }: { course: Course; onClick: () => void }) {
   return (
-    <Card className="overflow-hidden hover:shadow-md transition-shadow group">
+    <Card
+      className="overflow-hidden hover:shadow-md transition-shadow group cursor-pointer"
+      onClick={onClick}
+    >
       <div className="relative aspect-[16/10] bg-muted">
         <img
           src={course.image_url}
@@ -326,11 +568,9 @@ function CourseCard({ course }: { course: Course }) {
           <Badge variant="secondary" className="text-[10px] bg-white/90">
             {course.source === 'udemyfreebies' ? 'Udemy' : 'StudyBullet'}
           </Badge>
-          {course.original_price && (
-            <Badge variant="secondary" className="text-[10px] bg-red-500 text-white">
-              FREE
-            </Badge>
-          )}
+          <Badge variant="secondary" className="text-[10px] bg-red-500 text-white">
+            FREE
+          </Badge>
         </div>
       </div>
       <CardContent className="p-4 space-y-2">
@@ -339,17 +579,13 @@ function CourseCard({ course }: { course: Course }) {
         </h3>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Badge variant="outline" className="text-[10px]">{course.category}</Badge>
-          {course.instructor && <span>{course.instructor}</span>}
+          {course.instructor && <span className="truncate">{course.instructor}</span>}
         </div>
-        <a
-          href={course.udemy_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 mt-2"
-        >
-          <ExternalLink className="h-3 w-3" />
-          احصل على الدورة مجاناً
-        </a>
+        <div className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 mt-1">
+          <BookOpen className="h-3 w-3" />
+          عرض التفاصيل
+          <ArrowRight className="h-3 w-3" />
+        </div>
       </CardContent>
     </Card>
   )

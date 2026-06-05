@@ -1,6 +1,5 @@
 import * as cheerio from 'cheerio';
-import { COLLECTIONS, type Course } from './types';
-import { getCollection } from './mongodb';
+import { createCourse, getCourseByUrl, logScraperRun } from './mongodb';
 
 interface ScrapedCourse {
   title: string;
@@ -25,17 +24,6 @@ function slugify(text: string): string {
     .replace(/-+/g, '-')
     .trim()
     .slice(0, 120) || 'course';
-}
-
-// Ensure unique slug
-async function ensureUniqueSlug(slug: string, collection: Awaited<ReturnType<typeof getCollection>>): Promise<string> {
-  let finalSlug = slug;
-  let counter = 1;
-  while (await collection.findOne({ slug: finalSlug })) {
-    finalSlug = `${slug}-${counter}`;
-    counter++;
-  }
-  return finalSlug;
 }
 
 // Categorize based on title keywords
@@ -72,8 +60,6 @@ export async function scrapeUdemyFreebies(maxPages: number = 5): Promise<{ added
   let totalAdded = 0;
   let totalProcessed = 0;
 
-  const coursesCol = await getCollection(COLLECTIONS.COURSES);
-
   for (let page = 1; page <= maxPages; page++) {
     try {
       const url = `https://www.udemyfreebies.com/page/${page}/`;
@@ -86,7 +72,7 @@ export async function scrapeUdemyFreebies(maxPages: number = 5): Promise<{ added
       });
 
       if (!response.ok) {
-        if (response.status === 404) break; // No more pages
+        if (response.status === 404) break;
         errors.push(`Page ${page}: HTTP ${response.status}`);
         continue;
       }
@@ -105,7 +91,6 @@ export async function scrapeUdemyFreebies(maxPages: number = 5): Promise<{ added
         }
       });
 
-      // Also try to extract from common patterns
       $('article a, .post a').each((_, el) => {
         const href = $(el).attr('href') || '';
         const title = $(el).text().trim() || $(el).find('img').attr('alt') || '';
@@ -118,40 +103,51 @@ export async function scrapeUdemyFreebies(maxPages: number = 5): Promise<{ added
       for (const link of courseLinks) {
         totalProcessed++;
         try {
-          // Check if already exists
-          const exists = await coursesCol.findOne({ udemy_url: link.url });
+          const exists = await getCourseByUrl(link.url);
           if (exists) continue;
 
-          // Get default Udemy image if no image found
           const imageUrl = link.image || `https://img-b.udemycdn.com/course/480x270/placeholder.jpg`;
+          const slug = slugify(link.title);
 
-          const slug = await ensureUniqueSlug(slugify(link.title), coursesCol);
-
-          const course: Omit<Course, '_id'> = {
-            title: link.title,
-            slug,
-            description: '',
-            instructor: '',
-            category: categorize(link.title),
-            image_url: imageUrl,
-            udemy_url: link.url,
-            source: 'udemyfreebies',
-            is_published: true,
-            telegram_posted: false,
-            scraped_at: new Date(),
-            created_at: new Date(),
-            updated_at: new Date(),
-          };
-
-          await coursesCol.insertOne(course);
-          totalAdded++;
+          // Handle slug uniqueness by adding random suffix
+          let finalSlug = slug;
+          try {
+            await createCourse({
+              title: link.title,
+              slug: finalSlug,
+              description: '',
+              instructor: '',
+              category: categorize(link.title),
+              imageUrl,
+              udemyUrl: link.url,
+              source: 'udemyfreebies',
+            });
+            totalAdded++;
+          } catch (err: any) {
+            // Unique constraint violation on slug - add suffix
+            if (err?.code === 'P2002') {
+              finalSlug = `${slug}-${Date.now()}`;
+              await createCourse({
+                title: link.title,
+                slug: finalSlug,
+                description: '',
+                instructor: '',
+                category: categorize(link.title),
+                imageUrl,
+                udemyUrl: link.url,
+                source: 'udemyfreebies',
+              });
+              totalAdded++;
+            } else {
+              errors.push(`Course "${link.title}": ${err}`);
+            }
+          }
         } catch (err) {
           errors.push(`Course "${link.title}": ${err}`);
         }
       }
 
-      if (courseLinks.length === 0) break; // Stop if no courses found
-
+      if (courseLinks.length === 0) break;
     } catch (err) {
       errors.push(`Page ${page}: ${err}`);
     }
@@ -167,8 +163,6 @@ export async function scrapeStudyBullet(maxPages: number = 5): Promise<{ added: 
   const errors: string[] = [];
   let totalAdded = 0;
   let totalProcessed = 0;
-
-  const coursesCol = await getCollection(COLLECTIONS.COURSES);
 
   for (let page = 1; page <= maxPages; page++) {
     try {
@@ -190,27 +184,13 @@ export async function scrapeStudyBullet(maxPages: number = 5): Promise<{ added: 
       const html = await response.text();
       const $ = cheerio.load(html);
 
-      $('article, .post, .entry').each((_, el) => {
-        const titleEl = $(el).find('h2 a, h3 a, .entry-title a');
-        const title = titleEl.text().trim();
-        const courseUrl = titleEl.attr('href') || '';
-        const imgEl = $(el).find('img');
-        const imageUrl = imgEl.attr('src') || imgEl.data('src') || imgEl.attr('data-lazy-src') || '';
-
-        if (title.length > 5) {
-          totalProcessed++;
-          // We'll process asynchronously below
-        }
-      });
-
-      // Extract courses
       const courses: ScrapedCourse[] = [];
       $('article, .post, .entry').each((_, el) => {
         const titleEl = $(el).find('h2 a, h3 a, .entry-title a');
         const title = titleEl.text().trim();
         const courseUrl = titleEl.attr('href') || '';
         const imgEl = $(el).find('img');
-        const imageUrl = imgEl.attr('src') || imgEl.data('src') || imgEl.attr('data-lazy-src') || '';
+        const imageUrl = imgEl.attr('src') || String(imgEl.data('src') || '') || imgEl.attr('data-lazy-src') || '';
         const descEl = $(el).find('.entry-content, .entry-summary, .post-content');
         const description = descEl.text().trim().slice(0, 500);
 
@@ -220,35 +200,47 @@ export async function scrapeStudyBullet(maxPages: number = 5): Promise<{ added: 
       });
 
       for (const course of courses) {
+        totalProcessed++;
         try {
-          const exists = await coursesCol.findOne({ udemy_url: course.url });
+          const exists = await getCourseByUrl(course.url);
           if (exists) continue;
 
-          const slug = await ensureUniqueSlug(slugify(course.title), coursesCol);
-
-          await coursesCol.insertOne({
-            title: course.title,
-            slug,
-            description: course.description || '',
-            instructor: '',
-            category: categorize(course.title, course.description),
-            image_url: course.image_url || 'https://img-b.udemycdn.com/course/480x270/placeholder.jpg',
-            udemy_url: course.url,
-            source: 'studybullet',
-            is_published: true,
-            telegram_posted: false,
-            scraped_at: new Date(),
-            created_at: new Date(),
-            updated_at: new Date(),
-          });
-          totalAdded++;
+          const slug = slugify(course.title);
+          try {
+            await createCourse({
+              title: course.title,
+              slug,
+              description: course.description || '',
+              instructor: '',
+              category: categorize(course.title, course.description),
+              imageUrl: course.image_url || 'https://img-b.udemycdn.com/course/480x270/placeholder.jpg',
+              udemyUrl: course.url,
+              source: 'studybullet',
+            });
+            totalAdded++;
+          } catch (err: any) {
+            if (err?.code === 'P2002') {
+              await createCourse({
+                title: course.title,
+                slug: `${slug}-${Date.now()}`,
+                description: course.description || '',
+                instructor: '',
+                category: categorize(course.title, course.description),
+                imageUrl: course.image_url || 'https://img-b.udemycdn.com/course/480x270/placeholder.jpg',
+                udemyUrl: course.url,
+                source: 'studybullet',
+              });
+              totalAdded++;
+            } else {
+              errors.push(`StudyBullet "${course.title}": ${err}`);
+            }
+          }
         } catch (err) {
           errors.push(`StudyBullet "${course.title}": ${err}`);
         }
       }
 
       if (courses.length === 0) break;
-
     } catch (err) {
       errors.push(`StudyBullet page ${page}: ${err}`);
     }
@@ -279,12 +271,7 @@ export async function runFullScrape() {
   }
 
   // Log results
-  const logsCol = await getCollection(COLLECTIONS.SCRAPER_LOGS);
-  await logsCol.insertOne({
-    type: 'full_scrape',
-    results,
-    timestamp: new Date(),
-  });
+  await logScraperRun('full_scrape', results as unknown as Record<string, unknown>);
 
   return results;
 }

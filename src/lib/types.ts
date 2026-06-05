@@ -1,15 +1,6 @@
-// MongoDB Collections
-export const COLLECTIONS = {
-  COURSES: 'courses',
-  SETTINGS: 'settings',
-  TELEGRAM_MESSAGES: 'telegram_messages',
-  SCRAPER_LOGS: 'scraper_logs',
-  VISITORS: 'visitors',
-} as const;
-
-// Course document interface
+// Course document interface (matches Prisma model)
 export interface Course {
-  _id?: string;
+  id: string;
   title: string;
   slug: string;
   description: string;
@@ -18,14 +9,14 @@ export interface Course {
   image_url: string;
   udemy_url: string;
   source: 'udemyfreebies' | 'studybullet' | 'manual';
-  rating?: number;
-  students_count?: number;
-  original_price?: string;
-  language?: string;
-  duration?: string;
+  rating?: number | null;
+  students_count?: number | null;
+  original_price?: string | null;
+  language?: string | null;
+  duration?: string | null;
   is_published: boolean;
   telegram_posted: boolean;
-  telegram_posted_at?: Date;
+  telegram_posted_at?: Date | null;
   scraped_at: Date;
   created_at: Date;
   updated_at: Date;

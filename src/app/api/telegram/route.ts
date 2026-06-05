@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import { autoPostToTelegram, testTelegramConnection } from '@/lib/telegram';
-import { getTelegramSettings, saveTelegramSettings } from '@/lib/settings';
-import { getCollection } from '@/lib/mongodb';
-import { COLLECTIONS } from '@/lib/types';
+import { getTelegramSettings, saveTelegramSettings, countCourses, getRecentTelegramMessages } from '@/lib/mongodb';
 
 export async function GET() {
   try {
@@ -18,32 +16,19 @@ export async function GET() {
       };
     }
 
-    let stats = { total_courses: 0, posted_courses: 0, pending_courses: 0 };
-    let messages = [];
+    const totalCourses = await countCourses({ isPublished: true });
+    const postedCourses = await countCourses({ telegramPosted: true });
+    const messages = await getRecentTelegramMessages(10);
 
-    try {
-      const coursesCol = await getCollection(COLLECTIONS.COURSES);
-      const msgCol = await getCollection(COLLECTIONS.TELEGRAM_MESSAGES);
-
-      const [totalCourses, postedCourses, msgs] = await Promise.all([
-        coursesCol.countDocuments({ is_published: true }),
-        coursesCol.countDocuments({ telegram_posted: true }),
-        msgCol.find({}).sort({ sent_at: -1 }).limit(10).toArray(),
-      ]);
-
-      stats = { total_courses: totalCourses, posted_courses: postedCourses, pending_courses: totalCourses - postedCourses };
-      messages = msgs.map((m: Record<string, unknown>) => ({
-        id: String(m._id),
-        course_title: m.course_title,
-        channels: m.channels,
-        status: m.status,
-        sent_at: m.sent_at,
-      }));
-    } catch {
-      // MongoDB not connected
-    }
-
-    return NextResponse.json({ settings, stats, recent_messages: messages });
+    return NextResponse.json({
+      settings,
+      stats: {
+        total_courses: totalCourses,
+        posted_courses: postedCourses,
+        pending_courses: totalCourses - postedCourses,
+      },
+      recent_messages: messages,
+    });
   } catch (e) {
     return NextResponse.json({
       settings: { bot_token: '', channels: [{ name: 'القناة الرئيسية', id: '', active: true }], auto_post: false, message_template: '' },
