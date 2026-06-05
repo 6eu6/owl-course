@@ -16,7 +16,6 @@ function slugify(text: string): string {
     .slice(0, 120) || 'course';
 }
 
-/** Normalize title for dedup comparison */
 function normalizeTitle(title: string): string {
   return title
     .toLowerCase()
@@ -65,7 +64,6 @@ const CATEGORY_ICONS: Record<string, string> = {
 
 export function categorize(title: string, originalCategory: string = ''): string {
   const text = title.toLowerCase();
-
   for (const [category, keywords] of Object.entries(CATEGORY_MAP)) {
     if (keywords.some(k => text.includes(k))) {
       return category;
@@ -82,7 +80,6 @@ function enhanceImageUrl(imageUrl: string): string {
     if (imageUrl.includes('?')) {
       imageUrl = imageUrl.split('?')[0];
     }
-
     if (imageUrl.includes('udemycdn.com')) {
       const replacements: Record<string, string> = {
         '/50x50/': '/750x422/',
@@ -159,6 +156,7 @@ interface SourceResult {
   newCount: number;
   dupCount: number;
   errCount: number;
+  expiredCount: number;
   message: string;
   duration: number;
   courses: ScrapedCourseData[];
@@ -292,6 +290,7 @@ async function fetchListingPage(pageNum: number): Promise<{ courses: ListingCour
   const courses = extractCoursesFromPage(html, pageNum);
 
   const $ = cheerio.load(html);
+  // Check if there's a next page link
   const nextLinks = $('a[href*="/free-udemy-courses/"]').length;
   const hasMore = courses.length > 0 && nextLinks > 0;
 
@@ -299,7 +298,7 @@ async function fetchListingPage(pageNum: number): Promise<{ courses: ListingCour
 }
 
 // ============================================
-// Step 2: Follow /out/ redirect to get Udemy URL
+// Step 2: Follow /out/ redirect to get Udemy URL + coupon
 // ============================================
 
 async function extractUdemyUrl(detailUrl: string): Promise<{ udemyUrl: string; couponCode: string } | null> {
@@ -309,6 +308,7 @@ async function extractUdemyUrl(detailUrl: string): Promise<{ udemyUrl: string; c
 
     const outUrl = `https://www.udemyfreebies.com/out/${slugMatch[1]}`;
 
+    // Try redirect:manual first (fastest - just reads the 302 header)
     const response = await fetch(outUrl, {
       headers: getRandomHeaders(),
       signal: AbortSignal.timeout(10000),
@@ -316,31 +316,38 @@ async function extractUdemyUrl(detailUrl: string): Promise<{ udemyUrl: string; c
     });
 
     const location = response.headers.get('location');
-    if (!location || !location.includes('udemy.com')) {
-      const followResp = await fetch(outUrl, {
-        headers: getRandomHeaders(),
-        signal: AbortSignal.timeout(10000),
-        redirect: 'follow',
-      });
-      const finalUrl = followResp.url;
-      if (!finalUrl || !finalUrl.includes('udemy.com')) return null;
-      const couponCode = extractCouponCode(finalUrl);
-      if (!couponCode) return null;
-      return { udemyUrl: finalUrl, couponCode };
+    if (location && location.includes('udemy.com')) {
+      const couponCode = extractCouponCode(location);
+      if (couponCode && couponCode.length >= 4) {
+        return { udemyUrl: location, couponCode };
+      }
+      // Has Udemy URL but empty/short coupon - still return it
+      if (location.includes('couponCode')) {
+        return { udemyUrl: location, couponCode: couponCode || 'FREE' };
+      }
+      return { udemyUrl: location, couponCode: 'DIRECT' };
     }
 
-    const couponCode = extractCouponCode(location);
-    if (!couponCode) return null;
+    // Fallback: redirect:follow
+    const followResp = await fetch(outUrl, {
+      headers: getRandomHeaders(),
+      signal: AbortSignal.timeout(10000),
+      redirect: 'follow',
+    });
+    const finalUrl = followResp.url;
+    if (finalUrl && finalUrl.includes('udemy.com')) {
+      const couponCode = extractCouponCode(finalUrl);
+      return { udemyUrl: finalUrl, couponCode: couponCode || 'DIRECT' };
+    }
 
-    return { udemyUrl: location, couponCode };
+    return null; // Coupon expired - redirected to homepage
   } catch {
     return null;
   }
 }
 
 // ============================================
-// Step 2.5: Scrape course detail page from udemyfreebies.com
-// Extracts: description, requirements, whoFor, duration/level from description
+// Step 3: Scrape detail page (lightweight, non-blocking)
 // ============================================
 
 interface DetailPageData {
@@ -359,7 +366,7 @@ async function scrapeDetailPage(detailUrl: string): Promise<DetailPageData> {
   try {
     const response = await fetch(detailUrl, {
       headers: getRandomHeaders(),
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(8000), // Reduced from 15s
       redirect: 'follow',
     });
 
@@ -368,22 +375,19 @@ async function scrapeDetailPage(detailUrl: string): Promise<DetailPageData> {
     const html = await response.text();
     const $ = cheerio.load(html);
 
-    // Extract description - find the h3/h2 containing "Description" and get content after it
     let description = '';
     const $desc = $('h2, h3').filter(function() {
       return $(this).text().trim().toLowerCase() === 'description';
     });
     if ($desc.length > 0) {
- const $next = $desc.next();
- if ($next.length > 0) {
-   description = $next.text().trim();
-   // Clean up HTML entities
-   description = description.replace(/&gt;/g, '>').replace(/&lt;/g, '<').replace(/&amp;/g, '&').replace(/&nbsp;/g, ' ');
-   description = description.replace(/\s+/g, ' ').trim();
- }
+      const $next = $desc.next();
+      if ($next.length > 0) {
+        description = $next.text().trim();
+        description = description.replace(/&gt;/g, '>').replace(/&lt;/g, '<').replace(/&amp;/g, '&').replace(/&nbsp;/g, ' ');
+        description = description.replace(/\s+/g, ' ').trim();
+      }
     }
 
-    // Extract requirements
     let requirements = '';
     const $req = $('h2, h3').filter(function() {
       return $(this).text().trim().toLowerCase() === 'requirements';
@@ -395,7 +399,6 @@ async function scrapeDetailPage(detailUrl: string): Promise<DetailPageData> {
       }
     }
 
-    // Extract "Who this course is for"
     let whoFor = '';
     const $who = $('h2, h3').filter(function() {
       const text = $(this).text().trim().toLowerCase();
@@ -408,12 +411,10 @@ async function scrapeDetailPage(detailUrl: string): Promise<DetailPageData> {
       }
     }
 
-    // Parse duration and lastUpdated from description
     let duration: string | null = null;
     let lastUpdated: string | null = null;
 
     if (description) {
-      // Try to find duration patterns like "3.5 hours", "5 hours", "2h 30m"
       const durMatch = description.match(/(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|hr)\b/i);
       if (durMatch) {
         duration = `${durMatch[1]} hours`;
@@ -424,7 +425,6 @@ async function scrapeDetailPage(detailUrl: string): Promise<DetailPageData> {
         }
       }
 
-      // Try to find last updated date like "Last updated: DECEMBER 2024"
       const dateMatch = description.match(/(?:last updated[:\s]*)(\w+\s+\d{4})/i);
       if (dateMatch) {
         lastUpdated = dateMatch[1].trim();
@@ -438,71 +438,8 @@ async function scrapeDetailPage(detailUrl: string): Promise<DetailPageData> {
 }
 
 // ============================================
-// Step 2.6: Udemy Fallback - try to get extra data from Udemy page
-// Only for duration/level if udemyfreebies didn't provide it
-// ============================================
-
-async function scrapeUdemyFallback(udemyUrl: string): Promise<Partial<DetailPageData>> {
-  const result: Partial<DetailPageData> = {};
-  try {
-    const resp = await fetch(udemyUrl, {
-      headers: {
-        ...getRandomHeaders(),
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      },
-      signal: AbortSignal.timeout(15000),
-      redirect: 'follow',
-    });
-
-    if (!resp.ok) return result;
-
-    const html = await resp.text();
-    const $ = cheerio.load(html);
-
-    // Udemy pages sometimes have structured data in script tags
-    const scripts = $('script').toArray();
-    for (const script of scripts) {
-      const content = $(script).html() || '';
-
-      // Look for JSON data with course info
-      if (content.includes('content_length_video') || content.includes('num_lectures')) {
-        try {
-          // Try to extract JSON object
-          const jsonMatch = content.match(/\{[^{}]*(?:content_length_video|num_lectures|instructional_level)[^{}]*\}/g);
-          if (jsonMatch) {
-            for (const jm of jsonMatch) {
-              try {
-                const parsed = JSON.parse(jm);
-                if (!result.duration && parsed.content_length_video) {
-                  const hours = Math.round(parsed.content_length_video / 3600 * 10) / 10;
-                  result.duration = `${hours} hours`;
-                }
-                if (!result.duration && parsed.estimated_content_length) {
-                  const hours = Math.round(parsed.estimated_content_length / 3600 * 10) / 10;
-                  result.duration = `${hours} hours`;
-                }
-              } catch { /* skip */ }
-            }
-          }
-        } catch { /* skip */ }
-      }
-    }
-
-    // Also try extracting from text content
-    const bodyText = $('body').text();
-    if (!result.duration) {
-      const durMatch = bodyText.match(/(\d+(?:\.\d+)?)\s*(?:total\s*)?(?:hours?|hrs?)\b/i);
-      if (durMatch) result.duration = `${durMatch[1]} hours`;
-    }
-
-  } catch {
-    // Fallback failed, not critical
-  }
-  return result;
-}
-
-// ============================================
-// Step 3: Process course & save to DB
+// Step 4: Process course & save to DB
+// OPTIMIZED: Detail page scraping is non-blocking (doesn't fail the course)
 // ============================================
 
 async function processCourse(
@@ -517,9 +454,9 @@ async function processCourse(
       return { saved: false, skipped: 'duplicate-title' };
     }
 
-    // Get Udemy URL with coupon
+    // Get Udemy URL with coupon - this is the critical step
     const result = await extractUdemyUrl(course.detailUrl);
-    if (!result) return { saved: false, skipped: 'no-redirect' };
+    if (!result) return { saved: false, skipped: 'expired-coupon' };
 
     const { udemyUrl, couponCode } = result;
 
@@ -528,25 +465,13 @@ async function processCourse(
       return { saved: false, skipped: 'duplicate-url' };
     }
 
-    // Quick validation: check if coupon code exists and is reasonable
-    if (!couponCode || couponCode.length < 4) {
-      return { saved: false, skipped: 'invalid-coupon' };
-    }
+    // Scrape detail page in parallel (non-blocking - failure doesn't kill the course)
+    const detailPromise = scrapeDetailPage(course.detailUrl);
 
-    // Step 2.5: Scrape detail page for full description, requirements, whoFor
-    const detailData = await scrapeDetailPage(course.detailUrl);
-
-    // Step 2.6: Udemy fallback for duration if not found
-    let duration = detailData.duration;
-    if (!duration) {
-      const udemyData = await scrapeUdemyFallback(udemyUrl);
-      duration = udemyData.duration || null;
-    }
-
-    // Build course data with rich detail
+    // Build course data - start with listing data, enhance with detail later
     const courseData: ScrapedCourseData = {
       title: course.title,
-      description: detailData.description || `تعلم ${course.title} مع هذه الدورة المجانية الشاملة. تشمل مهارات ${course.category} والتطبيقات العملية في العالم الحقيقي.`,
+      description: '', // Will be filled from detail page
       instructor: course.instructor,
       category: course.category,
       imageUrl: course.imageUrl,
@@ -557,13 +482,30 @@ async function processCourse(
       studentsCount: course.studentsCount,
       originalPrice: course.originalPrice ? `$${course.originalPrice.toFixed(2)}` : null,
       language: course.language || null,
-      duration,
-      requirements: detailData.requirements,
-      whoFor: detailData.whoFor,
+      duration: null,
+      requirements: '',
+      whoFor: '',
       whatLearn: '',
-      lastUpdated: detailData.lastUpdated,
+      lastUpdated: null,
       source: 'udemyfreebies',
     };
+
+    // Wait for detail page (with timeout safety)
+    try {
+      const detailData = await detailPromise;
+      if (detailData.description) {
+        courseData.description = detailData.description;
+      } else {
+        courseData.description = `تعلم ${course.title} مع هذه الدورة المجانية الشاملة. تشمل مهارات ${course.category} والتطبيقات العملية في العالم الحقيقي.`;
+      }
+      courseData.requirements = detailData.requirements;
+      courseData.whoFor = detailData.whoFor;
+      courseData.duration = detailData.duration;
+      courseData.lastUpdated = detailData.lastUpdated;
+    } catch {
+      // Detail page failed - use fallback description
+      courseData.description = `تعلم ${course.title} مع هذه الدورة المجانية الشاملة. تشمل مهارات ${course.category} والتطبيقات العملية في العالم الحقيقي.`;
+    }
 
     // Save to database
     const dbResult = await createCourseIfNotExists({
@@ -595,21 +537,22 @@ async function processCourse(
     }
 
     return { saved: false, skipped: 'db-duplicate' };
-  } catch {
+  } catch (err) {
+    console.error(`[Scraper] Error processing "${course.title.substring(0, 40)}":`, err);
     return { saved: false, skipped: 'error' };
   }
 }
 
 // ============================================
-// Main UdemyFreebies Scraper (Smart & Parallel)
+// Main UdemyFreebies Scraper (Optimized)
 // ============================================
 
-async function scrapeUdemyFreebies(maxPages: number = 5): Promise<SourceResult> {
+async function scrapeUdemyFreebies(maxPages: number = 20): Promise<SourceResult> {
   const start = Date.now();
   let newCount = 0;
   let dupCount = 0;
   let errCount = 0;
-  let invalidCount = 0;
+  let expiredCount = 0;
   const allCourses: ScrapedCourseData[] = [];
   const errors: string[] = [];
 
@@ -620,8 +563,10 @@ async function scrapeUdemyFreebies(maxPages: number = 5): Promise<SourceResult> 
     });
     const existingUrls = new Set(existingCourses.map(c => c.udemyUrl));
     const existingTitles = new Set(existingCourses.map(c => normalizeTitle(c.title)));
+    console.log(`[Scraper] Starting with ${existingCourses.length} existing courses in DB`);
 
-    // Step 1: Fetch ALL listing pages IN PARALLEL
+    // Step 1: Fetch ALL listing pages IN PARALLEL (fetching pages is fast)
+    console.log(`[Scraper] Fetching ${maxPages} pages in parallel...`);
     const pagePromises = Array.from({ length: maxPages }, (_, i) =>
       fetchListingPage(i + 1).catch(err => {
         errors.push(`Page ${i + 1}: ${err}`);
@@ -638,10 +583,14 @@ async function scrapeUdemyFreebies(maxPages: number = 5): Promise<SourceResult> 
       }
     }
 
-    // Step 2: Process courses in batches
-    const BATCH_SIZE = 5;
+    console.log(`[Scraper] Found ${allListedCourses.length} course listings from ${maxPages} pages`);
+
+    // Step 2: Process courses in batches of 10 (faster)
+    const BATCH_SIZE = 10;
     for (let i = 0; i < allListedCourses.length; i += BATCH_SIZE) {
       const batch = allListedCourses.slice(i, i + BATCH_SIZE);
+      const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+      const totalBatches = Math.ceil(allListedCourses.length / BATCH_SIZE);
 
       const batchResults = await Promise.allSettled(
         batch.map(course => processCourse(course, existingUrls, existingTitles))
@@ -654,9 +603,8 @@ async function scrapeUdemyFreebies(maxPages: number = 5): Promise<SourceResult> 
             allCourses.push(result.value.data!);
           } else if (result.value.skipped === 'duplicate-title' || result.value.skipped === 'duplicate-url' || result.value.skipped === 'db-duplicate') {
             dupCount++;
-          } else if (result.value.skipped === 'invalid-coupon' || result.value.skipped === 'no-redirect') {
-            invalidCount++;
-            errCount++;
+          } else if (result.value.skipped === 'expired-coupon') {
+            expiredCount++;
           } else {
             errCount++;
           }
@@ -666,7 +614,8 @@ async function scrapeUdemyFreebies(maxPages: number = 5): Promise<SourceResult> 
       }
 
       if (i + BATCH_SIZE < allListedCourses.length) {
-        await new Promise(resolve => setTimeout(resolve, 200));
+        console.log(`[Scraper] Batch ${batchNum}/${totalBatches}: ${newCount} new, ${dupCount} dup, ${expiredCount} expired, ${errCount} err`);
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
 
@@ -676,7 +625,9 @@ async function scrapeUdemyFreebies(maxPages: number = 5): Promise<SourceResult> 
   }
 
   const duration = Date.now() - start;
-  const status = errCount > 0 && newCount === 0 ? 'error' : errCount > 0 ? 'partial' : 'success';
+  const status = newCount > 0 ? 'success' : (errCount > 0 ? 'error' : 'partial');
+
+  console.log(`[Scraper] Done in ${(duration / 1000).toFixed(1)}s: ${newCount} new, ${dupCount} dup, ${expiredCount} expired, ${errCount} err`);
 
   const logEntry: ScraperLogEntry = {
     source: 'udemyfreebies',
@@ -684,7 +635,7 @@ async function scrapeUdemyFreebies(maxPages: number = 5): Promise<SourceResult> 
     newCount,
     dupCount,
     errCount,
-    message: errors.slice(0, 5).join('; ') || `${newCount} new courses from ${maxPages} pages, ${dupCount} duplicates, ${invalidCount} invalid coupons`,
+    message: `${newCount} new from ${maxPages} pages, ${dupCount} duplicates, ${expiredCount} expired coupons, ${errCount} errors`,
     duration,
   };
   await logScraperRun(logEntry).catch(() => {});
@@ -695,7 +646,8 @@ async function scrapeUdemyFreebies(maxPages: number = 5): Promise<SourceResult> 
     newCount,
     dupCount,
     errCount,
-    message: `${maxPages} pages → ${newCount} جديدة، ${dupCount} مكررة، ${invalidCount} كوبونات منتهية، ${errCount} أخطاء`,
+    expiredCount,
+    message: `${maxPages} صفحة → ${newCount} جديدة، ${dupCount} مكررة، ${expiredCount} كوبون منتهي، ${errCount} أخطاء`,
     duration,
     courses: allCourses,
   };
@@ -710,7 +662,7 @@ export async function cleanupDuplicates(): Promise<{ removed: number }> {
     select: { id: true, title: true, udemyUrl: true },
   });
 
-  const seenTitles = new Map<string, string>(); // normalized -> id of first
+  const seenTitles = new Map<string, string>();
   const toRemove: string[] = [];
 
   for (const course of allCourses) {
@@ -748,7 +700,7 @@ export async function runFullScrape(options?: {
   sources?: string[];
 }): Promise<ScrapeResults> {
   const totalStart = Date.now();
-  const maxPages = options?.pages || 5;
+  const maxPages = options?.pages || 20; // Default to 20 pages
 
   // Clean duplicates before scraping
   await cleanupDuplicates().catch(() => {});

@@ -27,22 +27,26 @@ export async function POST(request: Request) {
       });
     }
 
-    // Run scraper with optional page count (default 5 pages)
+    // Run scraper with optional page count (default 20 pages)
+    const maxPages = Math.min(Math.max(parseInt(String(pages)) || 20, 1), 223);
     const results = await runFullScrape({
-      pages: pages || 5,
+      pages: maxPages,
     });
 
     return NextResponse.json({
       success: true,
       message: results.totalNew > 0
-        ? `Added ${results.totalNew} new courses from ${pages || 5} pages`
-        : 'No new courses found (all duplicates)',
+        ? `Added ${results.totalNew} new courses from ${maxPages} pages in ${Math.round(results.totalDuration / 1000)}s`
+        : 'No new courses found (all duplicates or expired coupons)',
       totalNew: results.totalNew,
       totalDup: results.totalDup,
       totalErr: results.totalErr,
       totalDuration: results.totalDuration,
       details: {
-        udemyfreebies: results.udemyfreebies,
+        udemyfreebies: {
+          ...results.udemyfreebies,
+          courses: undefined, // Don't return full course data in response
+        },
       },
     });
   } catch (e) {
