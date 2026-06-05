@@ -973,12 +973,14 @@ interface LinkPageProps {
 function LinkPage(props: LinkPageProps) {
   const { lang, t, course, onBack } = props
   const [countdown, setCountdown] = useState(5)
-  const lastCourseId = useRef(course?.id)
+  const [couponStatus, setCouponStatus] = useState<'checking' | 'valid' | 'expired' | 'unknown'>('checking')
 
-  // Reset countdown when course changes
-  if (lastCourseId.current !== course?.id) {
-    lastCourseId.current = course?.id
+  // Reset state when course changes
+  const [prevCourseId, setPrevCourseId] = useState(course?.id || '')
+  if (prevCourseId !== course?.id && course?.id) {
+    setPrevCourseId(course?.id)
     setCountdown(5)
+    setCouponStatus('checking')
   }
 
   useEffect(() => {
@@ -986,6 +988,44 @@ function LinkPage(props: LinkPageProps) {
     const timer = setTimeout(() => setCountdown((p) => p - 1), 1000)
     return () => clearTimeout(timer)
   }, [countdown])
+
+  // Verify coupon in real-time when course changes
+  useEffect(() => {
+    if (!course?.slug) return
+
+    const controller = new AbortController()
+    const verifyCoupon = async () => {
+      try {
+        const resp = await fetch(`/api/courses/${course.slug}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'verify' }),
+          signal: controller.signal,
+        })
+        const data = await resp.json()
+        if (data.success) {
+          if (data.hasCoupon && data.isFree && data.verified) {
+            setCouponStatus('valid')
+          } else if (data.hasCoupon && data.verified && !data.isFree) {
+            setCouponStatus('expired')
+          } else if (!data.hasCoupon) {
+            setCouponStatus('expired')
+          } else {
+            setCouponStatus('unknown')
+          }
+        } else {
+          setCouponStatus('unknown')
+        }
+      } catch {
+        if (!controller.signal.aborted) {
+          setCouponStatus('unknown')
+        }
+      }
+    }
+
+    verifyCoupon()
+    return () => controller.abort()
+  }, [course?.slug])
 
   const isRtl = lang === 'ar'
   const backArrowClass = isRtl ? 'h-3 w-3' : 'h-3 w-3 rotate-180'
@@ -1009,30 +1049,32 @@ function LinkPage(props: LinkPageProps) {
     )
   }
 
-  const udemyUrl = course.udemy_url || course.udemyUrl || '#'
+  // Build the correct Udemy URL with coupon code
+  // The couponUrl should contain the coupon code, but construct it properly
+  const baseUdemyUrl = course.udemy_url || course.udemyUrl || ''
+  const couponCode = course.couponCode || ''
+  let udemyUrl = course.couponUrl || baseUdemyUrl
+
+  // Ensure the URL has the coupon code
+  if (couponCode && udemyUrl) {
+    try {
+      const urlObj = new URL(udemyUrl)
+      if (!urlObj.searchParams.get('couponCode') && !urlObj.searchParams.get('coupon')) {
+        urlObj.searchParams.set('couponCode', couponCode)
+        udemyUrl = urlObj.toString()
+      }
+    } catch {
+      // invalid URL, keep as-is
+    }
+  }
+
+  const couponIsValid = couponStatus === 'valid'
+  const couponIsExpired = couponStatus === 'expired'
+  const couponIsUnknown = couponStatus === 'unknown' || couponStatus === 'checking'
 
   // SVG circle dash array for countdown
   const dashOffset = ((5 - countdown) / 5) * 100
   const strokeDashArray = dashOffset + ', 100'
-
-  const notes = [
-    {
-      icon: <CheckCircle className="h-3.5 w-3.5 text-green-600" />,
-      text: t('note1'),
-    },
-    {
-      icon: <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />,
-      text: t('note2'),
-    },
-    {
-      icon: <CheckCircle className="h-3.5 w-3.5 text-green-600" />,
-      text: t('note3'),
-    },
-    {
-      icon: <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />,
-      text: t('note4'),
-    },
-  ]
 
   return (
     <div className="max-w-xl mx-auto px-4 py-6 space-y-4">
@@ -1074,13 +1116,81 @@ function LinkPage(props: LinkPageProps) {
           <span className="flex items-center gap-1">
             <SourceBadge source={course.source} lang={lang} />
           </span>
-          {course.isFreeForever && (
-            <span className="flex items-center gap-1">
-              <CouponBadge isFreeForever={course.isFreeForever} couponVerified={course.couponVerified} lang={lang} />
-            </span>
-          )}
+          {/* Coupon status badge */}
+          <CouponBadge
+            isFreeForever={course.isFreeForever}
+            couponExpiresAt={course.couponExpiresAt}
+            couponVerified={course.couponVerified}
+            lang={lang}
+          />
         </CardContent>
       </Card>
+
+      {/* Coupon Status Banner */}
+      {couponIsExpired && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-900">
+          <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 shrink-0" />
+          <div>
+            <p className="text-xs font-medium text-red-800 dark:text-red-300">
+              {lang === 'ar' ? 'الكوبون منتهي الصلاحية' : 'Coupon Expired'}
+            </p>
+            <p className="text-[10px] text-red-600 dark:text-red-400">
+              {lang === 'ar'
+                ? 'هذا الكوبون لم يعد يعمل. يمكن أن تجد كوبونات جديدة بتشغيل الزاحف مرة أخرى.'
+                : 'This coupon is no longer valid. New coupons may be available after the next scrape.'}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {couponIsValid && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-900">
+          <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" />
+          <div>
+            <p className="text-xs font-medium text-green-800 dark:text-green-300">
+              {lang === 'ar' ? 'الكوبون يعمل - الدورة مجانية حالياً' : 'Coupon Active - Course is Free Now'}
+            </p>
+            <p className="text-[10px] text-green-600 dark:text-green-400">
+              {lang === 'ar'
+                ? 'تم التحقق في الوقت الحقيقي. اضغط للانتقال إلى Udemy والتسجيل مجاناً.'
+                : 'Verified in real-time. Click to go to Udemy and enroll for free.'}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {couponIsUnknown && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-900">
+          <Shield className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+          <div>
+            <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
+              {lang === 'ar' ? 'جاري التحقق من الكوبون...' : 'Verifying Coupon...'}
+            </p>
+            <p className="text-[10px] text-amber-600 dark:text-amber-400">
+              {lang === 'ar'
+                ? 'يتم التحقق مما إذا كان الكوبون لا يزال يعمل. انتظر قليلاً.'
+                : 'Checking if the coupon is still active. Please wait...'}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Coupon code display */}
+      {couponCode && (
+        <Card className="p-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs">
+              <Tag className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-muted-foreground">
+                {lang === 'ar' ? 'كود الكوبون' : 'Coupon Code'}
+              </span>
+            </div>
+            <code className="text-xs font-mono bg-muted px-2 py-1 rounded select-all">
+              {couponCode}
+            </code>
+          </div>
+        </Card>
+      )}
 
       {/* About course */}
       <Card className="p-4 bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-900">
@@ -1099,15 +1209,14 @@ function LinkPage(props: LinkPageProps) {
           <Shield className="h-3.5 w-3.5 text-amber-600" />
           {t('importantNotes')}
         </h3>
-        {notes.map((n, i) => (
-          <div
-            key={i}
-            className="flex items-start gap-2 text-[11px] text-muted-foreground"
-          >
-            <div className="shrink-0 mt-0.5">{n.icon}</div>
-            <p className="leading-relaxed">{n.text}</p>
-          </div>
-        ))}
+        <div className="flex items-start gap-2 text-[11px] text-muted-foreground">
+          <CheckCircle className="h-3.5 w-3.5 text-green-600 shrink-0 mt-0.5" />
+          <p className="leading-relaxed">{lang === 'ar' ? 'بمجرد التسجيل في الدورة مجاناً عبر الكوبون، ستبقى في حسابك للأبد حتى لو انتهى الكوبون.' : 'Once you enroll for free using a coupon, the course stays in your account forever even after the coupon expires.'}</p>
+        </div>
+        <div className="flex items-start gap-2 text-[11px] text-muted-foreground">
+          <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
+          <p className="leading-relaxed">{lang === 'ar' ? 'الكوبونات مؤقتة وقد تنتهي في أي وقت. إذا وجدت الدورة مدفوعة، جرب العودة لاحقاً بعد تشغيل الزاحف.' : 'Coupons are time-limited and may expire at any time. If you find the course is paid, try again after the next scraper run.'}</p>
+        </div>
       </Card>
 
       {/* Countdown / CTA */}
@@ -1137,7 +1246,25 @@ function LinkPage(props: LinkPageProps) {
                 {countdown}
               </span>
             </div>
-            <p className="text-[11px] text-muted-foreground">{t('preparing')}</p>
+            <p className="text-[11px] text-muted-foreground">
+              {couponStatus === 'checking'
+                ? (lang === 'ar' ? 'جاري التحضير والتحقق...' : 'Preparing & verifying...')
+                : t('preparing')}
+            </p>
+          </>
+        ) : couponIsExpired ? (
+          <>
+            <div className="p-4 rounded-lg bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-900 text-center">
+              <AlertTriangle className="h-8 w-8 mx-auto text-red-500 mb-2" />
+              <p className="text-sm font-medium text-red-800 dark:text-red-300">
+                {lang === 'ar' ? 'الكوبون منتهي الصلاحية' : 'Coupon Has Expired'}
+              </p>
+              <p className="text-[11px] text-red-600 dark:text-red-400 mt-1">
+                {lang === 'ar'
+                  ? 'لا يمكن التسجيل مجاناً حالياً. عُد لاحقاً بعد تحديث الكوبونات.'
+                  : 'Cannot enroll for free right now. Check back after coupons are refreshed.'}
+              </p>
+            </div>
           </>
         ) : (
           <>
@@ -1154,7 +1281,9 @@ function LinkPage(props: LinkPageProps) {
               </Button>
             </a>
             <p className="text-[11px] text-muted-foreground">
-              {t('udemyRedirect')}
+              {lang === 'ar'
+                ? 'سيتم إعادة توجيهك إلى Udemy مع تطبيق الكوبون تلقائياً'
+                : t('udemyRedirect')}
             </p>
           </>
         )}

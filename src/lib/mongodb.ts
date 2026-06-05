@@ -89,6 +89,7 @@ export async function createCourseIfNotExists(data: {
   isFreeForever?: boolean;
   sourceDetail?: string;
   scrapeRunId?: string;
+  couponVerified?: boolean;
 }): Promise<{ created: boolean; course?: Prisma.PromiseReturnType<typeof db.course.create> }> {
   // Check for duplicate by udemyUrl
   const existing = await getCourseByUrl(data.udemyUrl);
@@ -157,6 +158,58 @@ export async function getUnpostedCourses(limit: number = 5) {
     orderBy: { scrapedAt: 'desc' },
     take: limit,
   });
+}
+
+// ============================================
+// Coupon Upsert - Update existing course coupon
+// ============================================
+
+export async function upsertCourseCoupon(
+  udemyUrl: string,
+  data: {
+    couponCode: string;
+    couponUrl: string;
+    couponExpiresAt?: Date | null;
+    couponVerified?: boolean;
+  }
+): Promise<{ updated: boolean }> {
+  // Find course by udemyUrl (normalized - without couponCode param)
+  try {
+    const urlObj = new URL(udemyUrl);
+    urlObj.searchParams.delete('couponCode');
+    urlObj.searchParams.delete('coupon');
+    const normalizedUrl = urlObj.toString().replace(/\?$/, '');
+
+    // Try to find by the normalized URL
+    const existing = await db.course.findFirst({
+      where: {
+        OR: [
+          { udemyUrl: normalizedUrl },
+          { udemyUrl: { contains: urlObj.pathname } },
+        ],
+      },
+    });
+
+    if (!existing) {
+      return { updated: false };
+    }
+
+    // Update the course with new coupon data
+    await db.course.update({
+      where: { id: existing.id },
+      data: {
+        couponCode: data.couponCode,
+        couponUrl: data.couponUrl,
+        couponExpiresAt: data.couponExpiresAt ?? null,
+        couponVerified: data.couponVerified ?? false,
+        scrapedAt: new Date(),
+      },
+    });
+
+    return { updated: true };
+  } catch {
+    return { updated: false };
+  }
 }
 
 // ============================================

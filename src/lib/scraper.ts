@@ -1,6 +1,6 @@
 import * as cheerio from 'cheerio';
 import { db } from '@/lib/db';
-import { logScraperRun, createCourseIfNotExists, type ScraperLogEntry } from './mongodb';
+import { logScraperRun, createCourseIfNotExists, upsertCourseCoupon, type ScraperLogEntry } from './mongodb';
 
 // ============================================
 // Utility Functions
@@ -140,6 +140,15 @@ function isValidCouponCode(couponCode: string): boolean {
 }
 
 /**
+ * Check if a coupon code contains a month/year pattern (e.g. JUL2025, JUN2025FREE)
+ * These are typically fresher coupons that should always be verified.
+ */
+function couponHasMonthYear(couponCode: string): boolean {
+  const monthPattern = /(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(\d{2,4})/i;
+  return monthPattern.test(couponCode);
+}
+
+/**
  * Detect if a course is genuinely free forever on Udemy.
  * CRITICAL: This should almost NEVER return true.
  * Only courses that are free on Udemy without ANY coupon should be marked as free forever.
@@ -201,27 +210,144 @@ function estimateCouponExpiry(couponCode: string): Date | null {
 }
 
 // ============================================
-// Udemy Coupon Verification (Best Effort)
+// Udemy Coupon Verification (Improved)
 // ============================================
+
+// Rate-limit tracking
+let lastUdemyRequestTime = 0;
+let rateLimitBackoffUntil = 0;
+
+/**
+ * Wait if we're rate-limited or need to throttle requests.
+ * Returns true if we should skip this request (still in backoff).
+ */
+async function waitForRateLimit(): Promise<boolean> {
+  if (rateLimitBackoffUntil > Date.now()) {
+    const waitMs = rateLimitBackoffUntil - Date.now();
+    console.log(`[Scraper] Rate limited, backing off for ${Math.ceil(waitMs / 1000)}s...`);
+    await new Promise(r => setTimeout(r, waitMs));
+    rateLimitBackoffUntil = 0;
+    return false;
+  }
+
+  // Minimum 1.5s between Udemy requests
+  const now = Date.now();
+  const elapsed = now - lastUdemyRequestTime;
+  if (elapsed < 1500) {
+    await new Promise(r => setTimeout(r, 1500 - elapsed));
+  }
+  lastUdemyRequestTime = Date.now();
+  return false;
+}
 
 /**
  * Verify if a Udemy coupon is still active by checking the course page.
- * This is a best-effort check - Udemy renders most content client-side,
- * but we can check for certain indicators in the initial HTML.
+ * Improved: Checks JSON data blocks in <script> tags for pricing data,
+ * since Udemy embeds pricing info in __NEXT_DATA__ or __APOLLO_STATE__.
  */
 async function verifyCouponOnUdemy(couponUrl: string): Promise<{ isFree: boolean; verified: boolean }> {
   try {
+    const shouldSkip = await waitForRateLimit();
+    if (shouldSkip) return { isFree: false, verified: false };
+
     const response = await fetch(couponUrl, {
       headers: getRandomHeaders(),
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(20000),
       redirect: 'follow',
     });
+
+    // Handle rate limiting (429)
+    if (response.status === 429) {
+      console.log(`[Scraper] Udemy returned 429 - rate limited. Backing off for 5s...`);
+      rateLimitBackoffUntil = Date.now() + 5000;
+      return { isFree: false, verified: false };
+    }
 
     if (!response.ok) return { isFree: false, verified: false };
 
     const html = await response.text();
     const htmlLower = html.toLowerCase();
 
+    // --- STRATEGY 1: Check JSON data blocks in <script> tags ---
+    // Udemy embeds pricing data in __NEXT_DATA__ or __APOLLO_STATE__
+    const scriptBlocks = html.match(/<script[^>]*>([\s\S]*?)<\/script>/gi) || [];
+
+    for (const block of scriptBlocks) {
+      const blockLower = block.toLowerCase();
+
+      // Check __NEXT_DATA__ for pricing info
+      if (block.includes('__NEXT_DATA__') || block.includes('__NEXT_DATA__')) {
+        // Look for isFree, price patterns in JSON
+        const jsonPatterns = [
+          { pattern: /"isFree"\s*:\s*true/i, free: true },
+          { pattern: /"purchase_price"\s*:\s*\{[^}]*"amount"\s*:\s*0/i, free: true },
+          { pattern: /"price"\s*:\s*0[^.]/i, free: true },
+          { pattern: /"price_amount"\s*:\s*0/i, free: true },
+          { pattern: /"current_price"\s*:\s*"?0"/i, free: true },
+          { pattern: /"discount_price"\s*:\s*\{[^}]*"amount"\s*:\s*0/i, free: true },
+          { pattern: /"list_price"\s*:\s*\{[^}]*"amount"\s*:\s*0/i, free: true },
+          { pattern: /"price\s*>\s*0/i, free: false },
+          { pattern: /"purchase_price"\s*:\s*\{[^}]*"amount"\s*:\s*[1-9]/i, free: false },
+          { pattern: /"price_amount"\s*:\s*[1-9]/i, free: false },
+          { pattern: /"current_price"\s*:\s*"[1-9]/i, free: false },
+        ];
+
+        for (const { pattern, free } of jsonPatterns) {
+          if (pattern.test(block)) {
+            return { isFree: free, verified: true };
+          }
+        }
+      }
+
+      // Check __APOLLO_STATE__ for pricing
+      if (block.includes('__APOLLO_STATE__')) {
+        // Apollo state often has pricing data in JSON
+        try {
+          // Try to extract JSON-like content
+          const apolloMatch = block.match(/__APOLLO_STATE__\s*=\s*({[\s\S]*?})\s*;?\s*$/m);
+          if (apolloMatch) {
+            const apolloContent = apolloMatch[1];
+            const apolloLower = apolloContent.toLowerCase();
+
+            // Check for free pricing in Apollo state
+            if (
+              apolloLower.includes('"isfree":true') ||
+              apolloLower.includes('"is_free":true') ||
+              /"price"\s*:\s*0[^.]/.test(apolloLower) ||
+              /"currentprice"\s*:\s*"?0"/i.test(apolloLower)
+            ) {
+              return { isFree: true, verified: true };
+            }
+
+            // Check for paid pricing in Apollo state
+            if (
+              /"currentprice"\s*:\s*"[1-9]/i.test(apolloLower) ||
+              /"price"\s*:\s*[1-9]/.test(apolloLower)
+            ) {
+              return { isFree: false, verified: true };
+            }
+          }
+        } catch {
+          // JSON parse failed, continue
+        }
+      }
+
+      // Generic: look for any script block with Udemy pricing JSON
+      if (block.includes('udemy') || block.includes('course') || block.includes('pricing')) {
+        const jsonPatterns = [
+          { pattern: /"is_free"\s*:\s*true/i, free: true },
+          { pattern: /"purchase_price"\s*:\s*\{[^}]*"amount"\s*:\s*0/i, free: true },
+          { pattern: /"price_amount"\s*:\s*0/i, free: true },
+        ];
+        for (const { pattern, free } of jsonPatterns) {
+          if (pattern.test(block)) {
+            return { isFree: free, verified: true };
+          }
+        }
+      }
+    }
+
+    // --- STRATEGY 2: HTML indicators (fallback) ---
     // Check for indicators that the course is free with this coupon
     const freeIndicators = [
       'enroll for free',
@@ -238,7 +364,6 @@ async function verifyCouponOnUdemy(couponUrl: string): Promise<{ isFree: boolean
     const paidIndicators = [
       'buy now',
       'add to cart',
-      '"price_amount":',
       'data-purpose="buy',
     ];
 
@@ -249,7 +374,6 @@ async function verifyCouponOnUdemy(couponUrl: string): Promise<{ isFree: boolean
       if (htmlLower.includes(indicator)) freeScore++;
     }
     for (const indicator of paidIndicators) {
-      // Only count paid indicators that aren't contradicted by free indicators
       if (htmlLower.includes(indicator)) paidScore++;
     }
 
@@ -257,7 +381,7 @@ async function verifyCouponOnUdemy(couponUrl: string): Promise<{ isFree: boolean
     if (freeScore >= 2) return { isFree: true, verified: true };
     if (freeScore >= 1 && paidScore === 0) return { isFree: true, verified: true };
 
-    // If we found clear paid indicators, the coupon is expired
+    // If we found clear paid indicators and NO free indicators
     if (paidScore >= 2 && freeScore === 0) return { isFree: false, verified: true };
 
     // Can't determine - assume not verified
@@ -283,6 +407,7 @@ interface ListingCourse {
   studentsCount: number | null;
   originalPrice: number | null;
   date: string;
+  pageIndex?: number; // Track which page this came from (for verification sampling)
 }
 
 interface ScrapedCourseData {
@@ -296,6 +421,7 @@ interface ScrapedCourseData {
   couponCode: string;
   couponExpiresAt: Date | null;
   isFreeForever: boolean;
+  couponVerified: boolean;
   sourceDetail: string;
   rating: number | null;
   studentsCount: number | null;
@@ -316,6 +442,7 @@ interface SourceResult {
   dupCount: number;
   errCount: number;
   expiredCount: number;
+  updatedCount: number;
   message: string;
   duration: number;
   courses: ScrapedCourseData[];
@@ -344,7 +471,26 @@ function getRandomHeaders(): Record<string, string> {
 }
 
 // ============================================
-// UdemyFreebies Scraper (existing, kept as-is)
+// Verification Sampling Logic
+// ============================================
+
+/**
+ * Determine if a course should be verified based on its page position and coupon code.
+ * - Pages 1-3: verify every course (most likely fresh)
+ * - Pages 4+: sample 30% of courses
+ * - If coupon has month/year pattern (e.g. JUL2025): always verify
+ */
+function shouldVerifyCoupon(pageIndex: number, couponCode: string): boolean {
+  // Pages 0-2 (1-3): always verify
+  if (pageIndex < 3) return true;
+  // Month/year coupons: always verify
+  if (couponHasMonthYear(couponCode)) return true;
+  // Pages 4+: 30% sampling
+  return Math.random() < 0.3;
+}
+
+// ============================================
+// UdemyFreebies Scraper
 // ============================================
 
 function extractCoursesFromPage(html: string, pageNum: number): ListingCourse[] {
@@ -423,6 +569,7 @@ function extractCoursesFromPage(html: string, pageNum: number): ListingCourse[] 
       studentsCount,
       originalPrice,
       date,
+      pageIndex: pageNum - 1, // 0-indexed
     });
   });
 
@@ -472,12 +619,9 @@ async function extractUdemyUrl(detailUrl: string): Promise<{ udemyUrl: string; c
     const location = response.headers.get('location');
     if (location && location.includes('udemy.com')) {
       const couponCode = extractCouponCode(location);
-      // CRITICAL FIX: Only return if there's a REAL, VALID coupon code
-      // No coupon = paid course = don't store it!
       if (couponCode && isValidCouponCode(couponCode)) {
         return { udemyUrl: location, couponCode };
       }
-      // If there's a couponCode param but we couldn't extract it properly, try to get it
       if (location.includes('couponCode=')) {
         try {
           const urlObj = new URL(location);
@@ -487,7 +631,6 @@ async function extractUdemyUrl(detailUrl: string): Promise<{ udemyUrl: string; c
           }
         } catch { /* invalid URL */ }
       }
-      // No valid coupon code = course is NOT free, skip it
       console.log(`[Scraper] Skipping "${detailUrl}" - no valid coupon code in redirect URL`);
       return null;
     }
@@ -501,11 +644,9 @@ async function extractUdemyUrl(detailUrl: string): Promise<{ udemyUrl: string; c
     const finalUrl = followResp.url;
     if (finalUrl && finalUrl.includes('udemy.com')) {
       const couponCode = extractCouponCode(finalUrl);
-      // CRITICAL FIX: Only return if there's a REAL, VALID coupon code
       if (couponCode && isValidCouponCode(couponCode)) {
         return { udemyUrl: finalUrl, couponCode };
       }
-      // No valid coupon = skip
       console.log(`[Scraper] Skipping "${detailUrl}" - no valid coupon in followed URL`);
       return null;
     }
@@ -607,7 +748,7 @@ async function processCourse(
   course: ListingCourse,
   existingUrls: Set<string>,
   existingTitles: Set<string>
-): Promise<{ saved: boolean; skipped?: string; data?: ScrapedCourseData }> {
+): Promise<{ saved: boolean; updated?: boolean; skipped?: string; data?: ScrapedCourseData }> {
   try {
     const normTitle = normalizeTitle(course.title);
     if (existingTitles.has(normTitle)) {
@@ -618,21 +759,75 @@ async function processCourse(
     if (!result) return { saved: false, skipped: 'no-valid-coupon' };
 
     const { udemyUrl, couponCode } = result;
-    // Double-check: the coupon code must be valid
     if (!isValidCouponCode(couponCode)) {
       return { saved: false, skipped: 'no-valid-coupon' };
     }
 
     const normalizedUrl = normalizeUdemyUrl(udemyUrl);
+    const couponUrl = udemyUrl; // Full URL with couponCode param
 
+    // --- DEDUP UPDATE: If existing course found, update its coupon ---
     if (existingUrls.has(normalizedUrl)) {
+      // Try to update the existing course with the new coupon
+      const couponExpiry = estimateCouponExpiry(couponCode);
+      const upsertResult = await upsertCourseCoupon(normalizedUrl, {
+        couponCode,
+        couponUrl,
+        couponExpiresAt: couponExpiry,
+        couponVerified: false, // Will be verified below if sampling says so
+      });
+
+      if (upsertResult.updated) {
+        console.log(`[Scraper] Updated coupon for existing course: "${course.title.substring(0, 40)}" → ${couponCode}`);
+
+        // Optionally verify the updated coupon
+        const pageIndex = course.pageIndex ?? 99;
+        if (shouldVerifyCoupon(pageIndex, couponCode)) {
+          const verifyResult = await verifyCouponOnUdemy(couponUrl);
+          if (verifyResult.verified) {
+            // Update verified status
+            await upsertCourseCoupon(normalizedUrl, {
+              couponCode,
+              couponUrl,
+              couponExpiresAt: couponExpiry,
+              couponVerified: verifyResult.isFree,
+            });
+          }
+        }
+
+        return { saved: false, updated: true };
+      }
+
       return { saved: false, skipped: 'duplicate-url' };
     }
 
+    // --- NEW COURSE: Verify coupon based on sampling ---
     const detailPromise = scrapeDetailPage(course.detailUrl);
-
-    // Verify the coupon on Udemy (best effort, sampled)
     const couponExpiry = estimateCouponExpiry(couponCode);
+
+    // Determine if we should verify
+    const pageIndex = course.pageIndex ?? 99;
+    const doVerify = shouldVerifyCoupon(pageIndex, couponCode);
+
+    let couponVerified = false;
+
+    if (doVerify) {
+      console.log(`[Scraper] Verifying coupon for "${course.title.substring(0, 40)}" (page ${pageIndex + 1})...`);
+      const verifyResult = await verifyCouponOnUdemy(couponUrl);
+
+      if (verifyResult.verified) {
+        couponVerified = verifyResult.isFree;
+        if (!verifyResult.isFree) {
+          // Coupon verified as expired/paid - skip this course
+          console.log(`[Scraper] Coupon verified as NOT FREE for "${course.title.substring(0, 40)}" - skipping`);
+          return { saved: false, skipped: 'expired-coupon' };
+        }
+        console.log(`[Scraper] Coupon verified as FREE for "${course.title.substring(0, 40)}" ✓`);
+      } else {
+        // Verification inconclusive - store without verified flag
+        console.log(`[Scraper] Coupon verification inconclusive for "${course.title.substring(0, 40)}" - storing unverified`);
+      }
+    }
 
     const courseData: ScrapedCourseData = {
       title: course.title,
@@ -641,10 +836,11 @@ async function processCourse(
       category: course.category,
       imageUrl: course.imageUrl,
       udemyUrl,
-      couponUrl: udemyUrl,
+      couponUrl,
       couponCode,
       couponExpiresAt: couponExpiry,
-      isFreeForever: false, // ALL coupon courses are time-limited, never auto-detect free forever
+      isFreeForever: false,
+      couponVerified,
       sourceDetail: 'udemyfreebies',
       rating: course.rating,
       studentsCount: course.studentsCount,
@@ -696,6 +892,7 @@ async function processCourse(
       couponExpiresAt: courseData.couponExpiresAt,
       isFreeForever: courseData.isFreeForever,
       sourceDetail: courseData.sourceDetail,
+      couponVerified: courseData.couponVerified,
     });
 
     if (dbResult.created) {
@@ -717,6 +914,7 @@ async function scrapeUdemyFreebies(maxPages: number = 20): Promise<SourceResult>
   let dupCount = 0;
   let errCount = 0;
   let expiredCount = 0;
+  let updatedCount = 0;
   const allCourses: ScrapedCourseData[] = [];
   const errors: string[] = [];
 
@@ -747,21 +945,40 @@ async function scrapeUdemyFreebies(maxPages: number = 20): Promise<SourceResult>
 
     console.log(`[Scraper/UdemyFreebies] Found ${allListedCourses.length} course listings from ${maxPages} pages`);
 
-    const BATCH_SIZE = 10;
+    // Use batch size of 5 for verification (reduced from 10)
+    const BATCH_SIZE = 5;
     for (let i = 0; i < allListedCourses.length; i += BATCH_SIZE) {
       const batch = allListedCourses.slice(i, i + BATCH_SIZE);
       const batchNum = Math.floor(i / BATCH_SIZE) + 1;
       const totalBatches = Math.ceil(allListedCourses.length / BATCH_SIZE);
 
-      const batchResults = await Promise.allSettled(
-        batch.map(course => processCourse(course, existingUrls, existingTitles))
-      );
+      // Process sequentially when verification is needed (to respect rate limits)
+      const batchResults: PromiseSettledResult<{ saved: boolean; updated?: boolean; skipped?: string; data?: ScrapedCourseData }>[] = [];
+
+      // Check if any course in this batch needs verification
+      const needsVerification = batch.some(c => shouldVerifyCoupon(c.pageIndex ?? 99, extractCouponCodeFromContext(c)));
+
+      if (needsVerification) {
+        // Sequential processing to respect rate limits
+        for (const course of batch) {
+          const result = await processCourse(course, existingUrls, existingTitles);
+          batchResults.push({ status: 'fulfilled', value: result });
+        }
+      } else {
+        // Parallel processing when no verification needed
+        const results = await Promise.allSettled(
+          batch.map(course => processCourse(course, existingUrls, existingTitles))
+        );
+        batchResults.push(...results);
+      }
 
       for (const result of batchResults) {
         if (result.status === 'fulfilled') {
           if (result.value.saved) {
             newCount++;
             allCourses.push(result.value.data!);
+          } else if (result.value.updated) {
+            updatedCount++;
           } else if (result.value.skipped === 'duplicate-title' || result.value.skipped === 'duplicate-url' || result.value.skipped === 'db-duplicate') {
             dupCount++;
           } else if (result.value.skipped === 'no-valid-coupon' || result.value.skipped === 'expired-coupon') {
@@ -775,8 +992,8 @@ async function scrapeUdemyFreebies(maxPages: number = 20): Promise<SourceResult>
       }
 
       if (i + BATCH_SIZE < allListedCourses.length) {
-        console.log(`[Scraper/UdemyFreebies] Batch ${batchNum}/${totalBatches}: ${newCount} new, ${dupCount} dup, ${expiredCount} no-coupon/expired, ${errCount} err`);
-        await new Promise(resolve => setTimeout(resolve, 100));
+        console.log(`[Scraper/UdemyFreebies] Batch ${batchNum}/${totalBatches}: ${newCount} new, ${updatedCount} updated, ${dupCount} dup, ${expiredCount} no-coupon/expired, ${errCount} err`);
+        await new Promise(resolve => setTimeout(resolve, 200));
       }
     }
 
@@ -788,7 +1005,7 @@ async function scrapeUdemyFreebies(maxPages: number = 20): Promise<SourceResult>
   const duration = Date.now() - start;
   const status = newCount > 0 ? 'success' : (errCount > 0 ? 'error' : 'partial');
 
-  console.log(`[Scraper/UdemyFreebies] Done in ${(duration / 1000).toFixed(1)}s: ${newCount} new, ${dupCount} dup, ${expiredCount} no-valid-coupon/expired, ${errCount} err`);
+  console.log(`[Scraper/UdemyFreebies] Done in ${(duration / 1000).toFixed(1)}s: ${newCount} new, ${updatedCount} updated, ${dupCount} dup, ${expiredCount} no-coupon/expired, ${errCount} err`);
 
   const logEntry: ScraperLogEntry = {
     source: 'udemyfreebies',
@@ -796,7 +1013,7 @@ async function scrapeUdemyFreebies(maxPages: number = 20): Promise<SourceResult>
     newCount,
     dupCount,
     errCount,
-    message: `${newCount} new from ${maxPages} pages, ${dupCount} dup, ${expiredCount} no-valid-coupon, ${errCount} err`,
+    message: `${newCount} new, ${updatedCount} updated from ${maxPages} pages, ${dupCount} dup, ${expiredCount} no-valid-coupon, ${errCount} err`,
     duration,
   };
   await logScraperRun(logEntry).catch(() => {});
@@ -808,10 +1025,18 @@ async function scrapeUdemyFreebies(maxPages: number = 20): Promise<SourceResult>
     dupCount,
     errCount,
     expiredCount,
-    message: `${maxPages} صفحة → ${newCount} جديدة، ${dupCount} مكررة، ${expiredCount} بدون كوبون صالح، ${errCount} أخطاء`,
+    updatedCount,
+    message: `${maxPages} صفحة → ${newCount} جديدة، ${updatedCount} محدثة، ${dupCount} مكررة، ${expiredCount} بدون كوبون صالح، ${errCount} أخطاء`,
     duration,
     courses: allCourses,
   };
+}
+
+/**
+ * Helper to extract a rough coupon code guess from listing context (for shouldVerifyCoupon)
+ */
+function extractCouponCodeFromContext(course: ListingCourse): string {
+  return ''; // We don't have the coupon yet at listing stage; default to no-verify for 30% sampling
 }
 
 // ============================================
@@ -819,12 +1044,200 @@ async function scrapeUdemyFreebies(maxPages: number = 20): Promise<SourceResult>
 // Fetches course listings from discudemy.com, gets Udemy URLs from couponami.com/go/
 // ============================================
 
+async function processDiscUdemyCourse(
+  courseUrl: string,
+  existingUrls: Set<string>,
+  existingTitles: Set<string>
+): Promise<{ saved: boolean; updated?: boolean; skipped?: string; data?: ScrapedCourseData }> {
+  try {
+    // Fetch the discudemy course page
+    const resp = await fetch(courseUrl, {
+      headers: getRandomHeaders(),
+      signal: AbortSignal.timeout(15000),
+      redirect: 'follow',
+    });
+    if (!resp.ok) return { saved: false, skipped: 'error' };
+
+    const html = await resp.text();
+    const $ = cheerio.load(html);
+
+    // Extract course title
+    const title = $('h1').first().text().trim() ||
+                  $('header h1').first().text().trim() ||
+                  $('title').text().replace(/\s*[-|].*$/, '').trim();
+
+    if (!title || title.length < 5) return { saved: false, skipped: 'no-title' };
+
+    // Title dedup
+    const normTitle = normalizeTitle(title);
+    if (existingTitles.has(normTitle)) return { saved: false, skipped: 'duplicate-title' };
+
+    // Extract description
+    const desc = $('p').first().text().trim() || '';
+
+    // Extract image
+    const imageUrl = enhanceImageUrl(
+      $('img[src*="udemycdn.com"]').first().attr('src') ||
+      $('img').first().attr('src') || ''
+    );
+
+    // Extract Udemy URL from couponami.com/go/ link
+    let udemyUrl = '';
+    let couponCode = '';
+
+    const $goBtn = $('a.discBtn');
+    const goLink = $goBtn.attr('href') || '';
+    if (goLink) {
+      try {
+        const goResp = await fetch(goLink.startsWith('http') ? goLink : `https://www.discudemy.com${goLink}`, {
+          headers: getRandomHeaders(),
+          signal: AbortSignal.timeout(10000),
+          redirect: 'follow',
+        });
+        if (goResp.ok) {
+          const goHtml = await goResp.text();
+          const $go = cheerio.load(goHtml);
+          const $udemyLink = $go('a[href*="udemy.com/course"]').first();
+          const udemyHref = $udemyLink.attr('href') || '';
+          if (udemyHref) {
+            udemyUrl = udemyHref;
+            couponCode = extractCouponCode(udemyHref) || '';
+          }
+        }
+      } catch {
+        // couponami fetch failed
+      }
+    }
+
+    // CRITICAL: Only store if we have a valid coupon code
+    if (!udemyUrl || !isValidCouponCode(couponCode)) {
+      return { saved: false, skipped: 'no-valid-coupon' };
+    }
+
+    const normalizedUrl = normalizeUdemyUrl(udemyUrl);
+    const couponUrl = udemyUrl;
+    const couponExpiry = estimateCouponExpiry(couponCode);
+
+    // --- DEDUP UPDATE: If existing course found, update its coupon ---
+    if (existingUrls.has(normalizedUrl)) {
+      const upsertResult = await upsertCourseCoupon(normalizedUrl, {
+        couponCode,
+        couponUrl,
+        couponExpiresAt: couponExpiry,
+        couponVerified: false,
+      });
+
+      if (upsertResult.updated) {
+        console.log(`[Scraper/DiscUdemy] Updated coupon for existing course: "${title.substring(0, 40)}" → ${couponCode}`);
+
+        // Verify month/year coupons
+        if (couponHasMonthYear(couponCode)) {
+          const verifyResult = await verifyCouponOnUdemy(couponUrl);
+          if (verifyResult.verified) {
+            await upsertCourseCoupon(normalizedUrl, {
+              couponCode,
+              couponUrl,
+              couponExpiresAt: couponExpiry,
+              couponVerified: verifyResult.isFree,
+            });
+          }
+        }
+
+        return { saved: false, updated: true };
+      }
+
+      return { saved: false, skipped: 'duplicate-url' };
+    }
+
+    // Verify coupons with month/year patterns (always for discudemy)
+    let couponVerified = false;
+    if (couponHasMonthYear(couponCode)) {
+      console.log(`[Scraper/DiscUdemy] Verifying coupon for "${title.substring(0, 40)}"...`);
+      const verifyResult = await verifyCouponOnUdemy(couponUrl);
+      if (verifyResult.verified) {
+        couponVerified = verifyResult.isFree;
+        if (!verifyResult.isFree) {
+          console.log(`[Scraper/DiscUdemy] Coupon verified as NOT FREE for "${title.substring(0, 40)}" - skipping`);
+          return { saved: false, skipped: 'expired-coupon' };
+        }
+        console.log(`[Scraper/DiscUdemy] Coupon verified as FREE for "${title.substring(0, 40)}" ✓`);
+      }
+    }
+
+    // Extract category from discudemy breadcrumb/section
+    const sourceDetail = courseUrl.replace('https://www.discudemy.com/', '').replace('http://www.discudemy.com/', '').replace(/\/$/, '');
+
+    // Build course data
+    const courseData: ScrapedCourseData = {
+      title,
+      description: desc || `تعلم ${title} مع هذه الدورة المجانية الشاملة.`,
+      instructor: '',
+      category: categorize(title),
+      imageUrl,
+      udemyUrl,
+      couponUrl,
+      couponCode,
+      couponExpiresAt: couponExpiry,
+      isFreeForever: false,
+      couponVerified,
+      sourceDetail,
+      rating: null,
+      studentsCount: null,
+      originalPrice: null,
+      language: null,
+      duration: null,
+      requirements: '',
+      whoFor: '',
+      whatLearn: '',
+      lastUpdated: null,
+      source: 'discudemy',
+    };
+
+    // Save to DB
+    const dbResult = await createCourseIfNotExists({
+      title: courseData.title,
+      slug: slugify(courseData.title),
+      description: courseData.description,
+      instructor: courseData.instructor,
+      category: courseData.category,
+      imageUrl: courseData.imageUrl,
+      udemyUrl: courseData.udemyUrl,
+      source: courseData.source,
+      rating: courseData.rating,
+      studentsCount: courseData.studentsCount,
+      originalPrice: courseData.originalPrice,
+      language: courseData.language,
+      duration: courseData.duration,
+      requirements: courseData.requirements,
+      whoFor: courseData.whoFor,
+      whatLearn: courseData.whatLearn,
+      lastUpdated: courseData.lastUpdated,
+      couponCode: courseData.couponCode,
+      couponUrl: courseData.couponUrl,
+      couponExpiresAt: courseData.couponExpiresAt,
+      isFreeForever: courseData.isFreeForever,
+      sourceDetail: courseData.sourceDetail,
+      couponVerified: courseData.couponVerified,
+    });
+
+    if (dbResult.created) {
+      existingUrls.add(normalizedUrl);
+      existingTitles.add(normTitle);
+      return { saved: true, data: courseData };
+    }
+    return { saved: false, skipped: 'db-duplicate' };
+  } catch (err) {
+    return { saved: false, skipped: 'error' };
+  }
+}
+
 async function scrapeDiscUdemy(): Promise<SourceResult> {
   const start = Date.now();
   let newCount = 0;
   let dupCount = 0;
   let errCount = 0;
   let expiredCount = 0;
+  let updatedCount = 0;
   const allCourses: ScrapedCourseData[] = [];
   const errors: string[] = [];
 
@@ -856,7 +1269,6 @@ async function scrapeDiscUdemy(): Promise<SourceResult> {
     const courseLinks: string[] = [];
     $all('a[href]').each((_, el) => {
       const href = $all(el).attr('href') || '';
-      // Match discudemy.com/{course-slug} (not category/about/contact/etc)
       const match = href.match(/^https?:\/\/(www\.)?discudemy\.com\/([a-z0-9\-]+)\/?$/i);
       if (match && ![
         'all', 'category', 'about', 'contact', 'feed', 'search',
@@ -905,7 +1317,7 @@ async function scrapeDiscUdemy(): Promise<SourceResult> {
 
     console.log(`[Scraper/DiscUdemy] Total unique course links: ${courseLinks.length}`);
 
-    // Step 2: Process each course page - get title, image, Udemy URL
+    // Step 2: Process each course page - batch size of 5
     const BATCH_SIZE = 5;
     for (let i = 0; i < courseLinks.length; i += BATCH_SIZE) {
       const batch = courseLinks.slice(i, i + BATCH_SIZE);
@@ -913,140 +1325,7 @@ async function scrapeDiscUdemy(): Promise<SourceResult> {
       const totalBatches = Math.ceil(courseLinks.length / BATCH_SIZE);
 
       const batchResults = await Promise.allSettled(
-        batch.map(async (courseUrl) => {
-          try {
-            // Fetch the discudemy course page
-            const resp = await fetch(courseUrl, {
-              headers: getRandomHeaders(),
-              signal: AbortSignal.timeout(15000),
-              redirect: 'follow',
-            });
-            if (!resp.ok) return { saved: false, skipped: 'error' };
-
-            const html = await resp.text();
-            const $ = cheerio.load(html);
-
-            // Extract course title
-            const title = $('h1').first().text().trim() ||
-                          $('header h1').first().text().trim() ||
-                          $('title').text().replace(/\s*[-|].*$/, '').trim();
-
-            if (!title || title.length < 5) return { saved: false, skipped: 'no-title' };
-
-            // Title dedup
-            const normTitle = normalizeTitle(title);
-            if (existingTitles.has(normTitle)) return { saved: false, skipped: 'duplicate-title' };
-
-            // Extract description
-            const desc = $('p').first().text().trim() || '';
-
-            // Extract image
-            const imageUrl = enhanceImageUrl(
-              $('img[src*="udemycdn.com"]').first().attr('src') ||
-              $('img').first().attr('src') || ''
-            );
-
-            // Extract Udemy URL from couponami.com/go/ link
-            let udemyUrl = '';
-            let couponCode = '';
-
-            const $goBtn = $('a.discBtn');
-            const goLink = $goBtn.attr('href') || '';
-            if (goLink) {
-              // Fetch the couponami/go/ page to get the actual Udemy URL
-              try {
-                const goResp = await fetch(goLink.startsWith('http') ? goLink : `https://www.discudemy.com${goLink}`, {
-                  headers: getRandomHeaders(),
-                  signal: AbortSignal.timeout(10000),
-                  redirect: 'follow',
-                });
-                if (goResp.ok) {
-                  const goHtml = await goResp.text();
-                  const $go = cheerio.load(goHtml);
-                  const $udemyLink = $go('a[href*="udemy.com/course"]').first();
-                  const udemyHref = $udemyLink.attr('href') || '';
-                  if (udemyHref) {
-                    udemyUrl = udemyHref;
-                    couponCode = extractCouponCode(udemyHref) || '';
-                  }
-                }
-              } catch {
-                // couponami fetch failed
-              }
-            }
-
-            // CRITICAL FIX: Only store if we have a valid coupon code
-            if (!udemyUrl || !isValidCouponCode(couponCode)) {
-              return { saved: false, skipped: 'no-valid-coupon' };
-            }
-
-            const normalizedUrl = normalizeUdemyUrl(udemyUrl);
-            if (existingUrls.has(normalizedUrl)) return { saved: false, skipped: 'duplicate-url' };
-
-            // Extract category from discudemy breadcrumb/section
-            const sourceDetail = courseUrl.replace('https://www.discudemy.com/', '').replace('http://www.discudemy.com/', '').replace(/\/$/, '');
-
-            // Build course data - ALL coupon courses are time-limited, NOT free forever
-            const courseData: ScrapedCourseData = {
-              title,
-              description: desc || `تعلم ${title} مع هذه الدورة المجانية الشاملة.`,
-              instructor: '',
-              category: categorize(title),
-              imageUrl,
-              udemyUrl,
-              couponUrl: udemyUrl,
-              couponCode,
-              couponExpiresAt: estimateCouponExpiry(couponCode),
-              isFreeForever: false, // FIXED: discudemy courses use coupons, they are NOT free forever
-              sourceDetail,
-              rating: null,
-              studentsCount: null,
-              originalPrice: null,
-              language: null,
-              duration: null,
-              requirements: '',
-              whoFor: '',
-              whatLearn: '',
-              lastUpdated: null,
-              source: 'discudemy',
-            };
-
-            // Save to DB
-            const dbResult = await createCourseIfNotExists({
-              title: courseData.title,
-              slug: slugify(courseData.title),
-              description: courseData.description,
-              instructor: courseData.instructor,
-              category: courseData.category,
-              imageUrl: courseData.imageUrl,
-              udemyUrl: courseData.udemyUrl,
-              source: courseData.source,
-              rating: courseData.rating,
-              studentsCount: courseData.studentsCount,
-              originalPrice: courseData.originalPrice,
-              language: courseData.language,
-              duration: courseData.duration,
-              requirements: courseData.requirements,
-              whoFor: courseData.whoFor,
-              whatLearn: courseData.whatLearn,
-              lastUpdated: courseData.lastUpdated,
-              couponCode: courseData.couponCode,
-              couponUrl: courseData.couponUrl,
-              couponExpiresAt: courseData.couponExpiresAt,
-              isFreeForever: courseData.isFreeForever,
-              sourceDetail: courseData.sourceDetail,
-            });
-
-            if (dbResult.created) {
-              existingUrls.add(normalizedUrl);
-              existingTitles.add(normTitle);
-              return { saved: true, data: courseData };
-            }
-            return { saved: false, skipped: 'db-duplicate' };
-          } catch (err) {
-            return { saved: false, skipped: 'error' };
-          }
-        })
+        batch.map(courseUrl => processDiscUdemyCourse(courseUrl, existingUrls, existingTitles))
       );
 
       for (const result of batchResults) {
@@ -1054,11 +1333,11 @@ async function scrapeDiscUdemy(): Promise<SourceResult> {
           if (result.value.saved) {
             newCount++;
             allCourses.push(result.value.data!);
+          } else if (result.value.updated) {
+            updatedCount++;
           } else if (['duplicate-title', 'duplicate-url', 'db-duplicate'].includes(result.value.skipped || '')) {
             dupCount++;
-          } else if (result.value.skipped === 'no-valid-coupon') {
-            expiredCount++;
-          } else if (result.value.skipped === 'expired-coupon') {
+          } else if (result.value.skipped === 'no-valid-coupon' || result.value.skipped === 'expired-coupon') {
             expiredCount++;
           } else {
             errCount++;
@@ -1069,8 +1348,8 @@ async function scrapeDiscUdemy(): Promise<SourceResult> {
       }
 
       if (i + BATCH_SIZE < courseLinks.length) {
-        console.log(`[Scraper/DiscUdemy] Batch ${batchNum}/${totalBatches}: ${newCount} new, ${dupCount} dup, ${expiredCount} no-coupon, ${errCount} err`);
-        await new Promise(r => setTimeout(r, 300));
+        console.log(`[Scraper/DiscUdemy] Batch ${batchNum}/${totalBatches}: ${newCount} new, ${updatedCount} updated, ${dupCount} dup, ${expiredCount} no-coupon, ${errCount} err`);
+        await new Promise(r => setTimeout(r, 500));
       }
     }
 
@@ -1082,7 +1361,7 @@ async function scrapeDiscUdemy(): Promise<SourceResult> {
   const duration = Date.now() - start;
   const status = newCount > 0 ? 'success' : (errCount > 0 ? 'error' : 'partial');
 
-  console.log(`[Scraper/DiscUdemy] Done in ${(duration / 1000).toFixed(1)}s: ${newCount} new, ${dupCount} dup, ${expiredCount} no-valid-coupon, ${errCount} err`);
+  console.log(`[Scraper/DiscUdemy] Done in ${(duration / 1000).toFixed(1)}s: ${newCount} new, ${updatedCount} updated, ${dupCount} dup, ${expiredCount} no-coupon, ${errCount} err`);
 
   const logEntry: ScraperLogEntry = {
     source: 'discudemy',
@@ -1090,7 +1369,7 @@ async function scrapeDiscUdemy(): Promise<SourceResult> {
     newCount,
     dupCount,
     errCount,
-    message: `${newCount} new from discudemy.com, ${dupCount} dup, ${expiredCount} no-valid-coupon, ${errCount} err`,
+    message: `${newCount} new, ${updatedCount} updated from discudemy.com, ${dupCount} dup, ${expiredCount} no-valid-coupon, ${errCount} err`,
     duration,
   };
   await logScraperRun(logEntry).catch(() => {});
@@ -1102,7 +1381,8 @@ async function scrapeDiscUdemy(): Promise<SourceResult> {
     dupCount,
     errCount,
     expiredCount,
-    message: `DiscUdemy → ${newCount} جديدة، ${dupCount} مكررة، ${expiredCount} بدون كوبون صالح، ${errCount} أخطاء`,
+    updatedCount,
+    message: `DiscUdemy → ${newCount} جديدة، ${updatedCount} محدثة، ${dupCount} مكررة، ${expiredCount} بدون كوبون صالح، ${errCount} أخطاء`,
     duration,
     courses: allCourses,
   };
@@ -1119,6 +1399,7 @@ async function scrapeFreebiesGlobal(): Promise<SourceResult> {
   let dupCount = 0;
   let errCount = 0;
   let expiredCount = 0;
+  let updatedCount = 0;
   const allCourses: ScrapedCourseData[] = [];
   const errors: string[] = [];
 
@@ -1223,8 +1504,8 @@ async function scrapeFreebiesGlobal(): Promise<SourceResult> {
 
     console.log(`[Scraper/FreebiesGlobal] Extracted ${extractedCourses.length} unique courses from ${pageUrls.length} pages`);
 
-    // Step 2: Save to DB in batches
-    const BATCH_SIZE = 20;
+    // Step 2: Save to DB in batches (batch size 5 for verification)
+    const BATCH_SIZE = 5;
     for (let i = 0; i < extractedCourses.length; i += BATCH_SIZE) {
       const batch = extractedCourses.slice(i, i + BATCH_SIZE);
       const batchNum = Math.floor(i / BATCH_SIZE) + 1;
@@ -1237,14 +1518,48 @@ async function scrapeFreebiesGlobal(): Promise<SourceResult> {
             if (existingTitles.has(normTitle)) return { saved: false, skipped: 'duplicate-title' };
 
             const normalizedUrl = normalizeUdemyUrl(course.udemyUrl);
-            if (existingUrls.has(normalizedUrl)) return { saved: false, skipped: 'duplicate-url' };
 
-            // CRITICAL FIX: Only store if there's a valid coupon code
+            // CRITICAL: Only store if there's a valid coupon code
             if (!course.couponCode || !isValidCouponCode(course.couponCode)) {
               return { saved: false, skipped: 'no-valid-coupon' };
             }
 
+            // --- DEDUP UPDATE: Update existing course coupon ---
+            if (existingUrls.has(normalizedUrl)) {
+              const couponCode = course.couponCode;
+              const couponUrl = course.udemyUrl;
+              const couponExpiry = estimateCouponExpiry(couponCode);
+
+              const upsertResult = await upsertCourseCoupon(normalizedUrl, {
+                couponCode,
+                couponUrl,
+                couponExpiresAt: couponExpiry,
+                couponVerified: false,
+              });
+
+              if (upsertResult.updated) {
+                return { saved: false, updated: true };
+              }
+
+              return { saved: false, skipped: 'duplicate-url' };
+            }
+
             const couponCode = course.couponCode;
+            const couponUrl = course.udemyUrl;
+            const couponExpiry = estimateCouponExpiry(couponCode);
+
+            // FreebiesGlobal is pages 1-3, always verify month/year coupons
+            let couponVerified = false;
+            if (couponHasMonthYear(couponCode)) {
+              const verifyResult = await verifyCouponOnUdemy(couponUrl);
+              if (verifyResult.verified) {
+                couponVerified = verifyResult.isFree;
+                if (!verifyResult.isFree) {
+                  return { saved: false, skipped: 'expired-coupon' };
+                }
+              }
+            }
+
             const courseData: ScrapedCourseData = {
               title: course.title,
               description: `تعلم ${course.title} مع هذه الدورة المجانية الشاملة. حمّلها الآن مجاناً من Udemy.`,
@@ -1252,10 +1567,11 @@ async function scrapeFreebiesGlobal(): Promise<SourceResult> {
               category: categorize(course.title),
               imageUrl: course.imageUrl,
               udemyUrl: course.udemyUrl,
-              couponUrl: course.udemyUrl,
+              couponUrl,
               couponCode,
-              couponExpiresAt: estimateCouponExpiry(couponCode),
-              isFreeForever: false, // FIXED: All coupon courses are time-limited
+              couponExpiresAt: couponExpiry,
+              isFreeForever: false,
+              couponVerified,
               sourceDetail: course.sourceDetail,
               rating: null,
               studentsCount: null,
@@ -1292,6 +1608,7 @@ async function scrapeFreebiesGlobal(): Promise<SourceResult> {
               couponExpiresAt: courseData.couponExpiresAt,
               isFreeForever: courseData.isFreeForever,
               sourceDetail: courseData.sourceDetail,
+              couponVerified: courseData.couponVerified,
             });
 
             if (dbResult.created) {
@@ -1311,11 +1628,11 @@ async function scrapeFreebiesGlobal(): Promise<SourceResult> {
           if (result.value.saved) {
             newCount++;
             allCourses.push(result.value.data!);
+          } else if (result.value.updated) {
+            updatedCount++;
           } else if (['duplicate-title', 'duplicate-url', 'db-duplicate'].includes(result.value.skipped || '')) {
             dupCount++;
-          } else if (result.value.skipped === 'no-valid-coupon') {
-            expiredCount++;
-          } else if (result.value.skipped === 'expired-coupon') {
+          } else if (result.value.skipped === 'no-valid-coupon' || result.value.skipped === 'expired-coupon') {
             expiredCount++;
           } else {
             errCount++;
@@ -1326,8 +1643,8 @@ async function scrapeFreebiesGlobal(): Promise<SourceResult> {
       }
 
       if (i + BATCH_SIZE < extractedCourses.length) {
-        console.log(`[Scraper/FreebiesGlobal] Batch ${batchNum}/${totalBatches}: ${newCount} new, ${dupCount} dup, ${expiredCount} no-coupon, ${errCount} err`);
-        await new Promise(r => setTimeout(r, 100));
+        console.log(`[Scraper/FreebiesGlobal] Batch ${batchNum}/${totalBatches}: ${newCount} new, ${updatedCount} updated, ${dupCount} dup, ${expiredCount} no-coupon, ${errCount} err`);
+        await new Promise(r => setTimeout(r, 200));
       }
     }
 
@@ -1339,7 +1656,7 @@ async function scrapeFreebiesGlobal(): Promise<SourceResult> {
   const duration = Date.now() - start;
   const status = newCount > 0 ? 'success' : (errCount > 0 ? 'error' : 'partial');
 
-  console.log(`[Scraper/FreebiesGlobal] Done in ${(duration / 1000).toFixed(1)}s: ${newCount} new, ${dupCount} dup, ${expiredCount} no-valid-coupon, ${errCount} err`);
+  console.log(`[Scraper/FreebiesGlobal] Done in ${(duration / 1000).toFixed(1)}s: ${newCount} new, ${updatedCount} updated, ${dupCount} dup, ${expiredCount} no-coupon, ${errCount} err`);
 
   const logEntry: ScraperLogEntry = {
     source: 'freebiesglobal',
@@ -1347,7 +1664,7 @@ async function scrapeFreebiesGlobal(): Promise<SourceResult> {
     newCount,
     dupCount,
     errCount,
-    message: `${newCount} new from freebiesglobal.com, ${dupCount} dup, ${expiredCount} no-valid-coupon, ${errCount} err`,
+    message: `${newCount} new, ${updatedCount} updated from freebiesglobal.com, ${dupCount} dup, ${expiredCount} no-valid-coupon, ${errCount} err`,
     duration,
   };
   await logScraperRun(logEntry).catch(() => {});
@@ -1359,7 +1676,8 @@ async function scrapeFreebiesGlobal(): Promise<SourceResult> {
     dupCount,
     errCount,
     expiredCount,
-    message: `FreebiesGlobal → ${newCount} جديدة، ${dupCount} مكررة، ${errCount} أخطاء`,
+    updatedCount,
+    message: `FreebiesGlobal → ${newCount} جديدة، ${updatedCount} محدثة، ${dupCount} مكررة، ${errCount} أخطاء`,
     duration,
     courses: allCourses,
   };
@@ -1406,6 +1724,7 @@ export interface ScrapeResults {
   totalNew: number;
   totalDup: number;
   totalErr: number;
+  totalUpdated: number;
   totalDuration: number;
 }
 
@@ -1423,18 +1742,19 @@ export async function runFullScrape(options?: {
   let totalNew = 0;
   let totalDup = 0;
   let totalErr = 0;
+  let totalUpdated = 0;
 
   let udemyfreebiesResult: SourceResult = {
     source: 'udemyfreebies', status: 'partial', newCount: 0, dupCount: 0, errCount: 0,
-    expiredCount: 0, message: 'Skipped', duration: 0, courses: [],
+    expiredCount: 0, updatedCount: 0, message: 'Skipped', duration: 0, courses: [],
   };
   let discudemyResult: SourceResult = {
     source: 'discudemy', status: 'partial', newCount: 0, dupCount: 0, errCount: 0,
-    expiredCount: 0, message: 'Skipped', duration: 0, courses: [],
+    expiredCount: 0, updatedCount: 0, message: 'Skipped', duration: 0, courses: [],
   };
   let freebiesglobalResult: SourceResult = {
     source: 'freebiesglobal', status: 'partial', newCount: 0, dupCount: 0, errCount: 0,
-    expiredCount: 0, message: 'Skipped', duration: 0, courses: [],
+    expiredCount: 0, updatedCount: 0, message: 'Skipped', duration: 0, courses: [],
   };
 
   // Run each source
@@ -1444,9 +1764,10 @@ export async function runFullScrape(options?: {
       totalNew += udemyfreebiesResult.newCount;
       totalDup += udemyfreebiesResult.dupCount;
       totalErr += udemyfreebiesResult.errCount;
+      totalUpdated += udemyfreebiesResult.updatedCount;
     } catch (err) {
       console.error('[Scraper] UdemyFreebies failed:', err);
-      udemyfreebiesResult = { source: 'udemyfreebies', status: 'error', newCount: 0, dupCount: 0, errCount: 1, expiredCount: 0, message: String(err), duration: 0, courses: [] };
+      udemyfreebiesResult = { source: 'udemyfreebies', status: 'error', newCount: 0, dupCount: 0, errCount: 1, expiredCount: 0, updatedCount: 0, message: String(err), duration: 0, courses: [] };
       totalErr++;
     }
   }
@@ -1457,9 +1778,10 @@ export async function runFullScrape(options?: {
       totalNew += discudemyResult.newCount;
       totalDup += discudemyResult.dupCount;
       totalErr += discudemyResult.errCount;
+      totalUpdated += discudemyResult.updatedCount;
     } catch (err) {
       console.error('[Scraper] DiscUdemy failed:', err);
-      discudemyResult = { source: 'discudemy', status: 'error', newCount: 0, dupCount: 0, errCount: 1, expiredCount: 0, message: String(err), duration: 0, courses: [] };
+      discudemyResult = { source: 'discudemy', status: 'error', newCount: 0, dupCount: 0, errCount: 1, expiredCount: 0, updatedCount: 0, message: String(err), duration: 0, courses: [] };
       totalErr++;
     }
   }
@@ -1470,16 +1792,17 @@ export async function runFullScrape(options?: {
       totalNew += freebiesglobalResult.newCount;
       totalDup += freebiesglobalResult.dupCount;
       totalErr += freebiesglobalResult.errCount;
+      totalUpdated += freebiesglobalResult.updatedCount;
     } catch (err) {
       console.error('[Scraper] FreebiesGlobal failed:', err);
-      freebiesglobalResult = { source: 'freebiesglobal', status: 'error', newCount: 0, dupCount: 0, errCount: 1, expiredCount: 0, message: String(err), duration: 0, courses: [] };
+      freebiesglobalResult = { source: 'freebiesglobal', status: 'error', newCount: 0, dupCount: 0, errCount: 1, expiredCount: 0, updatedCount: 0, message: String(err), duration: 0, courses: [] };
       totalErr++;
     }
   }
 
   const totalDuration = Date.now() - totalStart;
 
-  console.log(`[Scraper] Full scrape done in ${(totalDuration / 1000).toFixed(1)}s: ${totalNew} new, ${totalDup} dup, ${totalErr} err`);
+  console.log(`[Scraper] Full scrape done in ${(totalDuration / 1000).toFixed(1)}s: ${totalNew} new, ${totalUpdated} updated, ${totalDup} dup, ${totalErr} err`);
 
   return {
     udemyfreebies: udemyfreebiesResult,
@@ -1488,6 +1811,7 @@ export async function runFullScrape(options?: {
     totalNew,
     totalDup,
     totalErr,
+    totalUpdated,
     totalDuration,
   };
 }
