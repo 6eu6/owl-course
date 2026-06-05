@@ -46,6 +46,7 @@ export async function GET(request: Request) {
         duration: c.duration || null,
         couponExpiresAt: c.couponExpiresAt?.toISOString() || null,
         isFreeForever: c.isFreeForever || false,
+        couponVerified: c.couponVerified || false,
         scraped_at: c.scrapedAt,
       })),
       pagination: {

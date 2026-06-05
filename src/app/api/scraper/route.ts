@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { runFullScrape, cleanupDuplicates } from '@/lib/scraper';
-import { verifyAdminPassword, getRecentScraperLogs } from '@/lib/mongodb';
+import { verifyAdminPassword, getRecentScraperLogs, cleanupInvalidCourses, purgeAllCourses } from '@/lib/mongodb';
 
 // POST /api/scraper - Trigger scraper or cleanup (protected by admin password)
 export async function POST(request: Request) {
@@ -23,6 +23,26 @@ export async function POST(request: Request) {
       return NextResponse.json({
         success: true,
         message: `Removed ${result.removed} duplicate courses`,
+        removed: result.removed,
+      });
+    }
+
+    // Cleanup invalid courses (no coupon, fake free forever)
+    if (action === 'clean-invalid') {
+      const result = await cleanupInvalidCourses();
+      return NextResponse.json({
+        success: true,
+        message: `Cleaned ${result.totalRemoved} invalid courses (${result.removedNoCoupon} no coupon, ${result.removedFakeFree} fake free forever, ${result.removedDuplicates} duplicates)`,
+        ...result,
+      });
+    }
+
+    // Purge ALL courses (fresh start)
+    if (action === 'purge') {
+      const result = await purgeAllCourses();
+      return NextResponse.json({
+        success: true,
+        message: `Purged ${result.removed} courses from database`,
         removed: result.removed,
       });
     }

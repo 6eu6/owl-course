@@ -308,3 +308,73 @@ export async function getLastScrapeTime(): Promise<Date | null> {
   });
   return lastLog?.timestamp || null;
 }
+
+// ============================================
+// Database Cleanup - Remove incorrect course data
+// ============================================
+
+export async function cleanupInvalidCourses(): Promise<{
+  removedNoCoupon: number;
+  removedFakeFree: number;
+  removedDuplicates: number;
+  totalRemoved: number;
+}> {
+  // 1. Remove courses with no valid coupon code (DIRECT, FREE, empty, < 4 chars)
+  const badCouponCodes = ['', 'DIRECT', 'FREE'];
+  const noCouponRemoved = await db.course.deleteMany({
+    where: {
+      OR: [
+        { couponCode: { in: badCouponCodes } },
+        { couponCode: { isEmpty: true } },
+        { couponCode: 'DIRECT' },
+      ],
+    },
+  });
+
+  // 2. Remove courses incorrectly marked as free forever
+  // (Only genuinely free Udemy courses should have this flag)
+  const fakeFreeRemoved = await db.course.deleteMany({
+    where: {
+      isFreeForever: true,
+      // These should not have been marked as free forever
+      couponCode: { not: '' },
+    },
+  });
+
+  // 3. Remove duplicates by title
+  const allCourses = await db.course.findMany({
+    select: { id: true, title: true },
+  });
+  const seenTitles = new Map<string, string>();
+  const duplicateIds: string[] = [];
+  for (const course of allCourses) {
+    const norm = course.title.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (seenTitles.has(norm)) {
+      duplicateIds.push(course.id);
+    } else {
+      seenTitles.set(norm, course.id);
+    }
+  }
+  let dupRemoved = 0;
+  if (duplicateIds.length > 0) {
+    const dupResult = await db.course.deleteMany({
+      where: { id: { in: duplicateIds } },
+    });
+    dupRemoved = dupResult.count;
+  }
+
+  const totalRemoved = noCouponRemoved.count + fakeFreeRemoved.count + dupRemoved;
+
+  return {
+    removedNoCoupon: noCouponRemoved.count,
+    removedFakeFree: fakeFreeRemoved.count,
+    removedDuplicates: dupRemoved,
+    totalRemoved,
+  };
+}
+
+export async function purgeAllCourses(): Promise<{ removed: number }> {
+  const count = await db.course.count();
+  await db.course.deleteMany();
+  return { removed: count };
+}

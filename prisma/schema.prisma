@@ -33,6 +33,7 @@ model Course {
   couponUrl      String    @default("")
   couponExpiresAt DateTime?
   isFreeForever  Boolean   @default(false)
+  couponVerified Boolean   @default(false)
   sourceDetail   String?
   scrapeRunId    String?
   isPublished    Boolean   @default(true)

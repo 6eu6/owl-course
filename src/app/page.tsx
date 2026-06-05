@@ -73,6 +73,7 @@ interface Course {
   duration: string | null
   couponExpiresAt: string | null
   isFreeForever: boolean
+  couponVerified: boolean
   scraped_at: string
 }
 
@@ -196,9 +197,10 @@ function SourceBadge(props: { source: string; lang: Lang }) {
 function CouponBadge(props: {
   isFreeForever: boolean
   couponExpiresAt: string | null
+  couponVerified: boolean
   lang: Lang
 }) {
-  const { isFreeForever, couponExpiresAt, lang } = props
+  const { isFreeForever, couponExpiresAt, couponVerified, lang } = props
 
   if (isFreeForever) {
     return (
@@ -209,6 +211,7 @@ function CouponBadge(props: {
     )
   }
 
+  // Coupon courses: show time-limited badge with expiry info
   if (couponExpiresAt) {
     const expiryDate = new Date(couponExpiresAt)
     const now = new Date()
@@ -219,15 +222,21 @@ function CouponBadge(props: {
 
     const badgeClass = isExpired
       ? 'text-[10px] bg-red-100 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-400 dark:border-red-800'
-      : 'text-[10px] bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-800'
+      : daysLeft <= 1
+        ? 'text-[10px] bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-400 dark:border-orange-800'
+        : 'text-[10px] bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-800'
 
     const label = isExpired
       ? lang === 'ar'
         ? '\u0645\u0646\u062A\u0647\u064A'
         : 'Expired'
-      : daysLeft +
-        'd ' +
-        (lang === 'ar' ? '\u0645\u062A\u0628\u0642\u064A' : 'left')
+      : daysLeft <= 1
+        ? lang === 'ar'
+          ? '\u064A\u0648\u0645 \u0648\u0627\u062D\u062F'
+          : '1d left'
+        : daysLeft +
+          'd ' +
+          (lang === 'ar' ? '\u0645\u062A\u0628\u0642\u064A' : 'left')
 
     return (
       <Badge className={badgeClass}>
@@ -237,7 +246,13 @@ function CouponBadge(props: {
     )
   }
 
-  return null
+  // Course has a coupon but no expiry estimate
+  return (
+    <Badge className="text-[10px] bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-800">
+      <Tag className="h-2.5 w-2.5 ml-0.5" />
+      {lang === 'ar' ? '\u0628\u0643\u0648\u0628\u0648\u0646' : 'Coupon'}
+    </Badge>
+  )
 }
 
 // ============================================
@@ -315,7 +330,9 @@ function CourseCard(props: {
         <div className={topLeftClass}>
           <Badge className="text-[10px] font-bold bg-green-600 text-white border-0">
             <Gift className="h-2.5 w-2.5 ml-0.5" />
-            FREE
+            {course.isFreeForever
+              ? 'FREE'
+              : (lang === 'ar' ? 'كوبون' : 'COUPON')}
           </Badge>
           {course.isFreeForever && (
             <Badge className="text-[9px] bg-emerald-500 text-white border-0">
@@ -365,6 +382,7 @@ function CourseCard(props: {
             <CouponBadge
               isFreeForever={course.isFreeForever}
               couponExpiresAt={course.couponExpiresAt}
+              couponVerified={course.couponVerified}
               lang={lang}
             />
           </div>
@@ -744,6 +762,7 @@ function DetailPage(props: DetailPageProps) {
           <CouponBadge
             isFreeForever={course.isFreeForever}
             couponExpiresAt={course.couponExpiresAt}
+            couponVerified={course.couponVerified}
             lang={lang}
           />
           <Badge className="text-[11px] bg-green-600 text-white border-0 font-bold">
@@ -1057,7 +1076,7 @@ function LinkPage(props: LinkPageProps) {
           </span>
           {course.isFreeForever && (
             <span className="flex items-center gap-1">
-              <CouponBadge isFreeForever={course.isFreeForever} lang={lang} />
+              <CouponBadge isFreeForever={course.isFreeForever} couponVerified={course.couponVerified} lang={lang} />
             </span>
           )}
         </CardContent>
