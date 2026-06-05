@@ -380,7 +380,7 @@ async function verifyCouponOnUdemy(couponUrl: string): Promise<{ isFree: boolean
 
     const response = await fetch(couponUrl, {
       headers: getRandomHeaders(),
-      signal: AbortSignal.timeout(20000),
+      signal: AbortSignal.timeout(10000),
       redirect: 'follow',
     });
 
@@ -610,7 +610,7 @@ async function fetchListingPage(pageNum: number): Promise<{ courses: ListingCour
 
   const response = await fetch(url, {
     headers: getRandomHeaders(),
-    signal: AbortSignal.timeout(30000),
+    signal: AbortSignal.timeout(10000),
     redirect: 'follow',
   });
 
@@ -643,7 +643,7 @@ async function extractUdemyUrl(detailUrl: string): Promise<{ udemyUrl: string; c
     // Try manual redirect first to capture the Location header
     const response = await fetch(outUrl, {
       headers: getRandomHeaders(),
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(8000),
       redirect: 'manual',
     });
 
@@ -669,7 +669,7 @@ async function extractUdemyUrl(detailUrl: string): Promise<{ udemyUrl: string; c
     // Fallback: follow redirects and check final URL
     const followResp = await fetch(outUrl, {
       headers: getRandomHeaders(),
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(8000),
       redirect: 'follow',
     });
     const finalUrl = followResp.url;
@@ -708,7 +708,7 @@ async function scrapeDetailPage(detailUrl: string): Promise<DetailPageData> {
   try {
     const response = await fetch(detailUrl, {
       headers: getRandomHeaders(),
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(5000),
       redirect: 'follow',
     });
 
