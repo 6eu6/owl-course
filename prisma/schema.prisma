@@ -26,6 +26,10 @@ model Course {
   originalPrice  String?
   language       String?
   duration       String?
+  requirements   String    @default("")
+  whoFor         String    @default("")
+  whatLearn      String    @default("")
+  lastUpdated    String?
   couponCode     String?   @default("")
   couponUrl      String?   @default("")
   isPublished    Boolean   @default(true)

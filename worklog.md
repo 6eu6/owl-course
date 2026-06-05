@@ -223,3 +223,53 @@ Stage Summary:
 - Fixed duplicate courses with dual dedup (title + URL)
 - Coupon validation before saving
 - Cleanup API endpoint for removing existing duplicates
+
+---
+Task ID: 7
+Agent: Main Agent
+Task: Analyze udemyfreebies.com detail page, add detail scraping + Udemy fallback
+
+Work Log:
+- Read udemyfreebies.com detail page (design-engaging-products-using-design-thinking):
+  - Page size: ~2MB HTML
+  - Available data: full description, requirements, who this course is for, rating/price
+  - NOT available: duration, lectures count, level, what you'll learn, curriculum
+- Read Udemy course page:
+  - Client-side rendered (Next.js) - no useful SSR data
+  - API blocked/requires auth
+  - Template strings only (%(hours)s, %(lectureCount)s) - actual values loaded via JS
+- Added 4 new fields to Prisma schema: requirements, whoFor, whatLearn, lastUpdated
+- Pushed schema to DB and regenerated Prisma client
+- Added scrapeDetailPage() function to scraper:
+  - Fetches udemyfreebies.com detail page
+  - Extracts description (h2/h3 "Description" → next sibling)
+  - Extracts requirements (h2/h3 "Requirements" → next sibling)
+  - Extracts whoFor (h2/h3 "Who this course is for" → next sibling)
+  - Parses duration from description text (e.g., "3.5 hours")
+  - Parses lastUpdated from description text (e.g., "Last updated: DECEMBER 2024")
+- Added scrapeUdemyFallback() function:
+  - Tries to get duration from Udemy page as fallback
+  - Searches for content_length_video in script tags
+  - Falls back to text content parsing
+  - Gracefully fails (non-blocking)
+- Updated processCourse flow:
+  1. Listing page → extract basic info
+  2. Udemy URL redirect → get coupon code
+  3. udemyfreebies.com detail page → description, requirements, whoFor, duration
+  4. Udemy fallback → duration if not found in step 3
+  5. Save to DB
+- Updated createCourseIfNotExists() to accept new fields
+- Updated /api/courses/[slug] to return new fields
+- Updated detail page UI:
+  - Added duration info card
+  - Added lastUpdated info card
+  - Added Requirements section card
+  - Added "Who this course is for" section card
+- ESLint passes clean, browser verified
+
+Stage Summary:
+- Detail page scraping: description, requirements, whoFor from udemyfreebies.com
+- Udemy fallback for duration data
+- DB schema: 4 new fields (requirements, whoFor, whatLearn, lastUpdated)
+- Detail page UI: shows all new fields in cards/sections
+- Scrape flow: listing → redirect → detail page → udemy fallback → save

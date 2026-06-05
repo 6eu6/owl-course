@@ -146,6 +146,10 @@ interface ScrapedCourseData {
   originalPrice: string | null;
   language: string | null;
   duration: string | null;
+  requirements: string;
+  whoFor: string;
+  whatLearn: string;
+  lastUpdated: string | null;
   source: string;
 }
 
@@ -335,35 +339,166 @@ async function extractUdemyUrl(detailUrl: string): Promise<{ udemyUrl: string; c
 }
 
 // ============================================
-// Step 2.5: Validate coupon is actually free
+// Step 2.5: Scrape course detail page from udemyfreebies.com
+// Extracts: description, requirements, whoFor, duration/level from description
 // ============================================
 
-async function validateCouponFree(udemyUrl: string): Promise<boolean> {
+interface DetailPageData {
+  description: string;
+  requirements: string;
+  whoFor: string;
+  duration: string | null;
+  lastUpdated: string | null;
+}
+
+async function scrapeDetailPage(detailUrl: string): Promise<DetailPageData> {
+  const empty: DetailPageData = {
+    description: '', requirements: '', whoFor: '', duration: null, lastUpdated: null,
+  };
+
   try {
-    const resp = await fetch(udemyUrl, {
+    const response = await fetch(detailUrl, {
       headers: getRandomHeaders(),
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(15000),
       redirect: 'follow',
     });
 
-    const html = await resp.text();
+    if (!response.ok) return empty;
 
-    // If the page shows "Free" in the price area, it's valid
-    // If it shows original price without "Free", coupon is expired/paid
-    const isFree = html.includes('"isFree":true') ||
-                   html.includes('data-purpose="free-badge"') ||
-                   (html.includes('Free') && !html.includes('Buy now'));
+    const html = await response.text();
+    const $ = cheerio.load(html);
 
-    // Check for common "not available" or "expired" patterns
-    const isExpired = html.includes('Coupon is no longer available') ||
-                      html.includes('coupon has expired') ||
-                      html.includes('This coupon is not available');
+    // Extract description - find the h3/h2 containing "Description" and get content after it
+    let description = '';
+    const $desc = $('h2, h3').filter(function() {
+      return $(this).text().trim().toLowerCase() === 'description';
+    });
+    if ($desc.length > 0) {
+ const $next = $desc.next();
+ if ($next.length > 0) {
+   description = $next.text().trim();
+   // Clean up HTML entities
+   description = description.replace(/&gt;/g, '>').replace(/&lt;/g, '<').replace(/&amp;/g, '&').replace(/&nbsp;/g, ' ');
+   description = description.replace(/\s+/g, ' ').trim();
+ }
+    }
 
-    return isFree && !isExpired;
+    // Extract requirements
+    let requirements = '';
+    const $req = $('h2, h3').filter(function() {
+      return $(this).text().trim().toLowerCase() === 'requirements';
+    });
+    if ($req.length > 0) {
+      const $next = $req.next();
+      if ($next.length > 0) {
+        requirements = $next.text().trim().replace(/\s+/g, ' ');
+      }
+    }
+
+    // Extract "Who this course is for"
+    let whoFor = '';
+    const $who = $('h2, h3').filter(function() {
+      const text = $(this).text().trim().toLowerCase();
+      return text.includes('who this course is for') || text.includes('who this course for');
+    });
+    if ($who.length > 0) {
+      const $next = $who.next();
+      if ($next.length > 0) {
+        whoFor = $next.text().trim().replace(/\s+/g, ' ');
+      }
+    }
+
+    // Parse duration and lastUpdated from description
+    let duration: string | null = null;
+    let lastUpdated: string | null = null;
+
+    if (description) {
+      // Try to find duration patterns like "3.5 hours", "5 hours", "2h 30m"
+      const durMatch = description.match(/(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|hr)\b/i);
+      if (durMatch) {
+        duration = `${durMatch[1]} hours`;
+      } else {
+        const minMatch = description.match(/(\d+)\s*(?:minutes?|mins?|min)\b/i);
+        if (minMatch) {
+          duration = `${minMatch[1]} min`;
+        }
+      }
+
+      // Try to find last updated date like "Last updated: DECEMBER 2024"
+      const dateMatch = description.match(/(?:last updated[:\s]*)(\w+\s+\d{4})/i);
+      if (dateMatch) {
+        lastUpdated = dateMatch[1].trim();
+      }
+    }
+
+    return { description, requirements, whoFor, duration, lastUpdated };
   } catch {
-    // If validation fails, assume it's valid (don't lose courses due to network issues)
-    return true;
+    return empty;
   }
+}
+
+// ============================================
+// Step 2.6: Udemy Fallback - try to get extra data from Udemy page
+// Only for duration/level if udemyfreebies didn't provide it
+// ============================================
+
+async function scrapeUdemyFallback(udemyUrl: string): Promise<Partial<DetailPageData>> {
+  const result: Partial<DetailPageData> = {};
+  try {
+    const resp = await fetch(udemyUrl, {
+      headers: {
+        ...getRandomHeaders(),
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      },
+      signal: AbortSignal.timeout(15000),
+      redirect: 'follow',
+    });
+
+    if (!resp.ok) return result;
+
+    const html = await resp.text();
+    const $ = cheerio.load(html);
+
+    // Udemy pages sometimes have structured data in script tags
+    const scripts = $('script').toArray();
+    for (const script of scripts) {
+      const content = $(script).html() || '';
+
+      // Look for JSON data with course info
+      if (content.includes('content_length_video') || content.includes('num_lectures')) {
+        try {
+          // Try to extract JSON object
+          const jsonMatch = content.match(/\{[^{}]*(?:content_length_video|num_lectures|instructional_level)[^{}]*\}/g);
+          if (jsonMatch) {
+            for (const jm of jsonMatch) {
+              try {
+                const parsed = JSON.parse(jm);
+                if (!result.duration && parsed.content_length_video) {
+                  const hours = Math.round(parsed.content_length_video / 3600 * 10) / 10;
+                  result.duration = `${hours} hours`;
+                }
+                if (!result.duration && parsed.estimated_content_length) {
+                  const hours = Math.round(parsed.estimated_content_length / 3600 * 10) / 10;
+                  result.duration = `${hours} hours`;
+                }
+              } catch { /* skip */ }
+            }
+          }
+        } catch { /* skip */ }
+      }
+    }
+
+    // Also try extracting from text content
+    const bodyText = $('body').text();
+    if (!result.duration) {
+      const durMatch = bodyText.match(/(\d+(?:\.\d+)?)\s*(?:total\s*)?(?:hours?|hrs?)\b/i);
+      if (durMatch) result.duration = `${durMatch[1]} hours`;
+    }
+
+  } catch {
+    // Fallback failed, not critical
+  }
+  return result;
 }
 
 // ============================================
@@ -398,10 +533,20 @@ async function processCourse(
       return { saved: false, skipped: 'invalid-coupon' };
     }
 
-    // Build course data
+    // Step 2.5: Scrape detail page for full description, requirements, whoFor
+    const detailData = await scrapeDetailPage(course.detailUrl);
+
+    // Step 2.6: Udemy fallback for duration if not found
+    let duration = detailData.duration;
+    if (!duration) {
+      const udemyData = await scrapeUdemyFallback(udemyUrl);
+      duration = udemyData.duration || null;
+    }
+
+    // Build course data with rich detail
     const courseData: ScrapedCourseData = {
       title: course.title,
-      description: `تعلم ${course.title} مع هذه الدورة المجانية الشاملة. تشمل مهارات ${course.category} والتطبيقات العملية في العالم الحقيقي.`,
+      description: detailData.description || `تعلم ${course.title} مع هذه الدورة المجانية الشاملة. تشمل مهارات ${course.category} والتطبيقات العملية في العالم الحقيقي.`,
       instructor: course.instructor,
       category: course.category,
       imageUrl: course.imageUrl,
@@ -412,7 +557,11 @@ async function processCourse(
       studentsCount: course.studentsCount,
       originalPrice: course.originalPrice ? `$${course.originalPrice.toFixed(2)}` : null,
       language: course.language || null,
-      duration: null,
+      duration,
+      requirements: detailData.requirements,
+      whoFor: detailData.whoFor,
+      whatLearn: '',
+      lastUpdated: detailData.lastUpdated,
       source: 'udemyfreebies',
     };
 
@@ -431,6 +580,10 @@ async function processCourse(
       originalPrice: courseData.originalPrice,
       language: courseData.language,
       duration: courseData.duration,
+      requirements: courseData.requirements,
+      whoFor: courseData.whoFor,
+      whatLearn: courseData.whatLearn,
+      lastUpdated: courseData.lastUpdated,
       couponCode: courseData.couponCode,
       couponUrl: courseData.couponUrl,
     });

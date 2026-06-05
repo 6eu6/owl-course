@@ -79,6 +79,10 @@ export async function createCourseIfNotExists(data: {
   originalPrice?: string | null;
   language?: string | null;
   duration?: string | null;
+  requirements?: string;
+  whoFor?: string;
+  whatLearn?: string;
+  lastUpdated?: string | null;
   couponCode?: string | null;
   couponUrl?: string | null;
 }): Promise<{ created: boolean; course?: Prisma.PromiseReturnType<typeof db.course.create> }> {

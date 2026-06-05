@@ -73,6 +73,10 @@ interface CourseDetail {
   original_price: string | null
   language: string | null
   duration: string | null
+  requirements: string
+  whoFor: string
+  whatLearn: string
+  lastUpdated: string | null
   couponCode: string | null
   scraped_at: string
 }
@@ -800,8 +804,14 @@ function DetailPage({
         {course.language && (
           <InfoCard icon={<Globe className="h-4 w-4 text-sky-600" />} label="اللغة" value={course.language} />
         )}
+        {course.duration && (
+          <InfoCard icon={<Clock className="h-4 w-4 text-orange-600" />} label="المدة" value={course.duration} />
+        )}
         {course.original_price && (
           <InfoCard icon={<Zap className="h-4 w-4 text-green-600" />} label="السعر الأصلي" value={<span className="line-through">{course.original_price}</span>} />
+        )}
+        {course.lastUpdated && (
+          <InfoCard icon={<Calendar className="h-4 w-4 text-violet-600" />} label="آخر تحديث" value={course.lastUpdated} />
         )}
         <InfoCard icon={<Calendar className="h-4 w-4 text-violet-600" />} label="مصدر" value="UdemyFreebies" />
       </div>
@@ -815,6 +825,32 @@ function DetailPage({
           </h3>
           <p className="text-sm text-muted-foreground leading-relaxed">
             {course.description}
+          </p>
+        </Card>
+      )}
+
+      {/* Requirements */}
+      {course.requirements && (
+        <Card className="p-5">
+          <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-orange-600" />
+            المتطلبات
+          </h3>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            {course.requirements}
+          </p>
+        </Card>
+      )}
+
+      {/* Who this course is for */}
+      {course.whoFor && (
+        <Card className="p-5">
+          <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
+            <Users className="h-4 w-4 text-sky-600" />
+            لمن هذه الدورة
+          </h3>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            {course.whoFor}
           </p>
         </Card>
       )}
