@@ -38,9 +38,7 @@ import {
   CheckCircle,
   Calendar,
   TrendingUp,
-  Sparkles,
   Tag,
-  Heart,
   Moon,
   Sun,
   Infinity,
@@ -814,8 +812,7 @@ function DetailPage(props: DetailPageProps) {
       {/* Related courses */}
       {relatedCourses.length > 0 && (
         <div>
-          <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
-            <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
+          <h3 className="text-xs font-semibold mb-2">
             {t('relatedCourses')}
           </h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -1468,20 +1465,6 @@ export default function Home() {
           <p className="text-[11px] text-muted-foreground text-center max-w-sm">
             {tx('footerDesc')}
           </p>
-          <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <Heart className="h-3 w-3 text-muted-foreground" />
-              {tx('footerFree')}
-            </span>
-            <span className="flex items-center gap-1">
-              <Sparkles className="h-3 w-3 text-muted-foreground" />
-              {tx('footerUpdated')}
-            </span>
-            <span className="flex items-center gap-1">
-              <Shield className="h-3 w-3 text-muted-foreground" />
-              {tx('footerVerified')}
-            </span>
-          </div>
         </div>
       </footer>
     </div>

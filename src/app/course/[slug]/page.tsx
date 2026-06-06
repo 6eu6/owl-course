@@ -339,8 +339,8 @@ export default async function CoursePage({ params }: PageProps) {
         {/* Related Courses */}
         {related.length > 0 && (
           <div>
-            <h3 className="text-xs font-semibold mb-3 flex items-center gap-1.5">
-              <span className="text-muted-foreground">✨</span> Related Courses
+            <h3 className="text-xs font-semibold mb-3">
+              Related Courses
             </h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {related.map((rc) => {
