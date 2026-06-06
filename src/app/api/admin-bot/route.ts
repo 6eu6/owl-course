@@ -1,757 +1,598 @@
 import { NextResponse } from 'next/server';
 
+// =====================================================================
+// Learn Plus Courses — Telegram Admin Bot
+// Full inline-keyboard control panel. Authorisation is by ADMIN_CHAT_IDS.
+// Free-text inputs (add channel, templates, delay, broadcast, settings)
+// use a short-lived pending state stored in the DB (Setting `botstate:*`).
+// =====================================================================
+
 const TELEGRAM_API = 'https://api.telegram.org';
+const LANGS = ['en', 'ar', 'es', 'fr', 'pt', 'tr', 'hi', 'zh', 'ja', 'ko', 'de', 'ru'];
 
-// ============================================
-// Helpers
-// ============================================
+type Btn = { text: string; callback_data: string };
+type Keyboard = { inline_keyboard: Btn[][] };
 
-function getAdminBotToken(): string {
+// --------------------------------------------------------------------
+// Low-level Telegram helpers
+// --------------------------------------------------------------------
+
+function botToken(): string {
   return process.env.ADMIN_BOT_TOKEN || '';
 }
 
-function getAllowedChatIds(): string[] {
-  const raw = process.env.ADMIN_CHAT_IDS || '';
-  if (!raw) return [];
-  return raw.split(',').map((id) => id.trim()).filter(Boolean);
-}
-
-async function sendAdminMessage(chatId: string, text: string, parseMode: string = 'HTML'): Promise<boolean> {
-  const token = getAdminBotToken();
+async function tg(method: string, payload: Record<string, unknown>): Promise<boolean> {
+  const token = botToken();
   if (!token) return false;
-
   try {
-    const response = await fetch(`${TELEGRAM_API}/bot${token}/sendMessage`, {
+    const res = await fetch(`${TELEGRAM_API}/bot${token}/${method}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text,
-        parse_mode: parseMode,
-        disable_web_page_preview: false,
-      }),
+      body: JSON.stringify(payload),
       signal: AbortSignal.timeout(15000),
     });
-    return response.ok;
+    return res.ok;
   } catch {
     return false;
   }
 }
 
+function sendMessage(chatId: string, text: string, keyboard?: Keyboard) {
+  return tg('sendMessage', {
+    chat_id: chatId,
+    text,
+    parse_mode: 'HTML',
+    disable_web_page_preview: true,
+    ...(keyboard ? { reply_markup: keyboard } : {}),
+  });
+}
+
+function editMessage(chatId: string, messageId: number, text: string, keyboard?: Keyboard) {
+  return tg('editMessageText', {
+    chat_id: chatId,
+    message_id: messageId,
+    text,
+    parse_mode: 'HTML',
+    disable_web_page_preview: true,
+    ...(keyboard ? { reply_markup: keyboard } : {}),
+  });
+}
+
+function answerCallback(id: string, text?: string) {
+  return tg('answerCallbackQuery', { callback_query_id: id, ...(text ? { text } : {}) });
+}
+
+// --------------------------------------------------------------------
+// Authorisation
+// --------------------------------------------------------------------
+
+function allowedChatIds(): string[] {
+  return (process.env.ADMIN_CHAT_IDS || '').split(',').map((s) => s.trim()).filter(Boolean);
+}
+
 function isAuthorized(chatId: number | string): boolean {
-  const allowed = getAllowedChatIds();
-  if (allowed.length === 0) return false;
-  return allowed.some((id) => String(id) === String(chatId));
+  const allowed = allowedChatIds();
+  return allowed.length > 0 && allowed.some((id) => String(id) === String(chatId));
 }
 
-// ============================================
-// Command: /start
-// ============================================
+// --------------------------------------------------------------------
+// Pending-input state (DB-backed, expires after 5 minutes)
+// --------------------------------------------------------------------
 
-async function handleStart(): Promise<string> {
-  return (
-    `\u{1F989} <b>Learn Plus Courses \u2014 Admin Bot</b>\n\n` +
-    `\u{1F4CB} <b>Available Commands:</b>\n\n` +
-    `\u{1F4CA} <b>/stats</b> \u2014 View course statistics\n\n` +
-    `\u{1F504} <b>/scrape</b> \u2014 Run the scraper manually\n\n` +
-    `\u{1F5D1}\uFE0F <b>/purge</b> \u2014 Delete all courses\n\n` +
-    `\u{1F4E1} <b>/channels</b> \u2014 List publishing channels\n` +
-    `\u2795 <b>/addch &lt;name&gt; &lt;@id&gt; &lt;lang&gt;</b> \u2014 Add channel\n` +
-    `\u274C <b>/rmch &lt;name&gt;</b> \u2014 Remove channel\n` +
-    `\u{1F527} <b>/langch &lt;name&gt; &lt;lang&gt;</b> \u2014 Change channel language\n` +
-    `\u{1F504} <b>/togglech &lt;name&gt;</b> \u2014 Enable/disable channel\n\n` +
-    `\u{1F916} <b>/autopost</b> \u2014 Toggle auto-post on/off\n` +
-    `\u23F1\uFE0F <b>/delay &lt;seconds&gt;</b> \u2014 Set delay between posts\n` +
-    `\u{1F4DD} <b>/template</b> \u2014 Show current message template\n` +
-    `\u{270F}\uFE0F <b>/settemplate &lt;text&gt;</b> \u2014 Set new template\n\n` +
-    `\u{1F4E8} <b>/broadcast &lt;text&gt;</b> \u2014 Send message to all channels\n\n` +
-    `\u{1F4E4} <b>/post</b> \u2014 Post new unposted courses now`
-  );
+async function setState(chatId: string, action: string, extra?: string): Promise<void> {
+  const { setSetting } = await import('@/lib/mongodb');
+  await setSetting(`botstate:${chatId}`, JSON.stringify({ action, extra: extra || '', ts: Date.now() }));
 }
 
-// ============================================
-// Command: /stats
-// ============================================
-
-async function handleStats(): Promise<string> {
+async function getState(chatId: string): Promise<{ action: string; extra: string } | null> {
+  const { getSetting } = await import('@/lib/mongodb');
+  const raw = await getSetting(`botstate:${chatId}`);
+  if (!raw) return null;
   try {
-    const { countCourses, countNewToday, getLastScrapeTime, countCoursesBySource } = await import('@/lib/mongodb');
+    const s = JSON.parse(raw);
+    if (Date.now() - (s.ts || 0) > 5 * 60 * 1000) return null;
+    return { action: s.action, extra: s.extra || '' };
+  } catch {
+    return null;
+  }
+}
 
-    const [total, published, bySource, newToday, lastScrapeTime] = await Promise.all([
-      countCourses({}),
-      countCourses({ isPublished: true }),
-      countCoursesBySource(),
-      countNewToday(),
-      getLastScrapeTime(),
+async function clearState(chatId: string): Promise<void> {
+  const { setSetting } = await import('@/lib/mongodb');
+  await setSetting(`botstate:${chatId}`, '');
+}
+
+// --------------------------------------------------------------------
+// Keyboard builders
+// --------------------------------------------------------------------
+
+const mainMenu: Keyboard = {
+  inline_keyboard: [
+    [{ text: '📊 Statistics', callback_data: 'nav:stats' }, { text: '🔄 Scraper', callback_data: 'nav:scrape' }],
+    [{ text: '📡 Channels', callback_data: 'nav:chan' }, { text: '📤 Posting', callback_data: 'nav:post' }],
+    [{ text: '📝 Templates', callback_data: 'nav:tpl' }, { text: '🧹 Cleanup', callback_data: 'nav:clean' }],
+    [{ text: '📨 Broadcast', callback_data: 'ask:bcast' }, { text: '⚙️ Settings', callback_data: 'nav:set' }],
+  ],
+};
+
+const backRow = (to = 'nav:main'): Btn[] => [{ text: '⬅️ Back', callback_data: to }];
+
+// --------------------------------------------------------------------
+// Views — each returns { text, keyboard }
+// --------------------------------------------------------------------
+
+function viewMain(): { text: string; keyboard: Keyboard } {
+  return {
+    text:
+      `🎛️ <b>Learn Plus Courses — Control Panel</b>\n\n` +
+      `Pick a section below. Everything is managed from here — no browser admin.`,
+    keyboard: mainMenu,
+  };
+}
+
+async function viewStats(): Promise<{ text: string; keyboard: Keyboard }> {
+  const { countCourses, countNewToday, getLastScrapeTime, countCoursesBySource } = await import('@/lib/mongodb');
+  const [total, published, bySource, newToday, last] = await Promise.all([
+    countCourses({}),
+    countCourses({ isPublished: true }),
+    countCoursesBySource(),
+    countNewToday(),
+    getLastScrapeTime(),
+  ]);
+  const posted = await countCourses({ telegramPosted: true });
+  const pending = Math.max(0, published - posted);
+  const sources = bySource.map((s) => `  • ${s._id}: <b>${s.count}</b>`).join('\n') || '  —';
+  const lastStr = last
+    ? new Date(last).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : 'Never';
+  return {
+    text:
+      `📊 <b>Statistics</b>\n\n` +
+      `📚 Total: <b>${total}</b>\n✅ Published: <b>${published}</b>\n🆕 New today: <b>${newToday}</b>\n` +
+      `📤 Posted: <b>${posted}</b>\n⏳ Pending: <b>${pending}</b>\n\n<b>By source:</b>\n${sources}\n\n🕐 Last scrape: <b>${lastStr}</b>`,
+    keyboard: { inline_keyboard: [[{ text: '🔄 Refresh', callback_data: 'nav:stats' }], backRow()] },
+  };
+}
+
+function viewScrape(): { text: string; keyboard: Keyboard } {
+  return {
+    text:
+      `🔄 <b>Scraper</b>\n\n` +
+      `Run the scraper manually. 3 pages fits the 60s serverless limit; the scheduled cron handles deeper runs.\n` +
+      `Both sources are free-coupon-only, so coupons are trusted on extraction.`,
+    keyboard: {
+      inline_keyboard: [
+        [{ text: '▶️ Run all (3 pages)', callback_data: 'act:scrape:3:all' }],
+        [{ text: 'UdemyFreebies', callback_data: 'act:scrape:3:uf' }, { text: 'StudyBullet', callback_data: 'act:scrape:3:sb' }],
+        [{ text: '▶️ Run all (5 pages)', callback_data: 'act:scrape:5:all' }],
+        backRow(),
+      ],
+    },
+  };
+}
+
+function viewClean(): { text: string; keyboard: Keyboard } {
+  return {
+    text:
+      `🧹 <b>Cleanup</b>\n\n` +
+      `• <b>Duplicates</b> — remove courses with the same title.\n` +
+      `• <b>Invalid</b> — remove empty/placeholder coupons & bad rows.\n` +
+      `• <b>Purge</b> — delete <u>all</u> courses (irreversible).`,
+    keyboard: {
+      inline_keyboard: [
+        [{ text: '🧽 Remove duplicates', callback_data: 'act:clean:dedup' }],
+        [{ text: '🧯 Clean invalid', callback_data: 'act:clean:invalid' }],
+        [{ text: '🗑️ Purge ALL', callback_data: 'act:clean:purge' }],
+        backRow(),
+      ],
+    },
+  };
+}
+
+async function viewChannels(): Promise<{ text: string; keyboard: Keyboard }> {
+  const { getTelegramSettings } = await import('@/lib/mongodb');
+  const s = await getTelegramSettings();
+  const channels = s.channels || [];
+  const rows: Btn[][] = [];
+  channels.forEach((c, i) => {
+    rows.push([{ text: `${c.active ? '✅' : '❌'} ${c.name} · ${c.language || 'en'}`, callback_data: `ch:info:${i}` }]);
+    rows.push([
+      { text: c.active ? '⏸ Disable' : '▶️ Enable', callback_data: `ch:tog:${i}` },
+      { text: '🌐 Lang', callback_data: `ch:lang:${i}` },
+      { text: '🗑 Remove', callback_data: `ch:rm:${i}` },
     ]);
-
-    const telegramPosted = await countCourses({ telegramPosted: true });
-    const pending = Math.max(0, published - telegramPosted);
-
-    const sourceBreakdown = bySource
-      .map((s) => `  \u2022 ${s._id}: <b>${s.count}</b>`)
-      .join('\n');
-
-    const lastScrape = lastScrapeTime
-      ? new Date(lastScrapeTime).toLocaleString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-        })
-      : 'Never';
-
-    const msg =
-      `\u{1F4CA} <b>Learn Plus Courses \u2014 Statistics</b>\n\n` +
-      `\u{1F4DA} Total Courses: <b>${total}</b>\n` +
-      `\u2705 Published: <b>${published}</b>\n` +
-      `\u{1F195} New Today: <b>${newToday}</b>\n` +
-      `\u{1F4E4} Telegram Posted: <b>${telegramPosted}</b>\n` +
-      `\u23F3 Pending: <b>${pending}</b>\n\n` +
-      `\u{1F4E1} <b>Sources:</b>\n${sourceBreakdown || '  No data'}\n\n` +
-      `\u{1F550} Last Scrape: <b>${lastScrape}</b>`;
-
-    return msg;
-  } catch (e) {
-    return `\u274C Error fetching stats: ${String(e)}`;
-  }
+  });
+  rows.push([{ text: '➕ Add channel', callback_data: 'ask:addch' }]);
+  rows.push(backRow());
+  return {
+    text:
+      `📡 <b>Channels</b> (${channels.length})\n\n` +
+      (channels.length ? `Tap a channel's buttons to enable/disable, change language, or remove it.` : `No channels yet. Tap “Add channel”.`),
+    keyboard: { inline_keyboard: rows },
+  };
 }
 
-// ============================================
-// Command: /scrape
-// ============================================
+async function viewPosting(): Promise<{ text: string; keyboard: Keyboard }> {
+  const { getTelegramSettings } = await import('@/lib/mongodb');
+  const s = await getTelegramSettings();
+  const delay = s.post_delay_ms ? Math.round(s.post_delay_ms / 1000) : 60;
+  return {
+    text:
+      `📤 <b>Posting</b>\n\n` +
+      `🤖 Auto-post: <b>${s.auto_post ? '✅ ON' : '❌ OFF'}</b>\n` +
+      `⏱️ Delay between posts: <b>${delay}s</b>\n\n` +
+      `Auto-post sends new courses to active channels after each scrape.`,
+    keyboard: {
+      inline_keyboard: [
+        [{ text: s.auto_post ? '🔕 Turn auto-post OFF' : '🔔 Turn auto-post ON', callback_data: 'act:autopost' }],
+        [{ text: '📤 Post new now', callback_data: 'act:postnow' }],
+        [{ text: '⏱️ Set delay', callback_data: 'ask:delay' }],
+        backRow(),
+      ],
+    },
+  };
+}
 
-async function handleScrape(chatId: string): Promise<void> {
+async function viewTemplates(): Promise<{ text: string; keyboard: Keyboard }> {
+  const { getTelegramSettings } = await import('@/lib/mongodb');
+  const s = await getTelegramSettings();
+  return {
+    text:
+      `📝 <b>Message Templates</b>\n\n` +
+      `<b>EN:</b>\n<code>${escapeHtml(s.message_template || '(not set)')}</code>\n\n` +
+      `<b>AR:</b>\n<code>${escapeHtml(s.message_template_ar || '(not set)')}</code>\n\n` +
+      `Placeholders: {title} {instructor} {rating} {students_count} {original_price} {language} {duration} {link}`,
+    keyboard: {
+      inline_keyboard: [
+        [{ text: '✏️ Set EN', callback_data: 'ask:tplen' }, { text: '✏️ Set AR', callback_data: 'ask:tplar' }],
+        backRow(),
+      ],
+    },
+  };
+}
+
+async function viewSettings(): Promise<{ text: string; keyboard: Keyboard }> {
+  const { getSiteSettings } = await import('@/lib/settings');
+  const s = await getSiteSettings();
+  return {
+    text:
+      `⚙️ <b>Site Settings</b>\n\n` +
+      `🏷️ Name: <b>${escapeHtml(s.site_name)}</b>\n` +
+      `🧾 Description: <b>${escapeHtml(s.site_description)}</b>\n` +
+      `📄 Courses per page: <b>${s.courses_per_page}</b>`,
+    keyboard: {
+      inline_keyboard: [
+        [{ text: '✏️ Name', callback_data: 'ask:sitename' }, { text: '✏️ Description', callback_data: 'ask:sitedesc' }],
+        [{ text: '✏️ Per-page', callback_data: 'ask:perpage' }],
+        backRow(),
+      ],
+    },
+  };
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// --------------------------------------------------------------------
+// Long-running actions (always awaited — serverless kills after response)
+// --------------------------------------------------------------------
+
+async function runScrape(chatId: string, pages: number, which: 'all' | 'uf' | 'sb') {
+  const sources = which === 'uf' ? ['udemyfreebies'] : which === 'sb' ? ['studybullet'] : undefined;
+  await sendMessage(chatId, `⏳ Scraping (${pages} pages${sources ? `, ${sources[0]}` : ''})…`);
   try {
-    await sendAdminMessage(chatId, '\u23F3 Working... Starting scraper.');
-
     const { runFullScrape } = await import('@/lib/scraper');
-    // Use 3 pages to fit within Vercel 60s function timeout.
-    // Oracle cron handles the full scrape (5+ pages) separately.
-    const results = await runFullScrape({ pages: 3, skipVerification: true, skipCleanup: true });
-
-    const msg =
-      `\u{1F504} <b>Scraper Results</b>\n\n` +
-      `\u2705 New Courses: <b>${results.totalNew}</b>\n` +
-      `\u{1F504} Duplicates: <b>${results.totalDup}</b>\n` +
-      `\u274C Errors: <b>${results.totalErr}</b>\n` +
-      `\u23F1\uFE0F Duration: <b>${Math.round(results.totalDuration / 1000)}s</b>\n\n` +
-      `<b>By Source:</b>\n` +
-      `\u2022 UdemyFreebies: ${results.udemyfreebies.newCount} new, ${results.udemyfreebies.dupCount} dup\n` +
-      `\u2022 StudyBullet: ${results.studybullet.newCount} new, ${results.studybullet.dupCount} dup`;
-
-    await sendAdminMessage(chatId, msg);
+    const r = await runFullScrape({ pages, sources, skipVerification: true, skipCleanup: true });
+    await sendMessage(
+      chatId,
+      `🔄 <b>Scrape done</b>\n\n✅ New: <b>${r.totalNew}</b>\n🔁 Duplicates: <b>${r.totalDup}</b>\n❌ Errors: <b>${r.totalErr}</b>\n⏱️ ${Math.round(r.totalDuration / 1000)}s`,
+      { inline_keyboard: [[{ text: '📤 Post new now', callback_data: 'act:postnow' }], backRow('nav:scrape')] },
+    );
   } catch (e) {
-    await sendAdminMessage(chatId, `\u274C Scraper failed: ${String(e)}`);
+    await sendMessage(chatId, `❌ Scrape failed: ${String(e)}`);
   }
 }
 
-// ============================================
-// Command: /purge
-// ============================================
-
-const purgeConfirmations = new Map<string, number>();
-
-async function handlePurge(chatId: string, text: string): Promise<string> {
-  if (text === '/purge confirm' || text === '/purge yes') {
-    const timestamp = purgeConfirmations.get(chatId);
-    if (!timestamp || Date.now() - timestamp > 60000) {
-      return '\u274C Confirmation expired. Please use /purge again.';
-    }
-
-    purgeConfirmations.delete(chatId);
-
-    try {
-      const { purgeAllCourses } = await import('@/lib/mongodb');
-      const result = await purgeAllCourses();
-      return `\u{1F5D1}\uFE0F <b>Purged!</b>\n\nRemoved <b>${result.removed}</b> courses from the database.`;
-    } catch (e) {
-      return `\u274C Purge failed: ${String(e)}`;
-    }
+async function postNow(chatId: string) {
+  const { getUnpostedCourses, getTelegramSettings, markCourseTelegramPosted, logTelegramMessage } = await import('@/lib/mongodb');
+  const { postCourseToTelegram } = await import('@/lib/telegram');
+  const settings = await getTelegramSettings();
+  const token = process.env.TELEGRAM_BOT_TOKEN || settings.bot_token;
+  if (!token) {
+    await sendMessage(chatId, '❌ Publishing bot token (TELEGRAM_BOT_TOKEN) is not set.');
+    return;
   }
-
-  purgeConfirmations.set(chatId, Date.now());
-  return (
-    `\u26A0\uFE0F <b>Purge All Courses?</b>\n\n` +
-    `This will permanently delete ALL courses.\n` +
-    `This action cannot be undone!\n\n` +
-    `To confirm, type:\n` +
-    `<code>/purge confirm</code>\n\n` +
-    `\u23F0 You have 60 seconds to confirm.`
+  const unposted = await getUnpostedCourses(10);
+  if (unposted.length === 0) {
+    await sendMessage(chatId, '📭 Nothing to post — all caught up!');
+    return;
+  }
+  await sendMessage(chatId, `📤 Posting <b>${unposted.length}</b> course(s)…`);
+  const delayMs = settings.post_delay_ms || 60_000;
+  let posted = 0;
+  const failed: string[] = [];
+  for (let i = 0; i < unposted.length; i++) {
+    const c = unposted[i];
+    const data = {
+      title: c.title, instructor: c.instructor, category: c.category, rating: c.rating,
+      students_count: c.studentsCount, original_price: c.originalPrice, language: c.language,
+      duration: c.duration, udemy_url: c.couponUrl || c.udemyUrl || '', slug: c.slug,
+    };
+    const res = await postCourseToTelegram(data, settings as unknown as Record<string, unknown>);
+    if (res.success) {
+      await markCourseTelegramPosted(c.id);
+      posted++;
+      await logTelegramMessage({ courseId: c.id, courseTitle: c.title, channels: res.channels, status: 'sent' });
+    } else {
+      failed.push(c.title);
+    }
+    if (i < unposted.length - 1) await new Promise((r) => setTimeout(r, delayMs));
+  }
+  await sendMessage(
+    chatId,
+    `📤 <b>Posting done</b>\n\n✅ Posted: <b>${posted}</b>\n❌ Failed: <b>${failed.length}</b>` +
+      (failed.length ? `\n\n${failed.map((t) => `• ${t.slice(0, 50)}`).join('\n')}` : ''),
   );
 }
 
-// ============================================
-// Command: /channels — List all
-// ============================================
-
-async function handleChannels(): Promise<string> {
-  try {
-    const { getTelegramSettings } = await import('@/lib/mongodb');
-    const settings = await getTelegramSettings();
-    const channels = settings.channels || [];
-
-    if (channels.length === 0) {
-      return `\u{1F4E1} No channels configured yet.\n\nUse <code>/addch name @id lang</code> to add one.`;
-    }
-
-    const channelList = channels
-      .map((c, i) => {
-        const status = c.active ? '\u2705 Active' : '\u274C Inactive';
-        const lang = c.language || 'en';
-        const id = c.id || 'no ID';
-        return `<b>${i + 1}.</b> <b>${c.name}</b>\n    ID: <code>${id}</code>\n    ${status} | Lang: ${lang}`;
-      })
-      .join('\n\n');
-
-    const autoPostStatus = settings.auto_post ? '\u2705 ON' : '\u274C OFF';
-    const delay = settings.post_delay_ms ? `${Math.round(settings.post_delay_ms / 1000)}s` : '60s (default)';
-
-    return (
-      `\u{1F4E1} <b>Channels</b> (${channels.length})\n\n` +
-      channelList +
-      `\n\n\u{1F916} Auto-post: <b>${autoPostStatus}</b>\n` +
-      `\u23F1\uFE0F Delay: <b>${delay}</b>`
-    );
-  } catch (e) {
-    return `\u274C Error: ${String(e)}`;
+async function broadcast(chatId: string, msg: string) {
+  const { getTelegramSettings } = await import('@/lib/mongodb');
+  const settings = await getTelegramSettings();
+  const token = process.env.TELEGRAM_BOT_TOKEN || settings.bot_token;
+  const channels = (settings.channels || []).filter((c) => c.active && c.id);
+  if (!token || channels.length === 0) {
+    await sendMessage(chatId, '❌ No publishing token or no active channels.');
+    return;
   }
+  await sendMessage(chatId, `📨 Broadcasting to <b>${channels.length}</b> channel(s)…`);
+  let sent = 0, fail = 0;
+  for (const ch of channels) {
+    const ok = await tg('sendMessage', { chat_id: ch.id, text: msg, parse_mode: 'HTML' });
+    if (ok) sent++; else fail++;
+    await new Promise((r) => setTimeout(r, 1500));
+  }
+  await sendMessage(chatId, `📨 <b>Broadcast done</b>\n✅ ${sent} · ❌ ${fail}`);
 }
 
-// ============================================
-// Command: /addch <name> <@id> <language>
-// ============================================
+// --------------------------------------------------------------------
+// Callback (inline button) handler
+// --------------------------------------------------------------------
 
-async function handleAddChannel(chatId: string, text: string): Promise<string> {
-  const parts = text.split(/\s+/);
-  if (parts.length < 4) {
-    return (
-      `\u274C Usage: <code>/addch name @channel_id language</code>\n\n` +
-      `<b>Example:</b> <code>/addch Arabic @mychannel ar</code>\n\n` +
-      `<b>Languages:</b> en, ar, es, fr, pt, tr, hi, zh, ja, ko, de, ru`
-    );
-  }
+async function handleCallback(chatId: string, messageId: number, data: string, cbId: string) {
+  const { getTelegramSettings, saveTelegramSettings, cleanupInvalidCourses, purgeAllCourses } = await import('@/lib/mongodb');
 
-  const name = parts[1];
-  const id = parts[2];
-  const lang = parts[3].toLowerCase();
+  // Navigation
+  if (data === 'nav:main') { await answerCallback(cbId); const v = viewMain(); return editMessage(chatId, messageId, v.text, v.keyboard); }
+  if (data === 'nav:stats') { await answerCallback(cbId); const v = await viewStats(); return editMessage(chatId, messageId, v.text, v.keyboard); }
+  if (data === 'nav:scrape') { await answerCallback(cbId); const v = viewScrape(); return editMessage(chatId, messageId, v.text, v.keyboard); }
+  if (data === 'nav:clean') { await answerCallback(cbId); const v = viewClean(); return editMessage(chatId, messageId, v.text, v.keyboard); }
+  if (data === 'nav:chan') { await answerCallback(cbId); const v = await viewChannels(); return editMessage(chatId, messageId, v.text, v.keyboard); }
+  if (data === 'nav:post') { await answerCallback(cbId); const v = await viewPosting(); return editMessage(chatId, messageId, v.text, v.keyboard); }
+  if (data === 'nav:tpl') { await answerCallback(cbId); const v = await viewTemplates(); return editMessage(chatId, messageId, v.text, v.keyboard); }
+  if (data === 'nav:set') { await answerCallback(cbId); const v = await viewSettings(); return editMessage(chatId, messageId, v.text, v.keyboard); }
 
-  const validLangs = ['en', 'ar', 'es', 'fr', 'pt', 'tr', 'hi', 'zh', 'ja', 'ko', 'de', 'ru'];
-  if (!validLangs.includes(lang)) {
-    return `\u274C Invalid language "${lang}". Valid: ${validLangs.join(', ')}`;
-  }
-
-  try {
-    const { getTelegramSettings, saveTelegramSettings } = await import('@/lib/mongodb');
-    const settings = await getTelegramSettings();
-    const channel = {
-      name,
-      id,
-      active: true,
-      language: lang,
-    };
-    settings.channels = [...(settings.channels || []), channel];
-    await saveTelegramSettings(settings);
-
-    return (
-      `\u2705 <b>Channel Added!</b>\n\n` +
-      `\u2022 Name: <b>${name}</b>\n` +
-      `\u2022 ID: <code>${id}</code>\n` +
-      `\u2022 Language: <b>${lang}</b>\n` +
-      `\u2022 Status: Active\n\n` +
-      `Use <code>/channels</code> to see all channels.`
-    );
-  } catch (e) {
-    return `\u274C Failed to add channel: ${String(e)}`;
-  }
-}
-
-// ============================================
-// Command: /rmch <name>
-// ============================================
-
-async function handleRemoveChannel(chatId: string, text: string): Promise<string> {
-  const parts = text.split(/\s+/);
-  if (parts.length < 2) {
-    return `\u274C Usage: <code>/rmch channel_name</code>\n\nUse <code>/channels</code> to see channel names.`;
-  }
-
-  const name = parts.slice(1).join(' ');
-
-  try {
-    const { getTelegramSettings, saveTelegramSettings } = await import('@/lib/mongodb');
-    const settings = await getTelegramSettings();
-    const before = settings.channels.length;
-    settings.channels = (settings.channels || []).filter(
-      (c) => c.name.toLowerCase() !== name.toLowerCase()
-    );
-
-    if (settings.channels.length === before) {
-      return `\u274C Channel "${name}" not found. Use <code>/channels</code> to see names.`;
-    }
-
-    await saveTelegramSettings(settings);
-
-    return `\u2705 Channel "<b>${name}</b>" removed. (${before - 1} remaining)`;
-  } catch (e) {
-    return `\u274C Failed to remove channel: ${String(e)}`;
-  }
-}
-
-// ============================================
-// Command: /langch <name> <lang>
-// ============================================
-
-async function handleChannelLang(chatId: string, text: string): Promise<string> {
-  const parts = text.split(/\s+/);
-  if (parts.length < 3) {
-    return `\u274C Usage: <code>/langch channel_name language</code>\n\n<b>Languages:</b> en, ar, es, fr, pt, tr, hi, zh, ja, ko, de, ru`;
-  }
-
-  const name = parts[1];
-  const lang = parts[2].toLowerCase();
-
-  const validLangs = ['en', 'ar', 'es', 'fr', 'pt', 'tr', 'hi', 'zh', 'ja', 'ko', 'de', 'ru'];
-  if (!validLangs.includes(lang)) {
-    return `\u274C Invalid language "${lang}".`;
-  }
-
-  try {
-    const { getTelegramSettings, saveTelegramSettings } = await import('@/lib/mongodb');
-    const settings = await getTelegramSettings();
-    const channel = (settings.channels || []).find(
-      (c) => c.name.toLowerCase() === name.toLowerCase()
-    );
-
-    if (!channel) {
-      return `\u274C Channel "${name}" not found.`;
-    }
-
-    channel.language = lang;
-    await saveTelegramSettings(settings);
-
-    return `\u2705 Channel "<b>${name}</b>" language changed to <b>${lang}</b>.`;
-  } catch (e) {
-    return `\u274C Failed: ${String(e)}`;
-  }
-}
-
-// ============================================
-// Command: /togglech <name>
-// ============================================
-
-async function handleToggleChannel(chatId: string, text: string): Promise<string> {
-  const parts = text.split(/\s+/);
-  if (parts.length < 2) {
-    return `\u274C Usage: <code>/togglech channel_name</code>`;
-  }
-
-  const name = parts.slice(1).join(' ');
-
-  try {
-    const { getTelegramSettings, saveTelegramSettings } = await import('@/lib/mongodb');
-    const settings = await getTelegramSettings();
-    const channel = (settings.channels || []).find(
-      (c) => c.name.toLowerCase() === name.toLowerCase()
-    );
-
-    if (!channel) {
-      return `\u274C Channel "${name}" not found.`;
-    }
-
-    channel.active = !channel.active;
-    await saveTelegramSettings(settings);
-
-    const status = channel.active ? '\u2705 Active' : '\u274C Inactive';
-    return `\u{1F504} Channel "<b>${name}</b>" is now ${status}.`;
-  } catch (e) {
-    return `\u274C Failed: ${String(e)}`;
-  }
-}
-
-// ============================================
-// Command: /autopost
-// ============================================
-
-async function handleAutopost(): Promise<string> {
-  try {
-    const { getTelegramSettings, saveTelegramSettings } = await import('@/lib/mongodb');
-    const settings = await getTelegramSettings();
-    settings.auto_post = !settings.auto_post;
-    await saveTelegramSettings(settings);
-
-    return (
-      `\u{1F916} <b>Auto-Post</b> is now: <b>${settings.auto_post ? '\u2705 ON' : '\u274C OFF'}</b>\n\n` +
-      `New courses will ${settings.auto_post ? 'automatically be posted to channels after each scrape.' : 'NOT be posted automatically.'}`
-    );
-  } catch (e) {
-    return `\u274C Failed: ${String(e)}`;
-  }
-}
-
-// ============================================
-// Command: /delay <seconds>
-// ============================================
-
-async function handleDelay(chatId: string, text: string): Promise<string> {
-  const parts = text.split(/\s+/);
-  if (parts.length < 2) {
-    try {
-      const { getTelegramSettings } = await import('@/lib/mongodb');
-      const settings = await getTelegramSettings();
-      const current = settings.post_delay_ms ? Math.round(settings.post_delay_ms / 1000) : 60;
-      return (
-        `\u23F1\uFE0F <b>Current delay:</b> ${current}s\n\n` +
-        `\u274C Usage: <code>/delay seconds</code>\n\n` +
-        `<b>Example:</b> <code>/delay 30</code> (30 seconds)\n` +
-        `<b>Example:</b> <code>/delay 120</code> (2 minutes)\n\n` +
-        `<b>Recommended:</b> 30-120 seconds to avoid Telegram rate limits.`
-      );
-    } catch {
-      return '\u274C Could not read settings.';
-    }
-  }
-
-  const seconds = parseInt(parts[1]);
-  if (isNaN(seconds) || seconds < 5) {
-    return '\u274C Minimum delay is 5 seconds. Usage: <code>/delay 60</code>';
-  }
-
-  try {
-    const { getTelegramSettings, saveTelegramSettings } = await import('@/lib/mongodb');
-    const settings = await getTelegramSettings();
-    settings.post_delay_ms = seconds * 1000;
-    await saveTelegramSettings(settings);
-
-    return (
-      `\u23F1\uFE0F <b>Post delay set to ${seconds}s</b>\n\n` +
-      `Each course will be posted with a ${seconds}-second gap.`
-    );
-  } catch (e) {
-    return `\u274C Failed: ${String(e)}`;
-  }
-}
-
-// ============================================
-// Command: /template
-// ============================================
-
-async function handleTemplate(): Promise<string> {
-  try {
-    const { getTelegramSettings } = await import('@/lib/mongodb');
-    const settings = await getTelegramSettings();
-
-    return (
-      `\u{1F4DD} <b>Current Message Template</b>\n\n` +
-      `<code>${settings.message_template || '(not set)'}</code>\n\n` +
-      `\u{1F525} <b>Available Placeholders:</b>\n` +
-      `<code>{title}</code> - Course title\n` +
-      `<code>{instructor}</code> - Instructor name\n` +
-      `<code>{rating}</code> - Rating\n` +
-      `<code>{students_count}</code> - Number of students\n` +
-      `<code>{original_price}</code> - Original price\n` +
-      `<code>{language}</code> - Course language\n` +
-      `<code>{duration}</code> - Course duration\n` +
-      `<code>{link}</code> - Course page URL (your site)\n\n` +
-      `\u270F\uFE0F Use <code>/settemplate your text here</code> to change.`
-    );
-  } catch (e) {
-    return `\u274C Failed: ${String(e)}`;
-  }
-}
-
-// ============================================
-// Command: /settemplate <text>
-// ============================================
-
-async function handleSetTemplate(chatId: string, text: string): Promise<string> {
-  const template = text.replace(/^\/settemplate\s*/i, '').trim();
-
-  if (!template) {
-    return '\u274C Usage: <code>/settemplate Your message template here</code>';
-  }
-
-  try {
-    const { getTelegramSettings, saveTelegramSettings } = await import('@/lib/mongodb');
-    const settings = await getTelegramSettings();
-    settings.message_template = template;
-    await saveTelegramSettings(settings);
-
-    return (
-      `\u270F\uFE0F <b>Template Updated!</b>\n\n` +
-      `New template:\n<code>${template}</code>`
-    );
-  } catch (e) {
-    return `\u274C Failed: ${String(e)}`;
-  }
-}
-
-// ============================================
-// Command: /broadcast <text>
-// ============================================
-
-async function handleBroadcast(chatId: string, text: string): Promise<void> {
-  const message = text.replace(/^\/broadcast\s*/i, '').trim();
-
-  if (!message) {
-    await sendAdminMessage(chatId, '\u274C Usage: <code>/broadcast Your message here</code>\n\nThis sends the message to ALL active publishing channels.');
+  // Scrape (parse act:scrape:<pages>:<which>)
+  if (data.startsWith('act:scrape:')) {
+    const [, , pagesStr, which] = data.split(':');
+    await answerCallback(cbId, 'Starting…');
+    await runScrape(chatId, parseInt(pagesStr) || 3, (which as 'all' | 'uf' | 'sb') || 'all');
     return;
   }
 
-  try {
-    const { getTelegramSettings } = await import('@/lib/mongodb');
-    const settings = await getTelegramSettings();
-    const token = process.env.TELEGRAM_BOT_TOKEN || settings.bot_token;
+  // Cleanup
+  if (data === 'act:clean:dedup') {
+    await answerCallback(cbId, 'Working…');
+    const { cleanupDuplicates } = await import('@/lib/scraper');
+    const r = await cleanupDuplicates();
+    return sendMessage(chatId, `🧽 Removed <b>${r.removed}</b> duplicate(s).`, { inline_keyboard: [backRow('nav:clean')] });
+  }
+  if (data === 'act:clean:invalid') {
+    await answerCallback(cbId, 'Working…');
+    const r = await cleanupInvalidCourses();
+    return sendMessage(chatId, `🧯 Removed <b>${r.totalRemoved}</b> invalid course(s).`, { inline_keyboard: [backRow('nav:clean')] });
+  }
+  if (data === 'act:clean:purge') {
+    await answerCallback(cbId);
+    return editMessage(chatId, messageId, `⚠️ <b>Delete ALL courses?</b>\nThis cannot be undone.`, {
+      inline_keyboard: [[{ text: '✅ Yes, purge everything', callback_data: 'act:clean:purgeyes' }], backRow('nav:clean')],
+    });
+  }
+  if (data === 'act:clean:purgeyes') {
+    await answerCallback(cbId, 'Purging…');
+    const r = await purgeAllCourses();
+    return editMessage(chatId, messageId, `🗑️ Purged <b>${r.removed}</b> course(s).`, { inline_keyboard: [backRow('nav:clean')] });
+  }
 
-    if (!token) {
-      await sendAdminMessage(chatId, '\u274C Publishing bot token not configured.');
-      return;
+  // Posting
+  if (data === 'act:autopost') {
+    const s = await getTelegramSettings();
+    s.auto_post = !s.auto_post;
+    await saveTelegramSettings(s);
+    await answerCallback(cbId, `Auto-post ${s.auto_post ? 'ON' : 'OFF'}`);
+    const v = await viewPosting();
+    return editMessage(chatId, messageId, v.text, v.keyboard);
+  }
+  if (data === 'act:postnow') {
+    await answerCallback(cbId, 'Posting…');
+    await postNow(chatId);
+    return;
+  }
+
+  // Channel management
+  if (data.startsWith('ch:')) {
+    const [, op, idxStr] = data.split(':');
+    const idx = parseInt(idxStr);
+    const s = await getTelegramSettings();
+    const channels = s.channels || [];
+    const ch = channels[idx];
+    if (!ch) { await answerCallback(cbId, 'Channel not found'); const v = await viewChannels(); return editMessage(chatId, messageId, v.text, v.keyboard); }
+
+    if (op === 'info') { await answerCallback(cbId, `${ch.name} · ${ch.id || 'no id'} · ${ch.active ? 'active' : 'inactive'}`); return; }
+    if (op === 'tog') {
+      ch.active = !ch.active; await saveTelegramSettings(s);
+      await answerCallback(cbId, ch.active ? 'Enabled' : 'Disabled');
+      const v = await viewChannels(); return editMessage(chatId, messageId, v.text, v.keyboard);
     }
-
-    const channels = (settings.channels || []).filter((c) => c.active && c.id);
-    if (channels.length === 0) {
-      await sendAdminMessage(chatId, '\u274C No active channels to broadcast to.');
-      return;
+    if (op === 'rm') {
+      await answerCallback(cbId);
+      return editMessage(chatId, messageId, `🗑 Remove channel <b>${escapeHtml(ch.name)}</b>?`, {
+        inline_keyboard: [[{ text: '✅ Yes, remove', callback_data: `ch:rmyes:${idx}` }], backRow('nav:chan')],
+      });
     }
-
-    await sendAdminMessage(chatId, `\u{1F4E8} Broadcasting to <b>${channels.length}</b> channels...`);
-
-    let sent = 0;
-    let failed = 0;
-
-    for (const channel of channels) {
-      try {
-        const response = await fetch(`${TELEGRAM_API}/bot${token}/sendMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: channel.id,
-            text: message,
-            parse_mode: 'HTML',
-            disable_web_page_preview: false,
-          }),
-          signal: AbortSignal.timeout(15000),
-        });
-        if (response.ok) sent++;
-        else failed++;
-      } catch {
-        failed++;
+    if (op === 'rmyes') {
+      channels.splice(idx, 1); s.channels = channels; await saveTelegramSettings(s);
+      await answerCallback(cbId, 'Removed');
+      const v = await viewChannels(); return editMessage(chatId, messageId, v.text, v.keyboard);
+    }
+    if (op === 'lang') {
+      await answerCallback(cbId);
+      const rows: Btn[][] = [];
+      for (let i = 0; i < LANGS.length; i += 4) {
+        rows.push(LANGS.slice(i, i + 4).map((l) => ({ text: l, callback_data: `chsetlang:${idx}:${l}` })));
       }
-
-      // Small delay between broadcasts
-      if (sent + failed < channels.length) {
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-      }
+      rows.push(backRow('nav:chan'));
+      return editMessage(chatId, messageId, `🌐 Pick a language for <b>${escapeHtml(ch.name)}</b>:`, { inline_keyboard: rows });
     }
+  }
+  if (data.startsWith('chsetlang:')) {
+    const [, idxStr, lang] = data.split(':');
+    const idx = parseInt(idxStr);
+    const s = await getTelegramSettings();
+    if (s.channels?.[idx] && LANGS.includes(lang)) { s.channels[idx].language = lang; await saveTelegramSettings(s); }
+    await answerCallback(cbId, `Language: ${lang}`);
+    const v = await viewChannels(); return editMessage(chatId, messageId, v.text, v.keyboard);
+  }
 
-    await sendAdminMessage(
-      chatId,
-      `\u{1F4E8} <b>Broadcast Complete</b>\n\n\u2705 Sent: <b>${sent}</b>\n\u274C Failed: <b>${failed}</b>`
-    );
-  } catch (e) {
-    await sendAdminMessage(chatId, `\u274C Broadcast failed: ${String(e)}`);
+  // Prompts that need free-text input
+  if (data.startsWith('ask:')) {
+    const action = data.slice(4);
+    await setState(chatId, action);
+    await answerCallback(cbId);
+    return editMessage(chatId, messageId, promptText(action), { inline_keyboard: [[{ text: '✖️ Cancel', callback_data: cancelTarget(action) }]] });
+  }
+
+  await answerCallback(cbId);
+}
+
+function cancelTarget(action: string): string {
+  if (action === 'addch') return 'nav:chan';
+  if (action === 'delay') return 'nav:post';
+  if (action.startsWith('tpl')) return 'nav:tpl';
+  if (action.startsWith('site') || action === 'perpage') return 'nav:set';
+  return 'nav:main';
+}
+
+function promptText(action: string): string {
+  switch (action) {
+    case 'addch': return `➕ <b>Add channel</b>\nSend: <code>name @channel lang</code>\nExample: <code>Arabic @mychan ar</code>\nLangs: ${LANGS.join(', ')}`;
+    case 'delay': return `⏱️ <b>Set delay</b>\nSend the number of seconds between posts (min 5). Example: <code>60</code>`;
+    case 'tplen': return `✏️ <b>Set EN template</b>\nSend the new template text.\nPlaceholders: {title} {instructor} {rating} {students_count} {original_price} {language} {duration} {link}`;
+    case 'tplar': return `✏️ <b>Set AR template</b>\nSend the new Arabic template text. Same placeholders as EN.`;
+    case 'bcast': return `📨 <b>Broadcast</b>\nSend the message to deliver to all active channels.`;
+    case 'sitename': return `🏷️ <b>Site name</b>\nSend the new site name.`;
+    case 'sitedesc': return `🧾 <b>Site description</b>\nSend the new description.`;
+    case 'perpage': return `📄 <b>Courses per page</b>\nSend a number (1–60). Example: <code>12</code>`;
+    default: return 'Send the value:';
   }
 }
 
-// ============================================
-// Command: /post
-// ============================================
+// --------------------------------------------------------------------
+// Process a free-text reply for a pending action
+// --------------------------------------------------------------------
 
-async function handlePost(chatId: string): Promise<void> {
-  try {
-    const { getUnpostedCourses, getTelegramSettings, markCourseTelegramPosted, logTelegramMessage } = await import('@/lib/mongodb');
-    const { postCourseToTelegram } = await import('@/lib/telegram');
+async function processInput(chatId: string, action: string, text: string) {
+  const { getTelegramSettings, saveTelegramSettings, setSetting } = await import('@/lib/mongodb');
+  await clearState(chatId);
 
-    const settings = await getTelegramSettings();
-    const token = process.env.TELEGRAM_BOT_TOKEN || settings.bot_token;
-    if (!token) {
-      await sendAdminMessage(chatId, '\u274C Publishing bot token not configured. Set TELEGRAM_BOT_TOKEN env variable.');
-      return;
-    }
+  if (action === 'bcast') { await broadcast(chatId, text); return; }
 
-    const unposted = await getUnpostedCourses(10);
+  if (action === 'addch') {
+    const parts = text.split(/\s+/);
+    if (parts.length < 3) return reply(chatId, '❌ Need: name @channel lang', 'nav:chan');
+    const [name, id, langRaw] = parts;
+    const lang = langRaw.toLowerCase();
+    if (!LANGS.includes(lang)) return reply(chatId, `❌ Invalid lang. Use: ${LANGS.join(', ')}`, 'nav:chan');
+    const s = await getTelegramSettings();
+    s.channels = [...(s.channels || []), { name, id, active: true, language: lang }];
+    await saveTelegramSettings(s);
+    return reply(chatId, `✅ Added <b>${escapeHtml(name)}</b> (${id}, ${lang}).`, 'nav:chan');
+  }
 
-    if (unposted.length === 0) {
-      await sendAdminMessage(chatId, '\u{1F4ED} No new courses to post. All caught up!');
-      return;
-    }
+  if (action === 'delay') {
+    const sec = parseInt(text);
+    if (isNaN(sec) || sec < 5) return reply(chatId, '❌ Minimum is 5 seconds.', 'nav:post');
+    const s = await getTelegramSettings(); s.post_delay_ms = sec * 1000; await saveTelegramSettings(s);
+    return reply(chatId, `✅ Delay set to ${sec}s.`, 'nav:post');
+  }
 
-    await sendAdminMessage(chatId, `\u{1F4E4} Posting <b>${unposted.length}</b> courses...`);
+  if (action === 'tplen' || action === 'tplar') {
+    const s = await getTelegramSettings();
+    if (action === 'tplen') s.message_template = text; else s.message_template_ar = text;
+    await saveTelegramSettings(s);
+    return reply(chatId, '✅ Template updated.', 'nav:tpl');
+  }
 
-    // Read delay from settings
-    const delayMs = settings.post_delay_ms ? settings.post_delay_ms : 60_000;
-
-    let posted = 0;
-    const errors: string[] = [];
-
-    for (let i = 0; i < unposted.length; i++) {
-      const course = unposted[i];
-      const courseData = {
-        title: course.title,
-        instructor: course.instructor,
-        category: course.category,
-        rating: course.rating,
-        students_count: course.studentsCount,
-        original_price: course.originalPrice,
-        language: course.language,
-        duration: course.duration,
-        udemy_url: course.couponUrl || course.udemyUrl || '',
-        slug: course.slug,
-      };
-
-      const result = await postCourseToTelegram(courseData, settings as unknown as Record<string, unknown>);
-      if (result.success) {
-        await markCourseTelegramPosted(course.id);
-        posted++;
-        await logTelegramMessage({
-          courseId: course.id,
-          courseTitle: course.title,
-          channels: result.channels,
-          status: 'sent',
-        });
-        await sendAdminMessage(chatId, `\u2705 [${posted}/${unposted.length}] ${course.title.slice(0, 50)}`);
-      } else {
-        errors.push(course.title);
-      }
-
-      // Delay between posts (skip after last)
-      if (i < unposted.length - 1) {
-        await new Promise((resolve) => setTimeout(resolve, delayMs));
-      }
-    }
-
-    const msg =
-      `\u{1F4E4} <b>Post Complete</b>\n\n` +
-      `\u2705 Posted: <b>${posted}</b>\n` +
-      `\u274C Failed: <b>${errors.length}</b>\n` +
-      `\u23F1\uFE0F Delay: ${Math.round(delayMs / 1000)}s` +
-      (errors.length > 0 ? `\n\nFailed:\n${errors.map((e) => `\u2022 ${e}`).join('\n')}` : '');
-
-    await sendAdminMessage(chatId, msg);
-  } catch (e) {
-    await sendAdminMessage(chatId, `\u274C Post failed: ${String(e)}`);
+  if (action === 'sitename') { await setSetting('site_name', text.trim()); return reply(chatId, '✅ Site name updated.', 'nav:set'); }
+  if (action === 'sitedesc') { await setSetting('site_description', text.trim()); return reply(chatId, '✅ Description updated.', 'nav:set'); }
+  if (action === 'perpage') {
+    const n = parseInt(text);
+    if (isNaN(n) || n < 1 || n > 60) return reply(chatId, '❌ Send a number 1–60.', 'nav:set');
+    await setSetting('courses_per_page', String(n));
+    return reply(chatId, `✅ Courses per page set to ${n}.`, 'nav:set');
   }
 }
 
-// ============================================
-// Main POST Handler - Telegram Webhook
-// ============================================
+function reply(chatId: string, text: string, back: string) {
+  return sendMessage(chatId, text, { inline_keyboard: [backRow(back)] });
+}
+
+// --------------------------------------------------------------------
+// Webhook entry point
+// --------------------------------------------------------------------
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const message = body.message;
 
-    if (!message || !message.text || !message.chat) {
+    // Inline button taps
+    if (body.callback_query) {
+      const cq = body.callback_query;
+      const chatId = String(cq.message?.chat?.id);
+      if (!isAuthorized(chatId)) { await answerCallback(cq.id, 'Unauthorized'); return NextResponse.json({ ok: true }); }
+      await handleCallback(chatId, cq.message.message_id, String(cq.data || ''), cq.id);
       return NextResponse.json({ ok: true });
     }
+
+    const message = body.message;
+    if (!message || !message.text || !message.chat) return NextResponse.json({ ok: true });
 
     const chatId = String(message.chat.id);
     const text: string = message.text.trim();
 
-    // Security: Check authorization
     if (!isAuthorized(chatId)) {
-      console.log(`[AdminBot] Unauthorized from ${chatId}`);
-      await sendAdminMessage(chatId, '\u{1F6AB} Unauthorized. Your chat ID is not in the allowed list.');
+      await sendMessage(chatId, '🚫 Unauthorized. Your chat ID is not in the allowed list.');
       return NextResponse.json({ ok: true });
     }
 
-    const command = text.split(' ')[0].toLowerCase();
+    // A pending free-text input takes priority over plain text (commands still win).
+    if (!text.startsWith('/')) {
+      const state = await getState(chatId);
+      if (state) { await processInput(chatId, state.action, text); return NextResponse.json({ ok: true }); }
+    }
 
-    switch (command) {
-      case '/start': {
-        const reply = await handleStart();
-        await sendAdminMessage(chatId, reply);
-        break;
-      }
-
-      case '/stats': {
-        const reply = await handleStats();
-        await sendAdminMessage(chatId, reply);
-        break;
-      }
-
-      case '/scrape': {
-        // IMPORTANT: Must await on Vercel serverless — fire-and-forget gets killed after response
-        await handleScrape(chatId);
-        return NextResponse.json({ ok: true });
-      }
-
-      case '/purge':
-      case '/purge confirm':
-      case '/purge yes': {
-        const reply = await handlePurge(chatId, text.toLowerCase());
-        await sendAdminMessage(chatId, reply);
-        break;
-      }
-
-      case '/channels': {
-        const reply = await handleChannels();
-        await sendAdminMessage(chatId, reply);
-        break;
-      }
-
-      case '/addch': {
-        const reply = await handleAddChannel(chatId, text);
-        await sendAdminMessage(chatId, reply);
-        break;
-      }
-
-      case '/rmch': {
-        const reply = await handleRemoveChannel(chatId, text);
-        await sendAdminMessage(chatId, reply);
-        break;
-      }
-
-      case '/langch': {
-        const reply = await handleChannelLang(chatId, text);
-        await sendAdminMessage(chatId, reply);
-        break;
-      }
-
-      case '/togglech': {
-        const reply = await handleToggleChannel(chatId, text);
-        await sendAdminMessage(chatId, reply);
-        break;
-      }
-
-      case '/autopost': {
-        const reply = await handleAutopost();
-        await sendAdminMessage(chatId, reply);
-        break;
-      }
-
-      case '/delay': {
-        const reply = await handleDelay(chatId, text);
-        await sendAdminMessage(chatId, reply);
-        break;
-      }
-
-      case '/template': {
-        const reply = await handleTemplate();
-        await sendAdminMessage(chatId, reply);
-        break;
-      }
-
-      case '/settemplate': {
-        const reply = await handleSetTemplate(chatId, text);
-        await sendAdminMessage(chatId, reply);
-        break;
-      }
-
-      case '/broadcast': {
-        await handleBroadcast(chatId, text);
-        return NextResponse.json({ ok: true });
-      }
-
-      case '/post': {
-        await handlePost(chatId);
-        return NextResponse.json({ ok: true });
-      }
-
-      default: {
-        await sendAdminMessage(chatId, '\u2753 Unknown command. Type /start to see available commands.');
-      }
+    const cmd = text.split(' ')[0].toLowerCase();
+    if (cmd === '/start' || cmd === '/menu' || cmd === '/help') {
+      const v = viewMain();
+      await sendMessage(chatId, v.text, v.keyboard);
+    } else if (cmd === '/stats') {
+      const v = await viewStats(); await sendMessage(chatId, v.text, v.keyboard);
+    } else if (cmd === '/scrape') {
+      await runScrape(chatId, 3, 'all');
+    } else if (cmd === '/post') {
+      await postNow(chatId);
+    } else {
+      await sendMessage(chatId, 'Type /start to open the control panel.', mainMenu);
     }
 
     return NextResponse.json({ ok: true });
@@ -761,10 +602,6 @@ export async function POST(request: Request) {
   }
 }
 
-// GET handler for webhook verification
 export async function GET() {
-  return NextResponse.json({
-    status: 'ok',
-    message: 'Learn Plus Courses Admin Bot webhook endpoint',
-  });
+  return NextResponse.json({ status: 'ok', message: 'Learn Plus Courses Admin Bot webhook' });
 }
