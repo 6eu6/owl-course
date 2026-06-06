@@ -97,6 +97,7 @@ export default function AdminPage() {
   const [password, setPassword] = useState('')
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [authError, setAuthError] = useState('')
+  const [loginLoading, setLoginLoading] = useState(false)
 
   const fetchStats = useCallback(async () => {
     try {
@@ -114,10 +115,28 @@ export default function AdminPage() {
     fetchStats()
   }, [fetchStats])
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!password.trim()) return
-    setIsAuthenticated(true)
+    setLoginLoading(true)
     setAuthError('')
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password, action: 'verify' }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setIsAuthenticated(true)
+        setAuthError('')
+      } else {
+        setAuthError(data.error || 'Invalid password')
+      }
+    } catch {
+      setAuthError('Connection error')
+    } finally {
+      setLoginLoading(false)
+    }
   }
 
   if (!isAuthenticated) {
@@ -145,9 +164,9 @@ export default function AdminPage() {
             {authError && (
               <p className="text-xs text-red-500">{authError}</p>
             )}
-            <Button className="w-full" onClick={handleLogin}>
-              <Settings className="h-4 w-4 mr-2" />
-              Login
+            <Button className="w-full" onClick={handleLogin} disabled={loginLoading}>
+              {loginLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Settings className="h-4 w-4 mr-2" />}
+              {loginLoading ? 'Verifying...' : 'Login'}
             </Button>
           </CardContent>
         </Card>
@@ -331,6 +350,7 @@ function StatCard({ icon: Icon, label, value, color }: { icon: React.ElementType
 // ===== SCRAPER PANEL =====
 function ScraperPanel({ password, onDone }: { password: string; onDone: () => void }) {
   const [running, setRunning] = useState(false)
+  const [purging, setPurging] = useState(false)
   const [logs, setLogs] = useState<ScraperLog[]>([])
   const [result, setResult] = useState<{ success: boolean; message: string; totalNew: number; totalDup: number; totalErr: number; totalDuration: number } | null>(null)
 
@@ -355,6 +375,30 @@ function ScraperPanel({ password, onDone }: { password: string; onDone: () => vo
       setResult({ success: false, message: 'Failed to run scraper', totalNew: 0, totalDup: 0, totalErr: 0, totalDuration: 0 })
     } finally {
       setRunning(false)
+    }
+  }
+
+  const purgeCourses = async () => {
+    if (!confirm('Are you sure you want to DELETE ALL courses? This cannot be undone!')) return
+    setPurging(true)
+    setResult(null)
+    try {
+      const res = await fetch('/api/scraper', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password, action: 'purge' }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setResult({ success: true, message: data.message, totalNew: 0, totalDup: 0, totalErr: 0, totalDuration: 0 })
+        onDone()
+      } else {
+        setResult({ success: false, message: data.error || 'Failed to purge', totalNew: 0, totalDup: 0, totalErr: 0, totalDuration: 0 })
+      }
+    } catch {
+      setResult({ success: false, message: 'Failed to purge courses', totalNew: 0, totalDup: 0, totalErr: 0, totalDuration: 0 })
+    } finally {
+      setPurging(false)
     }
   }
 
@@ -388,7 +432,10 @@ function ScraperPanel({ password, onDone }: { password: string; onDone: () => vo
             <Button variant="outline" onClick={() => runScraper('udemyfreebies')} disabled={running}>
               UdemyFreebies
             </Button>
-
+            <Button variant="destructive" onClick={purgeCourses} disabled={purging || running}>
+              {purging ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              <span className="ml-2">Purge All Courses</span>
+            </Button>
           </div>
           {result && (
             <div className={`p-4 rounded-md text-sm space-y-1 ${result.success ? 'bg-green-50 text-green-700 border border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800' : 'bg-red-50 text-red-700 border border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-800'}`}>
@@ -508,7 +555,6 @@ function TelegramPanel({ password, onDone }: { password: string; onDone: () => v
         body: JSON.stringify({
           password,
           action: 'save_settings',
-          bot_token: currentSettings.bot_token,
           channels: currentSettings.channels,
           auto_post: currentSettings.auto_post,
           message_template: currentSettings.message_template,
@@ -541,7 +587,6 @@ function TelegramPanel({ password, onDone }: { password: string; onDone: () => v
           password,
           action: 'test',
           channel_id: channelId,
-          bot_token: currentSettings.bot_token,
         }),
       })
       const data = await res.json()
@@ -599,17 +644,9 @@ function TelegramPanel({ password, onDone }: { password: string; onDone: () => v
           <CardTitle className="text-sm flex items-center gap-2">
             <Bot className="h-4 w-4" /> Bot Configuration
           </CardTitle>
+          <CardDescription>Bot token is configured via TELEGRAM_BOT_TOKEN environment variable.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div>
-            <Label className="text-xs">Bot Token</Label>
-            <Input
-              value={currentSettings.bot_token || ''}
-              onChange={(e) => setSettings({ ...currentSettings, bot_token: e.target.value })}
-              placeholder="123456:ABCdef..."
-              className="font-mono text-xs"
-            />
-          </div>
 
           <div className="flex items-center gap-2">
             <Switch

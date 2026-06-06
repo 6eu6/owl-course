@@ -52,7 +52,19 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { password, action } = body;
 
-    // Verify admin password for all POST operations
+    // Action: verify password only (used by admin login)
+    if (action === 'verify') {
+      const isValid = await verifyAdminPassword(password);
+      if (!isValid) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid admin password' },
+          { status: 401 }
+        );
+      }
+      return NextResponse.json({ success: true, message: 'Password verified' });
+    }
+
+    // Verify admin password for all other POST operations
     const isValid = await verifyAdminPassword(password);
     if (!isValid) {
       return NextResponse.json(

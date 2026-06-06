@@ -239,6 +239,8 @@ export async function getAllSettings(): Promise<Record<string, string>> {
 }
 
 export async function getAdminPassword(): Promise<string> {
+  // Env variable takes priority, then DB setting, then default
+  if (process.env.ADMIN_PASSWORD) return process.env.ADMIN_PASSWORD;
   const password = await getSetting('admin_password');
   return password || 'owl2024';
 }

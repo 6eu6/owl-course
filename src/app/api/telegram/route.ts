@@ -18,15 +18,16 @@ export async function GET() {
   try {
     const settings = await getTelegramSettings();
     const messages = await getRecentTelegramMessages(20);
+    const token = process.env.TELEGRAM_BOT_TOKEN || settings.bot_token;
 
     // Check if configured
-    const configured = !!(settings.bot_token && settings.channels.some((c) => c.active && c.id));
+    const configured = !!(token && settings.channels.some((c) => c.active && c.id));
 
     return NextResponse.json({
       success: true,
       configured,
       settings: {
-        bot_token: settings.bot_token ? '****' + settings.bot_token.slice(-6) : '',
+        bot_token: token ? '****' + token.slice(-6) : '',
         channels: settings.channels.map((c) => ({
           name: c.name,
           id: c.id ? (c.id.startsWith('@') ? c.id : '@' + c.id) : c.id,
@@ -65,10 +66,13 @@ export async function POST(request: Request) {
 
     // --- Save Settings ---
     if (action === 'save_settings') {
-      const { bot_token, channels, auto_post, message_template, message_template_ar } = body;
+      const { channels, auto_post, message_template, message_template_ar } = body;
+
+      // Bot token comes from env, not from client
+      const botToken = process.env.TELEGRAM_BOT_TOKEN || '';
 
       const settings: TelegramSettingsConfig = {
-        bot_token: String(bot_token || ''),
+        bot_token: botToken,
         channels: Array.isArray(channels)
           ? channels.map((c: { name?: string; id?: string; active?: boolean; language?: string }) => ({
               name: String(c.name || 'Unnamed'),
@@ -101,14 +105,15 @@ export async function POST(request: Request) {
       }
 
       const settings = await getTelegramSettings();
-      if (!settings.bot_token) {
+      const token = process.env.TELEGRAM_BOT_TOKEN || settings.bot_token;
+      if (!token) {
         return NextResponse.json(
-          { success: false, error: 'Bot token not configured' },
+          { success: false, error: 'Bot token not configured. Set TELEGRAM_BOT_TOKEN env variable.' },
           { status: 400 }
         );
       }
 
-      const testResult = await testTelegramConnection(settings.bot_token, String(channel_id));
+      const testResult = await testTelegramConnection(token, String(channel_id));
       return NextResponse.json({
         success: testResult.success,
         message: testResult.message,
@@ -199,9 +204,10 @@ export async function POST(request: Request) {
       }
 
       const settings = await getTelegramSettings();
-      if (!settings.bot_token) {
+      const token = process.env.TELEGRAM_BOT_TOKEN || settings.bot_token;
+      if (!token) {
         return NextResponse.json(
-          { success: false, error: 'Bot token not configured' },
+          { success: false, error: 'Bot token not configured. Set TELEGRAM_BOT_TOKEN env variable.' },
           { status: 400 }
         );
       }

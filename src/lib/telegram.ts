@@ -201,7 +201,8 @@ function formatMessage(template: string, course: Record<string, unknown>, channe
 
 // Post a single course to all active channels with per-channel language support
 export async function postCourseToTelegram(course: Record<string, unknown>, settings: Record<string, unknown>): Promise<{ success: boolean; channels: string[] }> {
-  const botToken = String(settings.bot_token || '');
+  // Prefer env token over DB-stored one
+  const botToken = process.env.TELEGRAM_BOT_TOKEN || String(settings.bot_token || '');
   const channels = (settings.channels as Array<{ id: string; active: boolean; name: string; language: string }>) || [];
   const defaultTemplate = String(settings.message_template || '{title}\n{link}');
   const arabicTemplate = String((settings as Record<string, unknown>).message_template_ar || defaultTemplate);
@@ -244,7 +245,8 @@ export async function postCourseToTelegram(course: Record<string, unknown>, sett
 // Auto-post unpublished courses to Telegram
 export async function autoPostToTelegram(limit: number = 5): Promise<{ posted: number; errors: string[] }> {
   const settings = await getTelegramSettings();
-  if (!settings.bot_token || !settings.auto_post) {
+  const token = process.env.TELEGRAM_BOT_TOKEN || settings.bot_token;
+  if (!token || !settings.auto_post) {
     return { posted: 0, errors: ['Telegram not configured or auto-post disabled'] };
   }
 
