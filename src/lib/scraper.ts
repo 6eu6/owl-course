@@ -1876,6 +1876,54 @@ async function extractStudyBulletDetail(detailUrl: string): Promise<{
       }
     }
 
+    // 3. NEW: StudyBullet now embeds Udemy URLs directly in enroll buttons
+    // Pattern: <a class="enroll_btn" href="https://www.udemy.com/course/.../?couponCode=CODE">
+    // Also covers generic <a href="...udemy.com/course/...?couponCode=..."> patterns
+    if (!couponCode) {
+      // 3a: Look for enroll button with direct Udemy URL + coupon
+      const enrollMatch = decodedHtml.match(/href=["'](https?:\/\/(?:www\.)?udemy\.com\/course\/[a-z0-9\-]+\/?(?:\?[^"']*?(?:couponCode|coupon)=([A-Za-z0-9_\-]+)[^"']*)?)["']/i);
+      if (enrollMatch) {
+        udemyUrl = enrollMatch[1];
+        couponCode = extractCouponCode(udemyUrl);
+      }
+    }
+
+    // 3b: Broader scan — find ANY Udemy URL with couponCode in the entire page
+    if (!couponCode || !udemyUrl) {
+      const allUdemyUrls = decodedHtml.matchAll(/https?:\/\/(?:www\.)?udemy\.com\/course\/[a-z0-9\-]+\/?(?:\?[^"'\s<>]*?(?:couponCode|coupon)=([A-Za-z0-9_\-]+)[^"'\s<>]*)?/gi);
+      for (const m of allUdemyUrls) {
+        const url = m[0];
+        const code = m[1] || extractCouponCode(url);
+        if (code && isValidCouponCode(code)) {
+          udemyUrl = url;
+          couponCode = code;
+          break;
+        }
+      }
+    }
+
+    // 3c: Find coupon code displayed as text + separate Udemy URL anywhere on page
+    if (!couponCode) {
+      // Look for standalone coupon code patterns (e.g. "Coupon: XXXXXXX" or "Code: XXXXXXX")
+      const textCouponPatterns = [
+        /coupon\s*(?:code)?[:\s]+([A-Z0-9]{4,})/i,
+        /code[:\s]+([A-Z0-9]{4,})/i,
+        /(?:coupon|discount)\s*[:\s]*([A-Z0-9]{6,})/i,
+      ];
+      for (const pat of textCouponPatterns) {
+        const tcMatch = decodedHtml.match(pat);
+        if (tcMatch && isValidCouponCode(tcMatch[1])) {
+          couponCode = tcMatch[1];
+          // Try to find a Udemy URL on the page to pair with
+          const udemyCourseMatch = decodedHtml.match(/https?:\/\/(?:www\.)?udemy\.com\/course\/[a-z0-9\-]+/i);
+          if (udemyCourseMatch) {
+            udemyUrl = `${udemyCourseMatch[0]}?couponCode=${couponCode}`;
+          }
+          break;
+        }
+      }
+    }
+
     // Validate coupon code
     if (!couponCode || !isValidCouponCode(couponCode)) return null;
     if (!udemyUrl || !udemyUrl.includes('udemy.com')) return null;
