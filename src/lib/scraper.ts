@@ -399,21 +399,55 @@ async function verifyCouponOnUdemy(couponUrl: string): Promise<{ isFree: boolean
     const html = await response.text();
     const htmlLower = html.toLowerCase();
 
-    // --- STRATEGY 1: Check JSON data blocks in <script> tags ---
+    // --- STRATEGY 0: Parse __NEXT_DATA__ JSON properly ---
+    const nextDataMatch = html.match(/<script[^>]*id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i);
+    if (nextDataMatch) {
+      try {
+        const jsonData = JSON.parse(nextDataMatch[1]);
+        const courseData = jsonData?.props?.pageProps?.course || jsonData?.props?.pageProps?.courseResult;
+        if (courseData) {
+          if (courseData.isFree === true) return { isFree: true, verified: true };
+          if (courseData.isFree === false) return { isFree: false, verified: true };
+
+          // Check nested price objects
+          const price = courseData.price || courseData.purchasePrice || courseData.discountPrice || {};
+          if (price && typeof price.amount === 'number') {
+            if (price.amount === 0) return { isFree: true, verified: true };
+            if (price.amount > 0) return { isFree: false, verified: true };
+          }
+
+          const currentPrice = courseData.currentPrice || courseData.frontendPrice || {};
+          if (currentPrice && typeof currentPrice.amount === 'number') {
+            if (currentPrice.amount === 0) return { isFree: true, verified: true };
+            if (currentPrice.amount > 0) return { isFree: false, verified: true };
+          }
+
+          // Check list_price object
+          const listPrice = courseData.listPrice || courseData.list_price || {};
+          if (listPrice && typeof listPrice.amount === 'number') {
+            if (listPrice.amount === 0) return { isFree: true, verified: true };
+            if (listPrice.amount > 0) return { isFree: false, verified: true };
+          }
+        }
+      } catch {
+        // JSON parse failed, continue to regex strategies
+      }
+    }
+
+    // --- STRATEGY 1: Check JSON data blocks in <script> tags (regex fallback) ---
     const scriptBlocks = html.match(/<script[^>]*>([\s\S]*?)<\/script>/gi) || [];
 
     for (const block of scriptBlocks) {
-      // Check __NEXT_DATA__ for pricing info
+      // Check __NEXT_DATA__ for pricing info (regex patterns — used only if JSON parse fails)
       if (block.includes('__NEXT_DATA__')) {
         const jsonPatterns = [
           { pattern: /"isFree"\s*:\s*true/i, free: true },
-          { pattern: /"purchase_price"\s*:\s*\{[^}]*"amount"\s*:\s*0/i, free: true },
-          { pattern: /"price"\s*:\s*0[^.]/i, free: true },
-          { pattern: /"price_amount"\s*:\s*0/i, free: true },
+          { pattern: /"purchase_price"\s*:\s*\{[^}]*"amount"\s*:\s*0(?![.0-9])/i, free: true },
+          { pattern: /"price"\s*:\s*0(?![.0-9])/i, free: true },
+          { pattern: /"price_amount"\s*:\s*0(?![.0-9])/i, free: true },
           { pattern: /"current_price"\s*:\s*"?0"/i, free: true },
-          { pattern: /"discount_price"\s*:\s*\{[^}]*"amount"\s*:\s*0/i, free: true },
-          { pattern: /"list_price"\s*:\s*\{[^}]*"amount"\s*:\s*0/i, free: true },
-          { pattern: /"price\s*>\s*0/i, free: false },
+          { pattern: /"discount_price"\s*:\s*\{[^}]*"amount"\s*:\s*0(?![.0-9])/i, free: true },
+          { pattern: /"list_price"\s*:\s*\{[^}]*"amount"\s*:\s*0(?![.0-9])/i, free: true },
           { pattern: /"purchase_price"\s*:\s*\{[^}]*"amount"\s*:\s*[1-9]/i, free: false },
           { pattern: /"price_amount"\s*:\s*[1-9]/i, free: false },
           { pattern: /"current_price"\s*:\s*"[1-9]/i, free: false },
@@ -437,15 +471,17 @@ async function verifyCouponOnUdemy(couponUrl: string): Promise<{ isFree: boolean
             if (
               apolloLower.includes('"isfree":true') ||
               apolloLower.includes('"is_free":true') ||
-              /"price"\s*:\s*0[^.]/.test(apolloLower) ||
-              /"currentprice"\s*:\s*"?0"/i.test(apolloLower)
+              /"price"\s*:\s*0(?![.0-9])/.test(apolloLower) ||
+              /"currentprice"\s*:\s*"?0"/i.test(apolloLower) ||
+              /"price_amount"\s*:\s*0(?![.0-9])/.test(apolloLower)
             ) {
               return { isFree: true, verified: true };
             }
 
             if (
               /"currentprice"\s*:\s*"[1-9]/i.test(apolloLower) ||
-              /"price"\s*:\s*[1-9]/.test(apolloLower)
+              /"price_amount"\s*:\s*[1-9]/.test(apolloLower) ||
+              /"purchase_price"\s*:\s*\{[^}]*"amount"\s*:\s*[1-9]/.test(apolloLower)
             ) {
               return { isFree: false, verified: true };
             }
@@ -470,21 +506,14 @@ async function verifyCouponOnUdemy(couponUrl: string): Promise<{ isFree: boolean
       }
     }
 
-    // --- STRATEGY 2: HTML indicators (fallback) ---
+    // --- STRATEGY 2: HTML indicators (fallback — less reliable) ---
+    // Only use specific indicators that are unlikely to cause false positives
     const freeIndicators = [
       'enroll for free',
-      'free course',
-      '$0',
-      'price_free',
-      '"is_free":true',
-      '"price":0',
-      '"price_amount":0',
       'data-purpose="enroll-free"',
     ];
 
     const paidIndicators = [
-      'buy now',
-      'add to cart',
       'data-purpose="buy',
     ];
 
@@ -498,9 +527,9 @@ async function verifyCouponOnUdemy(couponUrl: string): Promise<{ isFree: boolean
       if (htmlLower.includes(indicator)) paidScore++;
     }
 
-    if (freeScore >= 2) return { isFree: true, verified: true };
+    // Require strong signal: both indicators must agree
     if (freeScore >= 1 && paidScore === 0) return { isFree: true, verified: true };
-    if (paidScore >= 2 && freeScore === 0) return { isFree: false, verified: true };
+    if (paidScore >= 1 && freeScore === 0) return { isFree: false, verified: true };
 
     return { isFree: false, verified: false };
   } catch {
@@ -542,6 +571,117 @@ function findUdemyUrlInHtml(html: string): { udemyUrl: string; couponCode: strin
   }
 
   return null;
+}
+
+// ============================================
+// Helper: Extract ALL Udemy coupon URLs from HTML (regex-based)
+// ============================================
+
+/**
+ * Extract ALL unique Udemy course URLs with coupon codes from raw HTML.
+ * Returns deduplicated entries by course slug, with titles and images extracted
+ * from nearby HTML context. Primary method for sources like FreebiesGlobal
+ * that embed Udemy URLs directly in the page.
+ */
+function extractAllUdemyCouponEntries(html: string): Array<{ udemyUrl: string; couponCode: string; title: string; imageUrl: string; category: string }> {
+  const entries: Array<{ udemyUrl: string; couponCode: string; title: string; imageUrl: string; category: string }> = [];
+  const seenSlugs = new Set<string>();
+
+  // Regex: find udemy.com/course/{slug}/?couponCode={CODE} or ?coupon={CODE}
+  const urlPattern = /https?:\/\/(?:www\.)?udemy\.com\/course\/([a-z0-9\-]+)\/?(?:\?[^"'\s<>]*?(?:couponCode|coupon)=([A-Za-z0-9_\-]+)[^"'\s<>]*)?/gi;
+
+  let match;
+  while ((match = urlPattern.exec(html)) !== null) {
+    const slug = match[1];
+    const couponCode = match[2];
+    if (!couponCode || !isValidCouponCode(couponCode)) continue;
+    if (seenSlugs.has(slug)) continue;
+    seenSlugs.add(slug);
+
+    const cleanedUrl = match[0].replace(/['"<>\\]/g, '');
+    const title = extractTitleNearHtmlPosition(html, match.index, slug);
+    const imageUrl = extractImageNearHtmlPosition(html, match.index);
+    const category = categorize(title);
+
+    entries.push({ udemyUrl: cleanedUrl, couponCode, title, imageUrl, category });
+  }
+
+  return entries;
+}
+
+/**
+ * Find the nearest heading or link text to a position in HTML, used for
+ * associating titles with Udemy URLs found via regex.
+ */
+function extractTitleNearHtmlPosition(html: string, urlIndex: number, fallbackSlug: string): string {
+  const windowSize = 1000;
+  const start = Math.max(0, urlIndex - windowSize);
+  const before = html.substring(start, urlIndex);
+
+  // Try headings first (most reliable title source)
+  let lastHeading = '';
+  const hRegex = /<h[2-6][^>]*>([\s\S]*?)<\/h[2-6]>/gi;
+  let hMatch;
+  while ((hMatch = hRegex.exec(before)) !== null) {
+    const text = hMatch[1].replace(/<[^>]+>/g, '').trim().replace(/\s+/g, ' ');
+    if (text.length > 10) lastHeading = text;
+  }
+  if (lastHeading) return lastHeading;
+
+  // Try <a> with title attribute
+  const aTitleRegex = /<a[^>]*title="([^"]+)"/gi;
+  let aTitle = '';
+  let aMatch;
+  while ((aMatch = aTitleRegex.exec(before)) !== null) {
+    if (aMatch[1].length > 10) aTitle = aMatch[1];
+  }
+  if (aTitle) return aTitle;
+
+  // Try <a> with text content
+  const aTextRegex = /<a[^>]*>([^<]{10,})<\/a>/gi;
+  let aText = '';
+  let atMatch;
+  while ((atMatch = aTextRegex.exec(before)) !== null) {
+    const text = atMatch[1].trim();
+    if (text.length > 10) aText = text;
+  }
+  if (aText) return aText;
+
+  // Fallback: readable title from slug
+  return fallbackSlug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+/**
+ * Find the nearest Udemy CDN image to a position in HTML.
+ */
+function extractImageNearHtmlPosition(html: string, urlIndex: number): string {
+  const windowSize = 600;
+  const start = Math.max(0, urlIndex - windowSize);
+  const before = html.substring(start, urlIndex);
+
+  const imgRegex = /<img[^>]+src="([^"]+)"/gi;
+  let lastImgUrl = '';
+  let imgMatch;
+  while ((imgMatch = imgRegex.exec(before)) !== null) {
+    const src = imgMatch[1];
+    if (src.includes('udemycdn.com') || src.includes('udemy.com')) {
+      lastImgUrl = src;
+    }
+  }
+  if (lastImgUrl) return enhanceImageUrl(lastImgUrl);
+
+  // Check after the URL too
+  const after = html.substring(urlIndex, Math.min(html.length, urlIndex + 300));
+  const afterImgRegex = /<img[^>]+src="([^"]+)"/gi;
+  let afterMatch;
+  while ((afterMatch = afterImgRegex.exec(after)) !== null) {
+    const src = afterMatch[1];
+    if (src.includes('udemycdn.com') || src.includes('udemy.com')) {
+      return enhanceImageUrl(src);
+    }
+  }
+
+  return lastImgUrl;
 }
 
 /**
@@ -859,10 +999,14 @@ async function extractUdemyUrl(detailUrl: string): Promise<{ udemyUrl: string; c
 
     const outUrl = `https://www.udemyfreebies.com/out/${slugMatch[1]}`;
 
-    // Strategy 1: Try manual redirect to capture the Location header
+    // Strategy 1: Try manual redirect to capture the Location header (with Referer to avoid 403)
     try {
       const response = await fetch(outUrl, {
-        headers: getRandomHeaders(),
+        headers: {
+          ...getRandomHeaders(),
+          'Referer': 'https://www.udemyfreebies.com/',
+          'Origin': 'https://www.udemyfreebies.com',
+        },
         signal: AbortSignal.timeout(8000),
         redirect: 'manual',
       });
@@ -888,10 +1032,14 @@ async function extractUdemyUrl(detailUrl: string): Promise<{ udemyUrl: string; c
       // Strategy 1 failed, continue
     }
 
-    // Strategy 2: Follow redirects and check final URL
+    // Strategy 2: Follow redirects and check final URL (with Referer to avoid 403)
     try {
       const followResp = await fetch(outUrl, {
-        headers: getRandomHeaders(),
+        headers: {
+          ...getRandomHeaders(),
+          'Referer': 'https://www.udemyfreebies.com/',
+          'Origin': 'https://www.udemyfreebies.com',
+        },
         signal: AbortSignal.timeout(8000),
         redirect: 'follow',
       });
@@ -954,6 +1102,36 @@ async function extractUdemyUrl(detailUrl: string): Promise<{ udemyUrl: string; c
             const fullUrl = `${anyUdemyUrl[0]}?couponCode=${couponCode}`;
             return { udemyUrl: fullUrl, couponCode };
           }
+        }
+
+        // 3d: Deep scan all <script> tags for dynamically constructed Udemy URLs
+        const scriptTags = detailHtml.match(/<script[^>]*>([\s\S]*?)<\/script>/gi) || [];
+        for (const scriptTag of scriptTags) {
+          const tagContent = scriptTag.replace(/<\/script>|<script[^>]*>/gi, '');
+          if (tagContent.includes('udemy.com/course/')) {
+            const scriptEntries = extractAllUdemyCouponEntries(tagContent);
+            if (scriptEntries.length > 0) {
+              return { udemyUrl: scriptEntries[0].udemyUrl, couponCode: scriptEntries[0].couponCode };
+            }
+          }
+        }
+
+        // 3e: Check for encoded/obfuscated Udemy URLs (base64 or rot13 patterns)
+        const encodedPattern = /(?:atob|btoa|decodeURIComponent|String\.fromCharCode)\s*\(["']([A-Za-z0-9+/=]+)["']\)/g;
+        let encMatch;
+        while ((encMatch = encodedPattern.exec(detailHtml)) !== null) {
+          try {
+            const decoded = Buffer.from(encMatch[1], 'base64').toString('utf-8');
+            if (decoded.includes('udemy.com')) {
+              const urlFromDecoded = decoded.match(/https?:\/\/(?:www\.)?udemy\.com\/course\/[a-z0-9\-]+[^"'\s<>]*/i);
+              if (urlFromDecoded) {
+                const code = extractCouponCode(urlFromDecoded[0]);
+                if (code && isValidCouponCode(code)) {
+                  return { udemyUrl: urlFromDecoded[0], couponCode: code };
+                }
+              }
+            }
+          } catch { /* decode failed */ }
         }
       }
     } catch {
@@ -1566,15 +1744,109 @@ async function scrapeDiscUdemy(maxPages: number = 5): Promise<SourceResult> {
         }
 
         const html = await response.text();
-        const courses = extractDiscUdemyCoursesFromPage(html, page);
-        console.log(`[Scraper/DiscUdemy] Page ${page}: found ${courses.length} course listings`);
 
-        if (courses.length === 0) {
+        // FIRST: Scan for direct Udemy coupon URLs embedded in the HTML (regex-based)
+        const directEntries = extractAllUdemyCouponEntries(html);
+        if (directEntries.length > 0) {
+          console.log(`[Scraper/DiscUdemy] Page ${page}: found ${directEntries.length} direct Udemy coupon URLs via regex`);
+          for (const entry of directEntries) {
+            const normTitle = normalizeTitle(entry.title);
+            const baseUrl = normalizeUdemyUrl(entry.udemyUrl);
+
+            // Skip if already processed (by this or previous pages)
+            if (existingTitles.has(normTitle) || existingUrls.has(baseUrl)) {
+              dupCount++;
+              continue;
+            }
+
+            // Try upsert if existing, or save as new
+            if (existingUrls.has(baseUrl)) {
+              const couponExpiry = estimateCouponExpiry(entry.couponCode);
+              const upsertResult = await upsertCourseCoupon(baseUrl, {
+                couponCode: entry.couponCode,
+                couponUrl: entry.udemyUrl,
+                couponExpiresAt: couponExpiry,
+                couponVerified: false,
+              });
+              if (upsertResult.updated) {
+                updatedCount++;
+              } else {
+                dupCount++;
+              }
+              continue;
+            }
+
+            // Verify coupon (sample-based)
+            const doVerify = shouldVerifyCoupon(page - 1, entry.couponCode);
+            let couponVerified = false;
+            if (doVerify) {
+              const vr = await verifyCouponOnUdemy(entry.udemyUrl);
+              if (vr.verified) {
+                couponVerified = vr.isFree;
+                if (!vr.isFree) {
+                  expiredCount++;
+                  continue;
+                }
+              }
+            }
+
+            // Save the course
+            const courseData: ScrapedCourseData = {
+              title: entry.title,
+              description: `Learn ${entry.title} with this free Udemy course. Covers ${entry.category} skills.`,
+              instructor: '',
+              category: entry.category,
+              imageUrl: entry.imageUrl,
+              udemyUrl: baseUrl,
+              couponUrl: entry.udemyUrl,
+              couponCode: entry.couponCode,
+              couponExpiresAt: estimateCouponExpiry(entry.couponCode),
+              isFreeForever: false,
+              couponVerified,
+              sourceDetail: 'discudemy',
+              rating: null,
+              studentsCount: null,
+              originalPrice: null,
+              language: null,
+              duration: null,
+              requirements: '',
+              whoFor: '',
+              whatLearn: '',
+              lastUpdated: null,
+              source: 'discudemy',
+            };
+
+            const saveResult = await saveScrapedCourse(courseData, existingUrls, existingTitles);
+            if (saveResult.saved) {
+              newCount++;
+              allCourses.push(courseData);
+            } else if (saveResult.skipped) {
+              if (['duplicate-title', 'duplicate-url', 'db-duplicate'].includes(saveResult.skipped)) {
+                dupCount++;
+              } else if (['expired-coupon', 'no-valid-coupon'].includes(saveResult.skipped)) {
+                expiredCount++;
+              }
+            }
+
+            await new Promise(r => setTimeout(r, 100));
+          }
+        }
+
+        // SECOND: Also try card-based extraction for courses not found via regex
+        const courses = extractDiscUdemyCoursesFromPage(html, page);
+        console.log(`[Scraper/DiscUdemy] Page ${page}: found ${courses.length} card listings, ${directEntries.length} direct coupon URLs`);
+
+        // Dedup card listings against direct regex results
+        for (const course of courses) {
+          if (!allListedCourses.some(c => c.detailUrl === course.detailUrl)) {
+            allListedCourses.push(course);
+          }
+        }
+
+        if (courses.length === 0 && directEntries.length === 0) {
           console.log(`[Scraper/DiscUdemy] Page ${page}: no courses found, stopping`);
           break;
         }
-
-        allListedCourses.push(...courses);
 
         // Small delay between page requests
         if (page < maxPages) {
@@ -1985,15 +2257,92 @@ async function scrapeFreebiesGlobal(maxPages: number = 5): Promise<SourceResult>
         }
 
         const html = await response.text();
-        const courses = extractFreebiesGlobalCoursesFromPage(html, page);
-        console.log(`[Scraper/FreebiesGlobal] Page ${page}: found ${courses.length} course listings`);
 
-        if (courses.length === 0) {
+        // FIRST: Scan for direct Udemy coupon URLs embedded in the HTML (regex-based, primary method)
+        const directEntries = extractAllUdemyCouponEntries(html);
+        if (directEntries.length > 0) {
+          console.log(`[Scraper/FreebiesGlobal] Page ${page}: found ${directEntries.length} direct Udemy coupon URLs via regex`);
+          for (const entry of directEntries) {
+            const normTitle = normalizeTitle(entry.title);
+            const baseUrl = normalizeUdemyUrl(entry.udemyUrl);
+
+            // Skip if already processed
+            if (existingTitles.has(normTitle) || existingUrls.has(baseUrl)) {
+              dupCount++;
+              continue;
+            }
+
+            // Verify coupon (sample-based for efficiency)
+            const doVerify = shouldVerifyCoupon(page - 1, entry.couponCode);
+            let couponVerified = false;
+            if (doVerify) {
+              const vr = await verifyCouponOnUdemy(entry.udemyUrl);
+              if (vr.verified) {
+                couponVerified = vr.isFree;
+                if (!vr.isFree) {
+                  expiredCount++;
+                  continue;
+                }
+              }
+            }
+
+            // Save the course
+            const courseData: ScrapedCourseData = {
+              title: entry.title,
+              description: `Learn ${entry.title} with this free Udemy course. Covers ${entry.category} skills.`,
+              instructor: '',
+              category: entry.category,
+              imageUrl: entry.imageUrl,
+              udemyUrl: baseUrl,
+              couponUrl: entry.udemyUrl,
+              couponCode: entry.couponCode,
+              couponExpiresAt: estimateCouponExpiry(entry.couponCode),
+              isFreeForever: false,
+              couponVerified,
+              sourceDetail: 'freebiesglobal',
+              rating: null,
+              studentsCount: null,
+              originalPrice: null,
+              language: null,
+              duration: null,
+              requirements: '',
+              whoFor: '',
+              whatLearn: '',
+              lastUpdated: null,
+              source: 'freebiesglobal',
+            };
+
+            const saveResult = await saveScrapedCourse(courseData, existingUrls, existingTitles);
+            if (saveResult.saved) {
+              newCount++;
+              allCourses.push(courseData);
+            } else if (saveResult.skipped) {
+              if (['duplicate-title', 'duplicate-url', 'db-duplicate'].includes(saveResult.skipped)) {
+                dupCount++;
+              } else if (['expired-coupon', 'no-valid-coupon'].includes(saveResult.skipped)) {
+                expiredCount++;
+              }
+            }
+
+            await new Promise(r => setTimeout(r, 100));
+          }
+        }
+
+        // SECOND: Also try card-based extraction (fallback for courses not found via regex)
+        const courses = extractFreebiesGlobalCoursesFromPage(html, page);
+        console.log(`[Scraper/FreebiesGlobal] Page ${page}: found ${courses.length} card listings, ${directEntries.length} direct coupon URLs`);
+
+        // Only add card listings for courses not already found via regex
+        for (const course of courses) {
+          if (!allListedCourses.some(c => c.detailUrl === course.detailUrl)) {
+            allListedCourses.push(course);
+          }
+        }
+
+        if (courses.length === 0 && directEntries.length === 0) {
           console.log(`[Scraper/FreebiesGlobal] Page ${page}: no courses found, stopping`);
           break;
         }
-
-        allListedCourses.push(...courses);
 
         if (page < maxPages) {
           await new Promise(r => setTimeout(r, 300));
