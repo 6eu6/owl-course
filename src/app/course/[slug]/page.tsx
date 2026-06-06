@@ -129,7 +129,7 @@ export default async function CoursePage({ params }: PageProps) {
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
           <Link
             href={SITE_URL || '/'}
-            className="flex items-center gap-2 text-sm font-semibold hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
+            className="flex items-center gap-2 text-sm font-semibold hover:text-muted-foreground dark:hover:text-muted-foreground transition-colors"
           >
             <span className="text-lg">🦉</span>
             <span>Learn Plus Courses</span>
@@ -163,7 +163,7 @@ export default async function CoursePage({ params }: PageProps) {
             <span className="text-[10px] px-2 py-0.5 rounded-md border bg-white/90 dark:bg-black/60 text-foreground dark:text-white backdrop-blur-sm font-medium">
               {catInfo.icon} {catInfo.name}
             </span>
-            <span className="text-[10px] px-2 py-0.5 rounded-md bg-green-600 text-white font-bold">
+            <span className="text-[10px] px-2 py-0.5 rounded-md bg-foreground text-background font-bold">
               {course.isFreeForever ? 'FREE FOREVER' : 'FREE COUPON'}
             </span>
           </div>
@@ -180,7 +180,7 @@ export default async function CoursePage({ params }: PageProps) {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {course.instructor && (
             <div className="flex items-center gap-2 p-2.5 bg-card rounded-lg border text-xs">
-              <span className="shrink-0 text-amber-600">👤</span>
+              <span className="shrink-0 text-muted-foreground">👤</span>
               <div className="min-w-0">
                 <p className="text-muted-foreground text-[10px]">Instructor</p>
                 <p className="font-medium truncate">{course.instructor}</p>
@@ -188,7 +188,7 @@ export default async function CoursePage({ params }: PageProps) {
             </div>
           )}
           <div className="flex items-center gap-2 p-2.5 bg-card rounded-lg border text-xs">
-            <span className="shrink-0 text-amber-500">⭐</span>
+            <span className="shrink-0 text-muted-foreground">⭐</span>
             <div className="min-w-0">
               <p className="text-muted-foreground text-[10px]">Rating</p>
               <p className="font-medium">
@@ -198,7 +198,7 @@ export default async function CoursePage({ params }: PageProps) {
           </div>
           {course.studentsCount && course.studentsCount > 0 && (
             <div className="flex items-center gap-2 p-2.5 bg-card rounded-lg border text-xs">
-              <span className="shrink-0 text-green-600">👥</span>
+              <span className="shrink-0 text-muted-foreground">👥</span>
               <div className="min-w-0">
                 <p className="text-muted-foreground text-[10px]">Students</p>
                 <p className="font-medium">{formatNumber(course.studentsCount)}</p>
@@ -207,7 +207,7 @@ export default async function CoursePage({ params }: PageProps) {
           )}
           {course.language && (
             <div className="flex items-center gap-2 p-2.5 bg-card rounded-lg border text-xs">
-              <span className="shrink-0 text-teal-600">🌍</span>
+              <span className="shrink-0 text-muted-foreground">🌍</span>
               <div className="min-w-0">
                 <p className="text-muted-foreground text-[10px]">Language</p>
                 <p className="font-medium">{course.language}</p>
@@ -216,7 +216,7 @@ export default async function CoursePage({ params }: PageProps) {
           )}
           {course.duration && (
             <div className="flex items-center gap-2 p-2.5 bg-card rounded-lg border text-xs">
-              <span className="shrink-0 text-orange-600">⏱️</span>
+              <span className="shrink-0 text-muted-foreground">⏱️</span>
               <div className="min-w-0">
                 <p className="text-muted-foreground text-[10px]">Duration</p>
                 <p className="font-medium">{course.duration}</p>
@@ -225,10 +225,10 @@ export default async function CoursePage({ params }: PageProps) {
           )}
           {course.originalPrice && (
             <div className="flex items-center gap-2 p-2.5 bg-card rounded-lg border text-xs">
-              <span className="shrink-0 text-rose-600">🏷️</span>
+              <span className="shrink-0 text-muted-foreground">🏷️</span>
               <div className="min-w-0">
                 <p className="text-muted-foreground text-[10px]">Was</p>
-                <p className="font-medium line-through text-rose-500">
+                <p className="font-medium line-through text-muted-foreground">
                   ${course.originalPrice}
                 </p>
               </div>
@@ -238,22 +238,22 @@ export default async function CoursePage({ params }: PageProps) {
 
         {/* Free forever banner */}
         {course.isFreeForever && (
-          <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-900">
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-muted dark:bg-muted border border-border dark:border-border">
             <span className="text-xl shrink-0">♾️</span>
-            <p className="text-xs text-emerald-800 dark:text-emerald-300 font-medium">
+            <p className="text-xs text-muted-foreground dark:text-muted-foreground font-medium">
               This course is free forever — you keep it for life after enrolling
             </p>
           </div>
         )}
 
         {/* CTA - Enroll Free */}
-        <div className="p-4 rounded-lg bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-900">
+        <div className="p-4 rounded-lg bg-muted dark:bg-muted border border-border dark:border-border">
           <div className="flex flex-col sm:flex-row items-center gap-3">
             <div className="flex-1 text-center sm:text-left">
-              <h2 className="font-bold text-sm text-green-800 dark:text-green-300">
+              <h2 className="font-bold text-sm text-muted-foreground dark:text-muted-foreground">
                 Get this course for free!
               </h2>
-              <p className="text-[11px] text-green-700 dark:text-green-400 mt-0.5">
+              <p className="text-[11px] text-muted-foreground dark:text-muted-foreground mt-0.5">
                 100% free coupon — direct enrollment on Udemy, no payment required
               </p>
             </div>
@@ -261,7 +261,7 @@ export default async function CoursePage({ params }: PageProps) {
               href={udemyUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold h-11 px-6 text-xs rounded-lg transition-colors shrink-0"
+              className="inline-flex items-center gap-2 bg-foreground hover:bg-foreground text-background font-bold h-11 px-6 text-xs rounded-lg transition-colors shrink-0"
             >
               🚀 Enroll Free →
             </a>
@@ -272,7 +272,7 @@ export default async function CoursePage({ params }: PageProps) {
         {course.description && (
           <div className="p-4 rounded-lg border bg-card">
             <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
-              <span className="text-amber-600">📖</span> Description
+              <span className="text-muted-foreground">📖</span> Description
             </h3>
             <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">
               {course.description}
@@ -284,7 +284,7 @@ export default async function CoursePage({ params }: PageProps) {
         {course.whatLearn && (
           <div className="p-4 rounded-lg border bg-card">
             <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
-              <span className="text-green-600">🎯</span> What You&apos;ll Learn
+              <span className="text-muted-foreground">🎯</span> What You&apos;ll Learn
             </h3>
             <div className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">
               {course.whatLearn}
@@ -296,7 +296,7 @@ export default async function CoursePage({ params }: PageProps) {
         {course.requirements && (
           <div className="p-4 rounded-lg border bg-card">
             <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
-              <span className="text-orange-600">⚠️</span> Requirements
+              <span className="text-muted-foreground">⚠️</span> Requirements
             </h3>
             <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">
               {course.requirements}
@@ -308,7 +308,7 @@ export default async function CoursePage({ params }: PageProps) {
         {course.whoFor && (
           <div className="p-4 rounded-lg border bg-card">
             <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
-              <span className="text-teal-600">👥</span> Who This Course Is For
+              <span className="text-muted-foreground">👥</span> Who This Course Is For
             </h3>
             <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">
               {course.whoFor}
@@ -319,16 +319,16 @@ export default async function CoursePage({ params }: PageProps) {
         {/* Important Notes */}
         <div className="p-4 rounded-lg border bg-card space-y-2">
           <h3 className="text-xs font-semibold flex items-center gap-1.5">
-            <span className="text-amber-600">🛡️</span> Important Notes
+            <span className="text-muted-foreground">🛡️</span> Important Notes
           </h3>
           <div className="flex items-start gap-2 text-[11px] text-muted-foreground">
-            <span className="text-green-600 shrink-0">✓</span>
+            <span className="text-muted-foreground shrink-0">✓</span>
             <p className="leading-relaxed">
               Once you enroll for free using a coupon, the course stays in your account forever even after the coupon expires.
             </p>
           </div>
           <div className="flex items-start gap-2 text-[11px] text-muted-foreground">
-            <span className="text-amber-600 shrink-0">⚠</span>
+            <span className="text-muted-foreground shrink-0">⚠</span>
             <p className="leading-relaxed">
               Coupons are time-limited and may expire at any time. If you find the course is paid, try again after the next scraper run.
             </p>
@@ -339,7 +339,7 @@ export default async function CoursePage({ params }: PageProps) {
         {related.length > 0 && (
           <div>
             <h3 className="text-xs font-semibold mb-3 flex items-center gap-1.5">
-              <span className="text-amber-600">✨</span> Related Courses
+              <span className="text-muted-foreground">✨</span> Related Courses
             </h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {related.map((rc) => {
@@ -348,7 +348,7 @@ export default async function CoursePage({ params }: PageProps) {
                   <Link
                     key={rc.id}
                     href={`/course/${rc.slug}`}
-                    className="block overflow-hidden rounded-lg border bg-card hover:shadow-md hover:border-amber-200 dark:hover:border-amber-800 transition-all group"
+                    className="block overflow-hidden rounded-lg border bg-card hover:shadow-md hover:border-border dark:hover:border-border transition-all group"
                   >
                     <div className="relative aspect-[16/9] bg-muted">
                       <img
@@ -363,7 +363,7 @@ export default async function CoursePage({ params }: PageProps) {
                       />
                     </div>
                     <div className="p-2">
-                      <h4 className="text-[11px] font-medium line-clamp-2 group-hover:text-amber-700 dark:group-hover:text-amber-400 leading-snug">
+                      <h4 className="text-[11px] font-medium line-clamp-2 group-hover:text-muted-foreground dark:group-hover:text-muted-foreground leading-snug">
                         {rc.title}
                       </h4>
                       <div className="flex items-center gap-1 mt-1">

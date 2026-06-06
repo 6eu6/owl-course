@@ -202,10 +202,19 @@ const CATEGORY_ICONS: Record<string, string> = {
   'Other': '📚',
 };
 
+/** Whole-word/phrase match so e.g. "scenarios" no longer matches "ios". */
+function keywordMatches(text: string, keyword: string): boolean {
+  const k = keyword.trim();
+  if (!k) return false;
+  const escaped = k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // Boundaries that aren't letters/digits (allows "node.js", "c++", "c#", "rest api").
+  return new RegExp(`(?:^|[^a-z0-9])${escaped}(?:$|[^a-z0-9])`, 'i').test(text);
+}
+
 export function categorize(title: string, originalCategory: string = ''): string {
   const text = title.toLowerCase();
   for (const [category, keywords] of Object.entries(CATEGORY_MAP)) {
-    if (keywords.some(k => text.includes(k))) {
+    if (keywords.some(k => keywordMatches(text, k))) {
       return category;
     }
   }
@@ -340,6 +349,34 @@ let lastUdemyRequestTime = 0;
 let rateLimitBackoffUntil = 0;
 let rateLimitBackoffAttempts = 0;
 
+// --- Cloudflare circuit breaker ---
+// Udemy sits behind Cloudflare and challenges datacenter IPs (Vercel/Oracle),
+// returning 403 "Just a moment" pages that no header tweak can pass. Once we
+// see enough consecutive blocks we stop hitting Udemy for the rest of the run
+// and simply trust the source coupons (both sources are free-coupon-only).
+// This keeps scrapes fast instead of waiting 2s per doomed request.
+let udemyConsecutiveBlocks = 0;
+let udemyCircuitOpen = false;
+const UDEMY_BLOCK_THRESHOLD = 4;
+
+function noteUdemyBlocked(): void {
+  udemyConsecutiveBlocks++;
+  if (!udemyCircuitOpen && udemyConsecutiveBlocks >= UDEMY_BLOCK_THRESHOLD) {
+    udemyCircuitOpen = true;
+    console.log(`[Scraper] Udemy appears Cloudflare-blocked (${udemyConsecutiveBlocks} consecutive blocks). Skipping further Udemy verification this run — trusting source coupons.`);
+  }
+}
+
+function noteUdemyReachable(): void {
+  udemyConsecutiveBlocks = 0;
+}
+
+/** Reset the circuit breaker at the start of each full scrape. */
+function resetUdemyCircuit(): void {
+  udemyConsecutiveBlocks = 0;
+  udemyCircuitOpen = false;
+}
+
 /**
  * Wait if we're rate-limited or need to throttle requests.
  * Returns true if we should skip this request (still in backoff).
@@ -390,6 +427,8 @@ function getRandomHeaders(): Record<string, string> {
     'Sec-Fetch-Dest': 'document',
     'Sec-Fetch-Mode': 'navigate',
     'Sec-Fetch-Site': 'none',
+    'Sec-Fetch-User': '?1',
+    'Upgrade-Insecure-Requests': '1',
   };
 }
 
@@ -435,6 +474,8 @@ function isCloudflareChallenge(html: string): boolean {
  * Handles Cloudflare challenge pages gracefully.
  */
 async function verifyCouponOnUdemy(couponUrl: string): Promise<{ isFree: boolean; verified: boolean }> {
+  // Circuit breaker: Udemy is Cloudflare-blocked for this run — don't waste time.
+  if (udemyCircuitOpen) return { isFree: false, verified: false };
   try {
     const shouldSkip = await waitForRateLimit();
     if (shouldSkip) return { isFree: false, verified: false };
@@ -457,6 +498,11 @@ async function verifyCouponOnUdemy(couponUrl: string): Promise<{ isFree: boolean
     // Reset backoff attempts on success
     rateLimitBackoffAttempts = 0;
 
+    // 403/503 from Udemy are Cloudflare blocks on datacenter IPs.
+    if (response.status === 403 || response.status === 503) {
+      noteUdemyBlocked();
+      return { isFree: false, verified: false };
+    }
     if (!response.ok) return { isFree: false, verified: false };
 
     const html = await response.text();
@@ -465,9 +511,13 @@ async function verifyCouponOnUdemy(couponUrl: string): Promise<{ isFree: boolean
     // --- CLOUDFLARE CHECK: If Udemy serves a Cloudflare challenge page,
     // we cannot verify the coupon. Return inconclusive (verified: false). ---
     if (isCloudflareChallenge(html)) {
+      noteUdemyBlocked();
       console.log(`[Scraper] Udemy returned Cloudflare challenge page - cannot verify coupon`);
       return { isFree: false, verified: false };
     }
+
+    // We reached a real Udemy page — reset the block counter.
+    noteUdemyReachable();
 
     // --- STRATEGY 0: Parse __NEXT_DATA__ JSON properly ---
     const nextDataMatch = html.match(/<script[^>]*id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i);
@@ -729,6 +779,8 @@ async function verifyAndEnrichFromUdemy(couponUrl: string): Promise<{
   verified: boolean;
   enrichment: UdemyCourseEnrichment | null;
 }> {
+  // Circuit breaker: Udemy is Cloudflare-blocked for this run — don't waste time.
+  if (udemyCircuitOpen) return { isFree: false, verified: false, enrichment: null };
   try {
     const shouldSkip = await waitForRateLimit();
     if (shouldSkip) return { isFree: false, verified: false, enrichment: null };
@@ -751,6 +803,11 @@ async function verifyAndEnrichFromUdemy(couponUrl: string): Promise<{
     // Reset backoff attempts on success
     rateLimitBackoffAttempts = 0;
 
+    // 403/503 from Udemy are Cloudflare blocks on datacenter IPs.
+    if (response.status === 403 || response.status === 503) {
+      noteUdemyBlocked();
+      return { isFree: false, verified: false, enrichment: null };
+    }
     if (!response.ok) return { isFree: false, verified: false, enrichment: null };
 
     const html = await response.text();
@@ -758,9 +815,13 @@ async function verifyAndEnrichFromUdemy(couponUrl: string): Promise<{
 
     // --- CLOUDFLARE CHECK ---
     if (isCloudflareChallenge(html)) {
+      noteUdemyBlocked();
       console.log(`[Scraper] Udemy returned Cloudflare challenge page - cannot verify/enrich coupon`);
       return { isFree: false, verified: false, enrichment: null };
     }
+
+    // We reached a real Udemy page — reset the block counter.
+    noteUdemyReachable();
 
     // --- STRATEGY 0: Parse __NEXT_DATA__ JSON properly ---
     const nextDataMatch = html.match(/<script[^>]*id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i);
@@ -1885,6 +1946,89 @@ async function fetchStudyBulletListingPage(pageNum: number): Promise<{ listings:
 }
 
 /**
+ * Classify a StudyBullet section heading by its text.
+ * StudyBullet repost pages use INCONSISTENT markup: sometimes <h2..h5>,
+ * sometimes <b>/<strong> for the same section labels. This maps a heading
+ * label to a known content bucket. Verified live against multiple pages.
+ */
+function classifyStudyBulletHeading(raw: string): 'desc' | 'req' | 'wl' | 'benefit' | 'stop' | null {
+  const t = raw.toLowerCase().trim();
+  if (/^(course overview|overview|about this course|course description)\b/.test(t)) return 'desc';
+  if (/^(requirements?\s*\/?\s*prerequisites?|prerequisites?(?:\s+for\s+success)?|requirements?)\s*:?\s*$/.test(t)) return 'req';
+  if (/^(skills?\s+covered.*|what\s+you.*learn.*|tools?\s+used.*|developing\s+your\s+skills.*|learning\s+objectives.*|you\s+will\s+learn.*)$/.test(t)) return 'wl';
+  if (/^(benefits?.*|outcomes?.*|career\s+benefits.*)$/.test(t)) return 'benefit';
+  if (/^(the\s+pros\b.*|the\s+cons\b.*|pros\b.*|cons\b.*|follow this video.*|learning tracks.*|add-on information.*)$/.test(t)) return 'stop';
+  return null;
+}
+
+/** Normalize StudyBullet text: strip stray HTML rendered as text, collapse whitespace. */
+function cleanStudyBulletText(t: string): string {
+  return t
+    .replace(/<img[^>]*>/gi, ' ')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/ /g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Extract description / what-you'll-learn / requirements from a StudyBullet
+ * `.entry-content` block. Treats both real heading tags AND bold tags that
+ * match known section labels as section delimiters, then slices the content
+ * between them. Verified live: produces full (1000-2000 char) clean text
+ * across pages that use <h3> headings AND pages that use <b> headings.
+ */
+function extractStudyBulletContent($: cheerio.CheerioAPI): {
+  description: string;
+  whatLearn: string;
+  requirements: string;
+} {
+  const $ec = $('.entry-content').first();
+  if ($ec.length === 0) return { description: '', whatLearn: '', requirements: '' };
+
+  // Drop non-content noise before reading text.
+  $ec.find('script, style, ins, .adsbygoogle, iframe').remove();
+
+  // Replace each section heading with an inline marker so we can split the
+  // flattened text into ordered sections regardless of the heading tag used.
+  $ec.find('h2, h3, h4, h5, b, strong').each((_, el) => {
+    const text = cleanStudyBulletText($(el).text());
+    if (!text || text.length > 70) return;
+    let kind = classifyStudyBulletHeading(text);
+    const tag = (el as { tagName?: string }).tagName?.toLowerCase() || '';
+    if (kind === null) {
+      // Real heading tags with an unknown label are treated as the narrative
+      // overview (some pages give the description an arbitrary <h4> title).
+      if (tag[0] === 'h') kind = 'desc';
+      else return; // a plain inline <b>/<strong> emphasis, not a section
+    }
+    $(el).replaceWith(`||SBSEC:${kind}||`);
+  });
+
+  const text = cleanStudyBulletText($ec.text());
+  const parts = text.split(/\|\|SBSEC:(desc|req|wl|benefit|stop)\|\|/);
+
+  const sec: Record<string, string[]> = { desc: [], req: [], wl: [], benefit: [] };
+  const junkTail = /\b(Found It Free.*|Share It Fast.*|Follow this Video.*|Get Instant Notification.*|Enroll for Free.*|WhatsApp\s+Facebook.*)$/i;
+  for (let i = 1; i < parts.length; i += 2) {
+    const kind = parts[i];
+    if (kind === 'stop') continue;
+    let body = (parts[i + 1] || '').replace(junkTail, '').trim();
+    if (body.length > 15 && sec[kind]) sec[kind].push(body);
+  }
+
+  let description = (sec.desc[0] || '').slice(0, 2000);
+  if (description.length < 60) {
+    const preamble = (parts[0] || '').replace(/^.*?Add-On Information\s*:?\s*/i, '').trim();
+    if (preamble.length > 60) description = preamble.slice(0, 2000);
+  }
+  const whatLearn = [...sec.wl, ...sec.benefit].join(' • ').slice(0, 1800);
+  const requirements = sec.req.join(' • ').slice(0, 1000);
+
+  return { description, whatLearn, requirements };
+}
+
+/**
  * Extract course details from a StudyBullet detail page.
  * This is the critical function — the detail page contains:
  * - ZapUrl with the full Udemy URL + coupon code
@@ -2023,98 +2167,48 @@ async function extractStudyBulletDetail(detailUrl: string): Promise<{
       ''
     );
 
-    // 5. Extract rating
+    // 5. Extract rating (only when StudyBullet actually shows one)
     let rating: number | null = null;
-    const ratingMatch = decodedHtml.match(/([\d.]+)\/5\s*rating/);
+    const ratingMatch = decodedHtml.match(/([\d.]+)\s*\/\s*5\s*rating/i) || decodedHtml.match(/([\d.]+)\s*out of\s*5/i);
     if (ratingMatch) {
-      rating = parseFloat(ratingMatch[1]);
+      const r = parseFloat(ratingMatch[1]);
+      if (r > 0 && r <= 5) rating = r;
     }
 
     // 6. Extract student count
     let studentsCount: number | null = null;
-    const studentsMatch = decodedHtml.match(/([\d,]+)\s*students/);
+    const studentsMatch = decodedHtml.match(/([\d,]+)\s*students/i);
     if (studentsMatch) {
-      studentsCount = parseInt(studentsMatch[1].replace(/,/g, ''));
+      const n = parseInt(studentsMatch[1].replace(/,/g, ''));
+      if (n > 0) studentsCount = n;
     }
 
     // 7. Extract duration
     let duration: string | null = null;
-    const durationMatch = decodedHtml.match(/Length:\s*([\d.]+)\s*total hours/);
+    const durationMatch = decodedHtml.match(/Length:\s*([\d.]+)\s*total hours/i);
     if (durationMatch) {
       duration = `${durationMatch[1]} hours`;
     }
 
-    // 8. Extract instructor
-    let instructor = '';
-    const instructorMatch = decodedHtml.match(/by\s+([^<\n]{2,50}?)(?:\s*[\n<|•·])/);
-    if (instructorMatch) {
-      instructor = instructorMatch[1].trim();
-    }
-    // Fallback: try cheerio
-    if (!instructor) {
-      const $instructor = $('a[href*="/instructor/"], .instructor, .author').first();
-      if ($instructor.length > 0) {
-        instructor = $instructor.text().trim();
-      }
-    }
+    // 8. Instructor: StudyBullet only exposes the WordPress post author (the
+    // re-poster), not the real Udemy instructor. Leaving it empty is more
+    // accurate than scraping a misleading/garbage value. (The previous regex
+    // matched the "Site Kit by Google" generator meta tag.)
+    const instructor = '';
 
     // 9. Extract last updated
     let lastUpdated: string | null = null;
-    const updateMatch = decodedHtml.match(/(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}\s*update/);
+    const updateMatch = decodedHtml.match(/(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}\s*update/i);
     if (updateMatch) {
       lastUpdated = updateMatch[1];
     }
 
-    // 10. Extract description — get ALL paragraphs from article content for richer descriptions
-    let description = '';
-    let whatLearnFromPage = '';
-    let requirementsFromPage = '';
-
-    // Try entry-content or post-content first (richer content area)
-    const $contentArea = $('article .entry-content, article .post-content');
-    if ($contentArea.length > 0) {
-      // Collect all paragraphs
-      const paragraphs: string[] = [];
-      $contentArea.find('p').each((_, pEl) => {
-        const text = $(pEl).text().trim().replace(/\s+/g, ' ');
-        if (text.length > 20) paragraphs.push(text);
-      });
-      description = paragraphs.slice(0, 5).join(' ').substring(0, 1500);
-
-      // Look for "What you'll learn" section
-      const $learnHeading = $contentArea.find('h2, h3, h4').filter(function() {
-        const text = $(this).text().trim().toLowerCase();
-        return text.includes('what you') && text.includes('learn');
-      });
-      if ($learnHeading.length > 0) {
-        const $learnList = $learnHeading.next('ul, ol');
-        if ($learnList.length > 0) {
-          whatLearnFromPage = $learnList.find('li').map((_, li) => $(li).text().trim()).get().join(' • ');
-        }
-      }
-
-      // Look for "Requirements" section
-      const $reqHeading = $contentArea.find('h2, h3, h4').filter(function() {
-        const text = $(this).text().trim().toLowerCase();
-        return text.includes('requirement');
-      });
-      if ($reqHeading.length > 0) {
-        const $reqList = $reqHeading.next('ul, ol');
-        if ($reqList.length > 0) {
-          requirementsFromPage = $reqList.find('li').map((_, li) => $(li).text().trim()).get().join(' • ');
-        }
-      }
-    }
-
-    // Fallback: get all article paragraphs if no content area found
-    if (!description) {
-      const paragraphs: string[] = [];
-      $('article p').each((_, pEl) => {
-        const text = $(pEl).text().trim().replace(/\s+/g, ' ');
-        if (text.length > 20) paragraphs.push(text);
-      });
-      description = paragraphs.slice(0, 5).join(' ').substring(0, 1500);
-    }
+    // 10. Extract description / what-you'll-learn / requirements from the
+    // structured .entry-content sections (verified live across page variants).
+    const content = extractStudyBulletContent($);
+    const description = content.description;
+    const whatLearnFromPage = content.whatLearn;
+    const requirementsFromPage = content.requirements;
 
     return {
       udemyUrl,
@@ -2478,6 +2572,9 @@ export async function runFullScrape(
   };
 
   const pages = Math.min(Math.max(opts.pages, 1), 20);
+
+  // Fresh Cloudflare circuit state per run.
+  resetUdemyCircuit();
 
   console.log(`[Scraper] Starting full scrape: ${pages} pages, sources: ${opts.sources?.join(', ') || 'all'}, skipVerification: ${opts.skipVerification}, skipCleanup: ${opts.skipCleanup}`);
 

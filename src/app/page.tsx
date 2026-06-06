@@ -123,18 +123,15 @@ interface SourceInfo {
 const SOURCE_LABELS: Record<string, SourceInfo> = {
   udemyfreebies: {
     name: 'UdemyFreebies',
-    color:
-      'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400 border-blue-200 dark:border-blue-800',
+    color: 'bg-transparent text-muted-foreground border-border',
   },
   studybullet: {
     name: 'StudyBullet',
-    color:
-      'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-400 border-orange-200 dark:border-orange-800',
+    color: 'bg-transparent text-muted-foreground border-border',
   },
   manual: {
     name: 'Manual',
-    color:
-      'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border-gray-200 dark:border-gray-700',
+    color: 'bg-transparent text-muted-foreground border-border',
   },
 }
 
@@ -184,9 +181,15 @@ function CouponBadge(props: {
 }) {
   const { isFreeForever, couponExpiresAt, couponVerified } = props
 
+  // Monochrome hierarchy: solid fill = emphasis, outline = secondary,
+  // muted + strike-through = expired. No colour — meaning carried by the label.
+  const solid = 'text-[10px] bg-foreground text-background border-0'
+  const outline = 'text-[10px] bg-transparent text-foreground border border-border'
+  const faded = 'text-[10px] bg-transparent text-muted-foreground border border-border line-through'
+
   if (isFreeForever) {
     return (
-      <Badge className="text-[10px] bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-800">
+      <Badge className={solid}>
         <Infinity className="h-2.5 w-2.5 ml-0.5" />
         Free Forever
       </Badge>
@@ -202,11 +205,7 @@ function CouponBadge(props: {
       (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
     )
 
-    const badgeClass = isExpired
-      ? 'text-[10px] bg-red-100 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-400 dark:border-red-800'
-      : daysLeft <= 1
-        ? 'text-[10px] bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-400 dark:border-orange-800'
-        : 'text-[10px] bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-800'
+    const badgeClass = isExpired ? faded : daysLeft <= 1 ? solid : outline
 
     const label = isExpired
       ? 'Expired'
@@ -224,7 +223,7 @@ function CouponBadge(props: {
 
   // Course has a coupon but no expiry estimate
   return (
-    <Badge className="text-[10px] bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-800">
+    <Badge className={outline}>
       <Tag className="h-2.5 w-2.5 ml-0.5" />
       Coupon
     </Badge>
@@ -280,7 +279,7 @@ function CourseCard(props: {
 
   return (
     <Card
-      className="overflow-hidden group cursor-pointer border bg-card hover:shadow-md hover:border-amber-200 dark:hover:border-amber-800 transition-all"
+      className="overflow-hidden group cursor-pointer border bg-card hover:shadow-md hover:border-border dark:hover:border-border transition-all"
       onClick={onClick}
     >
       <div className="relative aspect-[16/10] bg-muted overflow-hidden">
@@ -294,12 +293,12 @@ function CourseCard(props: {
         <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
 
         <div className={topLeftClass}>
-          <Badge className="text-[10px] font-bold bg-green-600 text-white border-0">
+          <Badge className="text-[10px] font-bold bg-foreground text-background border-0">
             <Gift className="h-2.5 w-2.5 ml-0.5" />
             {course.isFreeForever ? 'FREE' : 'COUPON'}
           </Badge>
           {course.isFreeForever && (
-            <Badge className="text-[9px] bg-emerald-500 text-white border-0">
+            <Badge className="text-[9px] bg-foreground text-background border-0">
               <Infinity className="h-2 w-2 ml-0.5" />
               &infin;
             </Badge>
@@ -315,7 +314,7 @@ function CourseCard(props: {
         <div className="absolute bottom-2 left-2 right-2 flex items-center gap-1.5">
           {course.rating != null && course.rating > 0 && (
             <Badge className="text-[10px] bg-black/50 text-white border-0 backdrop-blur-sm">
-              <Star className="h-2.5 w-2.5 text-amber-400" />
+              <Star className="h-2.5 w-2.5 text-muted-foreground" />
               {course.rating}
             </Badge>
           )}
@@ -329,7 +328,7 @@ function CourseCard(props: {
       </div>
 
       <CardContent className="p-3 space-y-1.5">
-        <h3 className="font-medium text-[13px] line-clamp-2 group-hover:text-amber-700 dark:group-hover:text-amber-400 transition-colors leading-snug">
+        <h3 className="font-medium text-[13px] line-clamp-2 group-hover:text-muted-foreground dark:group-hover:text-muted-foreground transition-colors leading-snug">
           {course.title}
         </h3>
         <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
@@ -349,7 +348,7 @@ function CourseCard(props: {
               couponVerified={course.couponVerified}
             />
           </div>
-          <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+          <span className="text-[11px] text-muted-foreground dark:text-muted-foreground font-medium">
             {t('details')} <ArrowLeft className={arrowClass} />
           </span>
         </div>
@@ -409,15 +408,15 @@ function GridPage(props: GridPageProps) {
   } = props
 
   const filterBtnClass = showFilters
-    ? 'h-10 w-10 bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950 dark:border-amber-800'
+    ? 'h-10 w-10 bg-muted border-border text-muted-foreground dark:bg-muted dark:border-border'
     : 'h-10 w-10'
 
   function catChipClass(isActive: boolean): string {
     return cn(
       'shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
       isActive
-        ? 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800'
-        : 'bg-card text-muted-foreground border-border hover:border-amber-200'
+        ? 'bg-muted text-muted-foreground border-border dark:bg-muted dark:text-muted-foreground dark:border-border'
+        : 'bg-card text-muted-foreground border-border hover:border-border'
     )
   }
 
@@ -521,7 +520,7 @@ function GridPage(props: GridPageProps) {
               variant="ghost"
               size="sm"
               onClick={onClearFilters}
-              className="text-red-500 h-9 text-xs"
+              className="text-muted-foreground h-9 text-xs"
             >
               <X className="h-3 w-3 ml-1" />
               {t('clearFilters')}
@@ -669,7 +668,7 @@ function DetailPage(props: DetailPageProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-6 w-6 animate-spin text-amber-600 mx-auto" />
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground mx-auto" />
         <p className="text-sm text-muted-foreground ms-3">
           {t('loadingDetail')}
         </p>
@@ -712,7 +711,7 @@ function DetailPage(props: DetailPageProps) {
             couponExpiresAt={course.couponExpiresAt}
             couponVerified={course.couponVerified}
           />
-          <Badge className="text-[11px] bg-green-600 text-white border-0 font-bold">
+          <Badge className="text-[11px] bg-foreground text-background border-0 font-bold">
             <Gift className="h-2.5 w-2.5 ml-1" />
             FREE 100%
           </Badge>
@@ -731,53 +730,53 @@ function DetailPage(props: DetailPageProps) {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {course.instructor && (
           <InfoCard
-            icon={<User className="h-3.5 w-3.5 text-amber-600" />}
+            icon={<User className="h-3.5 w-3.5 text-muted-foreground" />}
             label={t('instructor')}
             value={course.instructor}
           />
         )}
         <InfoCard
-          icon={<Star className="h-3.5 w-3.5 text-amber-500" />}
+          icon={<Star className="h-3.5 w-3.5 text-muted-foreground" />}
           label={t('rating')}
           value={course.rating ? course.rating + '/5' : '-'}
         />
         {course.students_count != null && course.students_count > 0 && (
           <InfoCard
-            icon={<TrendingUp className="h-3.5 w-3.5 text-green-600" />}
+            icon={<TrendingUp className="h-3.5 w-3.5 text-muted-foreground" />}
             label={t('students')}
             value={course.students_count.toLocaleString()}
           />
         )}
         {course.language && (
           <InfoCard
-            icon={<Globe className="h-3.5 w-3.5 text-teal-600" />}
+            icon={<Globe className="h-3.5 w-3.5 text-muted-foreground" />}
             label={t('language')}
             value={course.language}
           />
         )}
         {course.duration && (
           <InfoCard
-            icon={<Clock className="h-3.5 w-3.5 text-orange-600" />}
+            icon={<Clock className="h-3.5 w-3.5 text-muted-foreground" />}
             label={t('duration')}
             value={course.duration}
           />
         )}
         {course.original_price && (
           <InfoCard
-            icon={<Tag className="h-3.5 w-3.5 text-rose-600" />}
+            icon={<Tag className="h-3.5 w-3.5 text-muted-foreground" />}
             label={t('originalPrice')}
             value={<span className="line-through">{course.original_price}</span>}
           />
         )}
         {course.lastUpdated && (
           <InfoCard
-            icon={<Calendar className="h-3.5 w-3.5 text-violet-600" />}
+            icon={<Calendar className="h-3.5 w-3.5 text-muted-foreground" />}
             label={t('lastUpdated')}
             value={course.lastUpdated}
           />
         )}
         <InfoCard
-          icon={<Zap className="h-3.5 w-3.5 text-amber-600" />}
+          icon={<Zap className="h-3.5 w-3.5 text-muted-foreground" />}
           label={t('source')}
           value={course.sourceDetail || course.source}
         />
@@ -785,9 +784,9 @@ function DetailPage(props: DetailPageProps) {
 
       {/* Free forever banner */}
       {course.isFreeForever && (
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-900">
-          <Infinity className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-          <p className="text-xs text-emerald-800 dark:text-emerald-300 font-medium">
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-muted dark:bg-muted border border-border dark:border-border">
+          <Infinity className="h-5 w-5 text-muted-foreground dark:text-muted-foreground shrink-0" />
+          <p className="text-xs text-muted-foreground dark:text-muted-foreground font-medium">
             This course is free forever - you keep it for life after enrolling
           </p>
         </div>
@@ -797,7 +796,7 @@ function DetailPage(props: DetailPageProps) {
       {course.description && (
         <Card className="p-4">
           <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
-            <BookOpen className="h-3.5 w-3.5 text-amber-600" />
+            <BookOpen className="h-3.5 w-3.5 text-muted-foreground" />
             {t('description')}
           </h3>
           <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">
@@ -810,7 +809,7 @@ function DetailPage(props: DetailPageProps) {
       {course.requirements && (
         <Card className="p-4">
           <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
-            <AlertTriangle className="h-3.5 w-3.5 text-orange-600" />
+            <AlertTriangle className="h-3.5 w-3.5 text-muted-foreground" />
             {t('requirements')}
           </h3>
           <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">
@@ -823,7 +822,7 @@ function DetailPage(props: DetailPageProps) {
       {course.whoFor && (
         <Card className="p-4">
           <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
-            <Users className="h-3.5 w-3.5 text-teal-600" />
+            <Users className="h-3.5 w-3.5 text-muted-foreground" />
             {t('whoFor')}
           </h3>
           <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">
@@ -833,19 +832,19 @@ function DetailPage(props: DetailPageProps) {
       )}
 
       {/* CTA */}
-      <Card className="p-4 bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-900">
+      <Card className="p-4 bg-muted dark:bg-muted border-border dark:border-border">
         <div className="flex flex-col sm:flex-row items-center gap-3">
           <div className="flex-1 text-center sm:text-left">
-            <h3 className="font-bold text-sm text-green-800 dark:text-green-300">
+            <h3 className="font-bold text-sm text-muted-foreground dark:text-muted-foreground">
               {t('getCourseFree')}
             </h3>
-            <p className="text-[11px] text-green-700 dark:text-green-400 mt-0.5">
+            <p className="text-[11px] text-muted-foreground dark:text-muted-foreground mt-0.5">
               {t('getCourseFreeDesc')}
             </p>
           </div>
           <Button
             onClick={onGoToLink}
-            className="bg-green-600 hover:bg-green-700 text-white font-bold h-11 px-6 text-xs gap-2 rounded-lg"
+            className="bg-foreground hover:bg-foreground text-background font-bold h-11 px-6 text-xs gap-2 rounded-lg"
           >
             <ExternalLink className="h-3.5 w-3.5" />
             {t('goToCourse')}
@@ -858,7 +857,7 @@ function DetailPage(props: DetailPageProps) {
       {relatedCourses.length > 0 && (
         <div>
           <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
-            <Sparkles className="h-3.5 w-3.5 text-amber-600" />
+            <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
             {t('relatedCourses')}
           </h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -877,14 +876,14 @@ function DetailPage(props: DetailPageProps) {
                     loading="lazy"
                   />
                   {rc.isFreeForever && (
-                    <Badge className="absolute top-1 left-1 text-[9px] bg-emerald-500 text-white border-0">
+                    <Badge className="absolute top-1 left-1 text-[9px] bg-foreground text-background border-0">
                       <Infinity className="h-2 w-2 ml-0.5" />
                       &infin;
                     </Badge>
                   )}
                 </div>
                 <CardContent className="p-2">
-                  <h5 className="text-[11px] font-medium line-clamp-2 group-hover:text-amber-700 dark:group-hover:text-amber-400 leading-snug">
+                  <h5 className="text-[11px] font-medium line-clamp-2 group-hover:text-muted-foreground dark:group-hover:text-muted-foreground leading-snug">
                     {rc.title}
                   </h5>
                   <div className="flex items-center gap-1 mt-1">
@@ -1048,7 +1047,7 @@ function LinkPage(props: LinkPageProps) {
           )}
           {course.rating && (
             <span className="flex items-center gap-1">
-              <Star className="h-3 w-3 text-amber-500" />
+              <Star className="h-3 w-3 text-muted-foreground" />
               {course.rating}/5
             </span>
           )}
@@ -1072,13 +1071,13 @@ function LinkPage(props: LinkPageProps) {
 
       {/* Coupon Status Banner */}
       {couponIsExpired && (
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-900">
-          <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 shrink-0" />
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-muted dark:bg-muted border border-border dark:border-border">
+          <AlertTriangle className="h-4 w-4 text-muted-foreground dark:text-muted-foreground shrink-0" />
           <div>
-            <p className="text-xs font-medium text-red-800 dark:text-red-300">
+            <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
               Coupon Expired
             </p>
-            <p className="text-[10px] text-red-600 dark:text-red-400">
+            <p className="text-[10px] text-muted-foreground dark:text-muted-foreground">
               This coupon is no longer valid. New coupons may be available after the next scrape.
             </p>
           </div>
@@ -1086,13 +1085,13 @@ function LinkPage(props: LinkPageProps) {
       )}
 
       {couponIsValid && (
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-900">
-          <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" />
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-muted dark:bg-muted border border-border dark:border-border">
+          <CheckCircle className="h-4 w-4 text-muted-foreground dark:text-muted-foreground shrink-0" />
           <div>
-            <p className="text-xs font-medium text-green-800 dark:text-green-300">
+            <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
               Coupon Active - Course is Free Now
             </p>
-            <p className="text-[10px] text-green-600 dark:text-green-400">
+            <p className="text-[10px] text-muted-foreground dark:text-muted-foreground">
               Verified in real-time. Click to go to Udemy and enroll for free.
             </p>
           </div>
@@ -1100,13 +1099,13 @@ function LinkPage(props: LinkPageProps) {
       )}
 
       {couponIsUnknown && (
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-900">
-          <Shield className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-muted dark:bg-muted border border-border dark:border-border">
+          <Shield className="h-4 w-4 text-muted-foreground dark:text-muted-foreground shrink-0" />
           <div>
-            <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
+            <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
               Verifying Coupon...
             </p>
-            <p className="text-[10px] text-amber-600 dark:text-amber-400">
+            <p className="text-[10px] text-muted-foreground dark:text-muted-foreground">
               Checking if the coupon is still active. Please wait...
             </p>
           </div>
@@ -1131,9 +1130,9 @@ function LinkPage(props: LinkPageProps) {
       )}
 
       {/* About course */}
-      <Card className="p-4 bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-900">
+      <Card className="p-4 bg-muted dark:bg-muted border-border dark:border-border">
         <h3 className="text-xs font-semibold mb-1.5 flex items-center gap-1.5">
-          <BookOpen className="h-3.5 w-3.5 text-amber-700 dark:text-amber-400" />
+          <BookOpen className="h-3.5 w-3.5 text-muted-foreground dark:text-muted-foreground" />
           {t('aboutCourse')}
         </h3>
         <p className="text-[11px] text-muted-foreground leading-relaxed">
@@ -1144,15 +1143,15 @@ function LinkPage(props: LinkPageProps) {
       {/* Important notes */}
       <Card className="p-4 space-y-2">
         <h3 className="text-xs font-semibold flex items-center gap-1.5">
-          <Shield className="h-3.5 w-3.5 text-amber-600" />
+          <Shield className="h-3.5 w-3.5 text-muted-foreground" />
           {t('importantNotes')}
         </h3>
         <div className="flex items-start gap-2 text-[11px] text-muted-foreground">
-          <CheckCircle className="h-3.5 w-3.5 text-green-600 shrink-0 mt-0.5" />
+          <CheckCircle className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
           <p className="leading-relaxed">Once you enroll for free using a coupon, the course stays in your account forever even after the coupon expires.</p>
         </div>
         <div className="flex items-start gap-2 text-[11px] text-muted-foreground">
-          <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
+          <AlertTriangle className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
           <p className="leading-relaxed">Coupons are time-limited and may expire at any time. If you find the course is paid, try again after the next scraper run.</p>
         </div>
       </Card>
@@ -1168,7 +1167,7 @@ function LinkPage(props: LinkPageProps) {
                   fill="none"
                   stroke="currentColor"
                   strokeWidth="2.5"
-                  className="text-green-100 dark:text-green-900"
+                  className="text-muted-foreground dark:text-muted-foreground"
                 />
                 <path
                   d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
@@ -1177,10 +1176,10 @@ function LinkPage(props: LinkPageProps) {
                   strokeWidth="2.5"
                   strokeLinecap="round"
                   strokeDasharray={strokeDashArray}
-                  className="text-green-600 dark:text-green-400"
+                  className="text-muted-foreground dark:text-muted-foreground"
                 />
               </svg>
-              <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-green-700 dark:text-green-400">
+              <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-muted-foreground dark:text-muted-foreground">
                 {countdown}
               </span>
             </div>
@@ -1192,12 +1191,12 @@ function LinkPage(props: LinkPageProps) {
           </>
         ) : couponIsExpired ? (
           <>
-            <div className="p-4 rounded-lg bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-900 text-center">
-              <AlertTriangle className="h-8 w-8 mx-auto text-red-500 mb-2" />
-              <p className="text-sm font-medium text-red-800 dark:text-red-300">
+            <div className="p-4 rounded-lg bg-muted dark:bg-muted border border-border dark:border-border text-center">
+              <AlertTriangle className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+              <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
                 Coupon Has Expired
               </p>
-              <p className="text-[11px] text-red-600 dark:text-red-400 mt-1">
+              <p className="text-[11px] text-muted-foreground dark:text-muted-foreground mt-1">
                 Cannot enroll for free right now. Check back after coupons are refreshed.
               </p>
             </div>
@@ -1210,7 +1209,7 @@ function LinkPage(props: LinkPageProps) {
               rel="noopener noreferrer"
               className="block"
             >
-              <Button className="w-full bg-green-600 hover:bg-green-700 text-white font-bold h-12 text-sm gap-2 rounded-lg">
+              <Button className="w-full bg-foreground hover:bg-foreground text-background font-bold h-12 text-sm gap-2 rounded-lg">
                 <Gift className="h-4 w-4" />
                 {t('getOnUdemy')}
                 <ExternalLink className="h-4 w-4" />
@@ -1408,7 +1407,7 @@ export default function Home() {
             )}
             <img src="/logo.png" alt="Learn Plus Courses" className="h-6 w-6 rounded" />
             <span className="font-bold text-sm tracking-tight">
-              Learn<span className="text-amber-600"> Plus</span>
+              Learn<span className="text-muted-foreground"> Plus</span>
             </span>
           </button>
 
@@ -1416,7 +1415,7 @@ export default function Home() {
             {total > 0 && view === 'grid' && (
               <Badge
                 variant="secondary"
-                className="text-[11px] bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-800"
+                className="text-[11px] bg-muted text-muted-foreground border-border dark:bg-muted dark:text-muted-foreground dark:border-border"
               >
                 <Gift className="h-3 w-3 ml-1" />
                 {total} {tx('freeCourses')}
@@ -1507,7 +1506,7 @@ export default function Home() {
           <div className="flex items-center gap-1.5">
             <img src="/logo.png" alt="Learn Plus Courses" className="h-4 w-4 rounded" />
             <span className="font-bold text-xs">
-              Learn<span className="text-amber-600"> Plus</span>
+              Learn<span className="text-muted-foreground"> Plus</span>
             </span>
           </div>
           <p className="text-[11px] text-muted-foreground text-center max-w-sm">
@@ -1515,15 +1514,15 @@ export default function Home() {
           </p>
           <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
             <span className="flex items-center gap-1">
-              <Heart className="h-3 w-3 text-rose-400" />
+              <Heart className="h-3 w-3 text-muted-foreground" />
               {tx('footerFree')}
             </span>
             <span className="flex items-center gap-1">
-              <Sparkles className="h-3 w-3 text-amber-400" />
+              <Sparkles className="h-3 w-3 text-muted-foreground" />
               {tx('footerUpdated')}
             </span>
             <span className="flex items-center gap-1">
-              <Shield className="h-3 w-3 text-green-500" />
+              <Shield className="h-3 w-3 text-muted-foreground" />
               {tx('footerVerified')}
             </span>
           </div>

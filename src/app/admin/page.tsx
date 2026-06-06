@@ -21,7 +21,7 @@ export default function AdminPage() {
         </div>
         <Link
           href="/"
-          className="inline-flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400 hover:underline"
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground dark:text-muted-foreground hover:underline"
         >
           ← Back to Home
         </Link>

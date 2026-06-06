@@ -94,33 +94,35 @@ export function tx(key: string): string {
 
 type CatT = Record<string, { name: string; icon: string }>
 
+// Icons intentionally left empty: the minimal black & white design uses clean
+// category names only — no emoji.
 export const CATEGORIES: CatT = {
-  'Marketing':                { name: 'Marketing',          icon: '📢' },
-  'IT & Software':            { name: 'IT & Software',      icon: '⚙️' },
-  'Data Science':             { name: 'Data Science',       icon: '🤖' },
-  'Design':                   { name: 'Design',             icon: '🎨' },
-  'Business':                 { name: 'Business',           icon: '💼' },
-  'Personal Development':     { name: 'Personal Dev',       icon: '🧠' },
-  'Development':              { name: 'Development',        icon: '💻' },
-  'Python':                   { name: 'Python',             icon: '🐍' },
-  'Cloud & DevOps':           { name: 'Cloud & DevOps',     icon: '☁️' },
-  'Cybersecurity':            { name: 'Cybersecurity',      icon: '🔒' },
-  'Photography & Video':      { name: 'Photography',       icon: '📷' },
-  'Music':                    { name: 'Music',              icon: '🎵' },
-  'Languages':                { name: 'Languages',          icon: '🌍' },
-  'Finance & Accounting':     { name: 'Finance',            icon: '💰' },
-  'Health & Fitness':         { name: 'Health & Fitness',   icon: '💪' },
-  'Office Productivity':      { name: 'Productivity',       icon: '📊' },
-  'Teaching & Academics':     { name: 'Academics',          icon: '🎓' },
-  'Web Development':          { name: 'Web Development',    icon: '💻' },
-  'Mobile Development':       { name: 'Mobile Development', icon: '📱' },
-  'Data Science & AI':        { name: 'Data Science & AI',  icon: '🤖' },
-  'Programming & IT':         { name: 'Programming & IT',   icon: '⚙️' },
-  'Digital Marketing':         { name: 'Digital Marketing',  icon: '📢' },
-  'Other':                   { name: 'Other',              icon: '📚' },
+  'Marketing':                { name: 'Marketing',          icon: '' },
+  'IT & Software':            { name: 'IT & Software',      icon: '' },
+  'Data Science':             { name: 'Data Science',       icon: '' },
+  'Design':                   { name: 'Design',             icon: '' },
+  'Business':                 { name: 'Business',           icon: '' },
+  'Personal Development':     { name: 'Personal Dev',       icon: '' },
+  'Development':              { name: 'Development',        icon: '' },
+  'Python':                   { name: 'Python',             icon: '' },
+  'Cloud & DevOps':           { name: 'Cloud & DevOps',     icon: '' },
+  'Cybersecurity':            { name: 'Cybersecurity',      icon: '' },
+  'Photography & Video':      { name: 'Photography',       icon: '' },
+  'Music':                    { name: 'Music',              icon: '' },
+  'Languages':                { name: 'Languages',          icon: '' },
+  'Finance & Accounting':     { name: 'Finance',            icon: '' },
+  'Health & Fitness':         { name: 'Health & Fitness',   icon: '' },
+  'Office Productivity':      { name: 'Productivity',       icon: '' },
+  'Teaching & Academics':     { name: 'Academics',          icon: '' },
+  'Web Development':          { name: 'Web Development',    icon: '' },
+  'Mobile Development':       { name: 'Mobile Development', icon: '' },
+  'Data Science & AI':        { name: 'Data Science & AI',  icon: '' },
+  'Programming & IT':         { name: 'Programming & IT',   icon: '' },
+  'Digital Marketing':         { name: 'Digital Marketing',  icon: '' },
+  'Other':                   { name: 'Other',              icon: '' },
 }
 
-const FALLBACK_CAT: { name: string; icon: string } = { name: 'Other', icon: '📚' }
+const FALLBACK_CAT: { name: string; icon: string } = { name: 'Other', icon: '' }
 
 export function getCat(name: string): { name: string; icon: string } {
   return CATEGORIES[name] || FALLBACK_CAT
