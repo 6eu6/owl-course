@@ -1534,9 +1534,10 @@ async function processUdemyFreebiesCourse(
         }
         console.log(`[Scraper] Coupon verified as FREE for "${course.title.substring(0, 40)}" ✓`);
       } else {
-        // Verification inconclusive — skip course to avoid saving paid courses
-        console.log(`[Scraper] Coupon verification inconclusive for "${course.title.substring(0, 40)}" - skipping`);
-        return { saved: false, skipped: 'verification-inconclusive' };
+        // Verification inconclusive — save as unverified (better to show potentially free courses than zero)
+        // The frontend already shows couponVerified status so users can distinguish
+        console.log(`[Scraper] Coupon verification inconclusive for "${course.title.substring(0, 40)}" - saving as unverified`);
+        couponVerified = false;
       }
 
       enrichment = veResult.enrichment;
@@ -2082,9 +2083,9 @@ async function processStudyBulletCourse(
         }
         console.log(`[Scraper/StudyBullet] Coupon verified as FREE for "${detail.title.substring(0, 40)}" ✓`);
       } else {
-        // Verification inconclusive — skip course to avoid saving paid courses
-        console.log(`[Scraper/StudyBullet] Coupon verification inconclusive for "${detail.title.substring(0, 40)}" - skipping`);
-        return { saved: false, skipped: 'verification-inconclusive' };
+        // Verification inconclusive — save as unverified (better to show potentially free courses than zero)
+        console.log(`[Scraper/StudyBullet] Coupon verification inconclusive for "${detail.title.substring(0, 40)}" - saving as unverified`);
+        couponVerified = false;
       }
 
       enrichment = veResult.enrichment;
