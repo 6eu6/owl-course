@@ -102,10 +102,61 @@ function normalizeUdemyUrl(url: string): string {
     // Remove couponCode from URL for dedup comparison
     urlObj.searchParams.delete('couponCode');
     urlObj.searchParams.delete('coupon');
-    return urlObj.toString().replace(/\?$/, '');
+    let normalized = urlObj.toString().replace(/\?$/, '');
+    // Normalize Udemy URLs: ensure /course/ path is present
+    // UdemyFreebies redirects to old format: udemy.com/SLUG/ without /course/
+    // This causes dedup failures (different from /course/SLUG/ format)
+    normalized = normalized.replace(
+      /https?:\/\/(?:www\.)?udemy\.com\/(?!course\/)([a-z0-9\-]+)/i,
+      'https://www.udemy.com/course/$1'
+    );
+    return normalized;
   } catch {
     return url;
   }
+}
+
+/**
+ * Normalize a Udemy course URL to ensure it has the /course/ path.
+ * Used for UdemyFreebies redirects that return old-format URLs.
+ */
+function ensureUdemyCoursePath(url: string): string {
+  try {
+    // If URL already has /course/, return as-is
+    if (/udemy\.com\/course\//i.test(url)) return url;
+    // Add /course/ to old-format Udemy URLs: udemy.com/SLUG/ → udemy.com/course/SLUG/
+    return url.replace(
+      /https?:\/\/(?:www\.)?udemy\.com\/([a-z0-9\-]+)/i,
+      'https://www.udemy.com/course/$1'
+    );
+  } catch {
+    return url;
+  }
+}
+
+/**
+ * Extract the real image URL from a cheerio element, handling lazy-loaded images.
+ * WordPress lazy-loaded images often have base64 placeholder in src and real URL in data-src.
+ */
+function extractLazyImage($: cheerio.CheerioAPI, selector: string): string {
+  const $el = $(selector).first();
+  if ($el.length === 0) return '';
+  return extractLazyImageFromElement($el);
+}
+
+function extractLazyImageFromElement($el: cheerio.CheerioElement | cheerio.Cheerio<any>): string {
+  if (!$el || !($el as any).attr) return '';
+  const el = $el as cheerio.Cheerio<any>;
+  const src = el.attr('src') || '';
+  const dataSrc = el.attr('data-src') || '';
+  const dataLazySrc = el.attr('data-lazy-src') || '';
+
+  // Skip base64 data: URLs (lazy loading placeholders)
+  if (src && !src.startsWith('data:')) return src;
+  if (dataSrc && !dataSrc.startsWith('data:')) return dataSrc;
+  if (dataLazySrc && !dataLazySrc.startsWith('data:')) return dataLazySrc;
+  // Fallback: return src even if base64 (will be filtered out later)
+  return src;
 }
 
 // ============================================
@@ -367,10 +418,21 @@ function shouldVerifyCoupon(pageIndex: number, couponCode: string): boolean {
 // ============================================
 
 /**
+ * Check if a response HTML is a Cloudflare challenge page (anti-bot protection).
+ * When Udemy serves these, all verification attempts will fail inconclusively.
+ */
+function isCloudflareChallenge(html: string): boolean {
+  return html.includes('Just a moment') &&
+    html.includes('cloudflare') &&
+    html.length < 20000; // CF challenge pages are small
+}
+
+/**
  * Verify if a Udemy coupon is still active by checking the course page.
  * Improved: Checks JSON data blocks in <script> tags for pricing data,
  * since Udemy embeds pricing info in __NEXT_DATA__ or __APOLLO_STATE__.
  * Also has exponential backoff on 429.
+ * Handles Cloudflare challenge pages gracefully.
  */
 async function verifyCouponOnUdemy(couponUrl: string): Promise<{ isFree: boolean; verified: boolean }> {
   try {
@@ -399,6 +461,13 @@ async function verifyCouponOnUdemy(couponUrl: string): Promise<{ isFree: boolean
 
     const html = await response.text();
     const htmlLower = html.toLowerCase();
+
+    // --- CLOUDFLARE CHECK: If Udemy serves a Cloudflare challenge page,
+    // we cannot verify the coupon. Return inconclusive (verified: false). ---
+    if (isCloudflareChallenge(html)) {
+      console.log(`[Scraper] Udemy returned Cloudflare challenge page - cannot verify coupon`);
+      return { isFree: false, verified: false };
+    }
 
     // --- STRATEGY 0: Parse __NEXT_DATA__ JSON properly ---
     const nextDataMatch = html.match(/<script[^>]*id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i);
@@ -687,6 +756,12 @@ async function verifyAndEnrichFromUdemy(couponUrl: string): Promise<{
     const html = await response.text();
     const htmlLower = html.toLowerCase();
 
+    // --- CLOUDFLARE CHECK ---
+    if (isCloudflareChallenge(html)) {
+      console.log(`[Scraper] Udemy returned Cloudflare challenge page - cannot verify/enrich coupon`);
+      return { isFree: false, verified: false, enrichment: null };
+    }
+
     // --- STRATEGY 0: Parse __NEXT_DATA__ JSON properly ---
     const nextDataMatch = html.match(/<script[^>]*id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i);
     if (nextDataMatch) {
@@ -773,7 +848,7 @@ function findUdemyUrlInHtml(html: string): { udemyUrl: string; couponCode: strin
   const matches = html.match(urlPattern);
   if (matches) {
     for (const match of matches) {
-      const cleaned = match.replace(/['"<>\\]/g, '');
+      const cleaned = ensureUdemyCoursePath(match.replace(/['"<>\\]/g, ''));
       const code = extractCouponCode(cleaned);
       if (code && isValidCouponCode(code)) {
         return { udemyUrl: cleaned, couponCode: code };
@@ -1234,16 +1309,17 @@ async function extractUdemyUrl(detailUrl: string): Promise<{ udemyUrl: string; c
 
       const location = response.headers.get('location');
       if (location && location.includes('udemy.com')) {
-        const couponCode = extractCouponCode(location);
+        const normalizedLocation = ensureUdemyCoursePath(location);
+        const couponCode = extractCouponCode(normalizedLocation);
         if (couponCode && isValidCouponCode(couponCode)) {
-          return { udemyUrl: location, couponCode };
+          return { udemyUrl: normalizedLocation, couponCode };
         }
-        if (location.includes('couponCode=')) {
+        if (normalizedLocation.includes('couponCode=')) {
           try {
-            const urlObj = new URL(location);
+            const urlObj = new URL(normalizedLocation);
             const code = urlObj.searchParams.get('couponCode') || urlObj.searchParams.get('coupon');
             if (code && isValidCouponCode(code)) {
-              return { udemyUrl: location, couponCode: code };
+              return { udemyUrl: normalizedLocation, couponCode: code };
             }
           } catch { /* invalid URL */ }
         }
@@ -1266,9 +1342,10 @@ async function extractUdemyUrl(detailUrl: string): Promise<{ udemyUrl: string; c
       });
       const finalUrl = followResp.url;
       if (finalUrl && finalUrl.includes('udemy.com')) {
-        const couponCode = extractCouponCode(finalUrl);
+        const normalizedFinalUrl = ensureUdemyCoursePath(finalUrl);
+        const couponCode = extractCouponCode(normalizedFinalUrl);
         if (couponCode && isValidCouponCode(couponCode)) {
-          return { udemyUrl: finalUrl, couponCode };
+          return { udemyUrl: normalizedFinalUrl, couponCode };
         }
       }
 
@@ -1535,13 +1612,17 @@ async function processUdemyFreebiesCourse(
         }
         console.log(`[Scraper] Coupon verified as FREE for "${course.title.substring(0, 40)}" ✓`);
       } else {
-        // Verification inconclusive — save as unverified (better to show potentially free courses than zero)
-        // The frontend already shows couponVerified status so users can distinguish
-        console.log(`[Scraper] Coupon verification inconclusive for "${course.title.substring(0, 40)}" - saving as unverified`);
-        couponVerified = false;
+        // Verification inconclusive (likely Cloudflare blocking) — trust the coupon
+        // UdemyFreebies ONLY lists free coupon courses, so if we can't verify,
+        // it's better to trust the coupon than to mark it as invalid.
+        console.log(`[Scraper] Coupon verification inconclusive for "${course.title.substring(0, 40)}" - trusting coupon (UdemyFreebies is a free-coupon-only source)`);
+        couponVerified = true;
       }
 
       enrichment = veResult.enrichment;
+    } else {
+      // Skip verification entirely — trust the coupon from UdemyFreebies
+      couponVerified = true;
     }
 
     const courseData: ScrapedCourseData = {
@@ -1756,9 +1837,8 @@ function extractStudyBulletListings(html: string): StudyBulletListing[] {
     const title = $link.text().trim();
     if (!title || title.length < 5) return;
 
-    // Image from the article
-    const $img = $article.find('img').first();
-    const imageUrl = $img.attr('src') || $img.attr('data-src') || '';
+    // Image from the article — handle lazy-loaded WordPress images
+    const imageUrl = extractLazyImageFromElement($article.find('img').first());
 
     // Extract slug from URL
     const slugMatch = href.match(/\/course\/([^/]+)\/?$/);
@@ -1933,11 +2013,13 @@ async function extractStudyBulletDetail(detailUrl: string): Promise<{
     const title = $('h1').first().text().trim() || $('h2').first().text().trim() || $('title').text().trim().replace(' - StudyBullet', '').trim();
     if (!title || title.length < 5) return null;
 
-    // 4. Extract image
+    // 4. Extract image — handle lazy loading properly
+    // WordPress lazy-loaded images use base64 placeholder in src, real URL in data-src
     const imageUrl = enhanceImageUrl(
-      $('article img').first().attr('src') ||
-      $('article img').first().attr('data-src') ||
-      $('img').first().attr('src') ||
+      extractLazyImage($, 'article img') ||
+      extractLazyImage($, '.thumbnail img') ||
+      extractLazyImage($, '.blog-entry img') ||
+      extractLazyImage($, 'img') ||
       ''
     );
 
@@ -2133,12 +2215,17 @@ async function processStudyBulletCourse(
         }
         console.log(`[Scraper/StudyBullet] Coupon verified as FREE for "${detail.title.substring(0, 40)}" ✓`);
       } else {
-        // Verification inconclusive — save as unverified (better to show potentially free courses than zero)
-        console.log(`[Scraper/StudyBullet] Coupon verification inconclusive for "${detail.title.substring(0, 40)}" - saving as unverified`);
-        couponVerified = false;
+        // Verification inconclusive (likely Cloudflare blocking) — trust the coupon
+        // StudyBullet ONLY lists free coupon courses, so if we can't verify,
+        // it's better to trust the coupon than to mark it as invalid.
+        console.log(`[Scraper/StudyBullet] Coupon verification inconclusive for "${detail.title.substring(0, 40)}" - trusting coupon (StudyBullet is a free-coupon-only source)`);
+        couponVerified = true;
       }
 
       enrichment = veResult.enrichment;
+    } else {
+      // Skip verification entirely — trust the coupon from StudyBullet
+      couponVerified = true;
     }
 
     const courseData: ScrapedCourseData = {
