@@ -2,7 +2,13 @@ import { getTelegramSettings, getUnpostedCourses, markCourseTelegramPosted, logT
 
 const TELEGRAM_API = 'https://api.telegram.org';
 
-// Language-specific field label mappings for message templates
+// Default delay between posting messages (in ms)
+const DEFAULT_POST_DELAY_MS = 60_000; // 1 minute
+
+// ============================================
+// Language-specific field label mappings
+// ============================================
+
 const LANGUAGE_LABELS: Record<string, Record<string, string>> = {
   en: {
     instructor: 'Instructor',
@@ -127,30 +133,34 @@ const LANGUAGE_LABELS: Record<string, Record<string, string>> = {
 };
 
 function getLabels(lang: string): Record<string, string> {
-  return LANGUAGE_LABELS[lang] || LANGUAGE_LABELS['en'] || LANGUAGE_LABELS['en'];
+  return LANGUAGE_LABELS[lang] || LANGUAGE_LABELS['en'];
 }
 
-// Build a localized template if no custom template is provided for the language
-function buildLocalizedTemplate(lang: string): string {
-  const labels = getLabels(lang);
-  if (lang === 'ar') {
-    return `📚 {title}\n\n👤 {instructor_label}: {instructor}\n⭐ {rating_label}: {rating}\n👥 {students_count_label}: {students_count}\n\n🔗 {link_label}: {link}`;
-  }
-  return `📚 {title}\n\n👤 {instructor_label}: {instructor}\n⭐ {rating_label}: {rating}\n👥 {students_count_label}: {students_count}\n\n🔗 {link_label}: {link}`;
-}
+// ============================================
+// Send Message (with optional reply_markup)
+// ============================================
 
-// Send message to a Telegram channel
-async function sendMessage(botToken: string, chatId: string, text: string, parseMode: string = 'HTML'): Promise<boolean> {
+async function sendMessage(
+  botToken: string,
+  chatId: string,
+  text: string,
+  parseMode: string = 'HTML',
+  replyMarkup?: Record<string, unknown>
+): Promise<boolean> {
   try {
+    const body: Record<string, unknown> = {
+      chat_id: chatId,
+      text,
+      parse_mode: parseMode,
+      disable_web_page_preview: false,
+    };
+    if (replyMarkup) {
+      body.reply_markup = replyMarkup;
+    }
     const response = await fetch(`${TELEGRAM_API}/bot${botToken}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text,
-        parse_mode: parseMode,
-        disable_web_page_preview: false,
-      }),
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(15000),
     });
     return response.ok;
@@ -159,53 +169,73 @@ async function sendMessage(botToken: string, chatId: string, text: string, parse
   }
 }
 
-// Format course message from template with language-specific labels
-function formatMessage(template: string, course: Record<string, unknown>, channelLanguage: string): string {
+// ============================================
+// Format Course Message (Beautiful HTML)
+// ============================================
+
+function formatCourseMessageHtml(
+  course: Record<string, unknown>,
+  channelLanguage: string
+): string {
   const labels = getLabels(channelLanguage);
-
-  // Start with the provided template
-  let message = template;
-
-  // Replace field placeholders with course values
-  message = message.replace(/{title}/g, String(course.title || 'Untitled Course'));
-  message = message.replace(/{instructor}/g, String(course.instructor || 'Unknown'));
-  message = message.replace(/{category}/g, String(course.category || 'General'));
-  message = message.replace(/{rating}/g, String(course.rating || 'N/A'));
-  message = message.replace(/{students_count}/g, String(course.students_count || 'N/A'));
-  message = message.replace(/{original_price}/g, String(course.original_price || 'Free'));
-  message = message.replace(/{language}/g, String(course.language || 'English'));
-  message = message.replace(/{duration}/g, String(course.duration || 'Self-paced'));
-
-  // Build the enrollment link: use the site URL with the course slug for branded links,
-  // or fall back to the Udemy coupon URL
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
   const slug = String(course.slug || '');
-  const udemyUrl = String(course.udemy_url || '');
-  const link = (siteUrl && slug) ? `${siteUrl}/course/${slug}` : udemyUrl;
+  const courseUrl = (siteUrl && slug) ? `${siteUrl}/course/${slug}` : String(course.udemy_url || '');
 
-  message = message.replace(/{link}/g, link);
-  message = message.replace(/{site_url}/g, siteUrl);
+  const title = String(course.title || 'Untitled Course');
+  const instructor = String(course.instructor || 'Unknown');
+  const rating = course.rating ? String(course.rating) : 'N/A';
+  const studentsCount = course.students_count
+    ? Number(course.students_count).toLocaleString()
+    : 'N/A';
+  const originalPrice = String(course.original_price || 'Free');
+  const language = String(course.language || 'English');
+  const duration = String(course.duration || 'Self-paced');
 
-  // Replace label placeholders with localized field names
-  message = message.replace(/{instructor_label}/g, labels.instructor);
-  message = message.replace(/{category_label}/g, labels.category);
-  message = message.replace(/{rating_label}/g, labels.rating);
-  message = message.replace(/{students_count_label}/g, labels.students_count);
-  message = message.replace(/{original_price_label}/g, labels.original_price);
-  message = message.replace(/{language_label}/g, labels.language);
-  message = message.replace(/{duration_label}/g, labels.duration);
-  message = message.replace(/{link_label}/g, labels.link);
+  const message =
+    `<b>📚 ${title}</b>\n\n` +
+    `👤 <b>${labels.instructor}:</b> ${instructor}\n` +
+    `⭐ <b>${labels.rating}:</b> ${rating}/5 ⭐\n` +
+    `👥 <b>${labels.students_count}:</b> ${studentsCount}\n` +
+    `🏷️ <b>${labels.original_price}:</b> <s>$${originalPrice}</s> → FREE\n` +
+    `🌍 <b>${labels.language}:</b> ${language}\n` +
+    `⏱️ <b>${labels.duration}:</b> ${duration}\n\n` +
+    `🔗 ${courseUrl}`;
 
   return message;
 }
 
-// Post a single course to all active channels with per-channel language support
-export async function postCourseToTelegram(course: Record<string, unknown>, settings: Record<string, unknown>): Promise<{ success: boolean; channels: string[] }> {
+// Build inline keyboard button pointing to site course page
+function buildInlineKeyboard(course: Record<string, unknown>): Record<string, unknown> {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
+  const slug = String(course.slug || '');
+  const courseUrl = (siteUrl && slug) ? `${siteUrl}/course/${slug}` : '';
+
+  if (!courseUrl) return {};
+
+  return {
+    inline_keyboard: [
+      [
+        {
+          text: `🚀 Enroll Free → ${siteUrl.replace(/^https?:\/\//, '').replace(/\/$/, '')}/course/${slug}`,
+          url: courseUrl,
+        },
+      ],
+    ],
+  };
+}
+
+// ============================================
+// Post a single course to all active channels
+// ============================================
+
+export async function postCourseToTelegram(
+  course: Record<string, unknown>,
+  settings: Record<string, unknown>
+): Promise<{ success: boolean; channels: string[] }> {
   // Prefer env token over DB-stored one
   const botToken = process.env.TELEGRAM_BOT_TOKEN || String(settings.bot_token || '');
   const channels = (settings.channels as Array<{ id: string; active: boolean; name: string; language: string }>) || [];
-  const defaultTemplate = String(settings.message_template || '{title}\n{link}');
-  const arabicTemplate = String((settings as Record<string, unknown>).message_template_ar || defaultTemplate);
 
   if (!botToken) return { success: false, channels: [] };
 
@@ -213,24 +243,18 @@ export async function postCourseToTelegram(course: Record<string, unknown>, sett
   const sentChannels: string[] = [];
   let allSuccess = true;
 
+  const messageHtml = formatCourseMessageHtml(course, 'en');
+  const keyboard = buildInlineKeyboard(course);
+
   for (const channel of activeChannels) {
     if (!channel.id) continue;
 
-    // Pick template based on channel language
     const lang = channel.language || 'en';
-    let template: string;
+    const channelMessage = lang === 'en'
+      ? messageHtml
+      : formatCourseMessageHtml(course, lang);
 
-    if (lang === 'ar' && arabicTemplate) {
-      template = arabicTemplate;
-    } else if (lang === 'en' || !channels.some((c: { language: string }) => c.language && c.language !== 'en')) {
-      template = defaultTemplate;
-    } else {
-      // For other languages, use the default template but with localized labels
-      template = buildLocalizedTemplate(lang);
-    }
-
-    const message = formatMessage(template, course, lang);
-    const ok = await sendMessage(botToken, channel.id, message);
+    const ok = await sendMessage(botToken, channel.id, channelMessage, 'HTML', keyboard);
 
     if (ok) {
       sentChannels.push(channel.name);
@@ -242,8 +266,13 @@ export async function postCourseToTelegram(course: Record<string, unknown>, sett
   return { success: allSuccess && sentChannels.length > 0, channels: sentChannels };
 }
 
-// Auto-post unpublished courses to Telegram
-export async function autoPostToTelegram(limit: number = 5): Promise<{ posted: number; errors: string[] }> {
+// ============================================
+// Auto-post unposted courses with delay
+// ============================================
+
+export async function autoPostToTelegram(
+  limit: number = 5
+): Promise<{ posted: number; errors: string[] }> {
   const settings = await getTelegramSettings();
   const token = process.env.TELEGRAM_BOT_TOKEN || settings.bot_token;
   if (!token || !settings.auto_post) {
@@ -254,8 +283,13 @@ export async function autoPostToTelegram(limit: number = 5): Promise<{ posted: n
   const errors: string[] = [];
   let posted = 0;
 
-  for (const course of unposted) {
-    const result = await postCourseToTelegram(course as unknown as Record<string, unknown>, settings as unknown as Record<string, unknown>);
+  for (let i = 0; i < unposted.length; i++) {
+    const course = unposted[i];
+    const result = await postCourseToTelegram(
+      course as unknown as Record<string, unknown>,
+      settings as unknown as Record<string, unknown>
+    );
+
     if (result.success) {
       await markCourseTelegramPosted(course.id);
       posted++;
@@ -268,15 +302,30 @@ export async function autoPostToTelegram(limit: number = 5): Promise<{ posted: n
     } else {
       errors.push(`Failed to post: ${course.title}`);
     }
+
+    // Add delay between messages (skip delay after the last one)
+    if (i < unposted.length - 1) {
+      await new Promise((resolve) => setTimeout(resolve, DEFAULT_POST_DELAY_MS));
+    }
   }
 
   return { posted, errors };
 }
 
-// Test Telegram connection
-export async function testTelegramConnection(botToken: string, chatId: string): Promise<{ success: boolean; message: string }> {
+// ============================================
+// Test Telegram Connection
+// ============================================
+
+export async function testTelegramConnection(
+  botToken: string,
+  chatId: string
+): Promise<{ success: boolean; message: string }> {
   try {
-    const ok = await sendMessage(botToken, chatId, '🧪 Test message from OWL COURSE\n\n✅ Connection successful!');
+    const ok = await sendMessage(
+      botToken,
+      chatId,
+      '🧪 Test message from OWL COURSE\n\n✅ Connection successful!'
+    );
     return ok
       ? { success: true, message: 'Test message sent successfully!' }
       : { success: false, message: 'Failed to send message. Check Bot Token and Channel ID.' };
