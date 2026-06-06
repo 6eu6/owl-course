@@ -348,12 +348,13 @@ function getRandomHeaders(): Record<string, string> {
 
 /**
  * Determine if a course should be verified based on its page position and coupon code.
- * - Pages 1-5: verify every course (most likely fresh) — increased from 3
- * - Pages 6+: sample 50% of courses — increased from 30%
+ * - Pages 1-2 (index 0-1): verify every course (most likely fresh)
+ * - Pages 3-5 (index 2-4): verify every course
+ * - Pages 6+ (index 5+): sample 50% of courses
  * - If coupon has month/year pattern (e.g. JUL2025): always verify
  */
 function shouldVerifyCoupon(pageIndex: number, couponCode: string): boolean {
-  // Pages 0-4 (1-5): always verify
+  // Pages 0-4 (1-5): always verify (ensures first 5 pages fully verified)
   if (pageIndex < 5) return true;
   // Month/year coupons: always verify
   if (couponHasMonthYear(couponCode)) return true;
@@ -406,10 +407,23 @@ async function verifyCouponOnUdemy(couponUrl: string): Promise<{ isFree: boolean
         const jsonData = JSON.parse(nextDataMatch[1]);
         const courseData = jsonData?.props?.pageProps?.course || jsonData?.props?.pageProps?.courseResult;
         if (courseData) {
+          // isPaid is the most reliable free/paid indicator from Udemy's data model
+          if (courseData.isPaid === false) return { isFree: true, verified: true };
+          if (courseData.isPaid === true) return { isFree: false, verified: true };
+
+          // Check frontendDisplayPrice string (e.g. "Free" or "$12.99")
+          if (typeof courseData.frontendDisplayPrice === 'string') {
+            const displayPrice = courseData.frontendDisplayPrice.trim().toLowerCase();
+            if (displayPrice === 'free' || displayPrice === 'free!') return { isFree: true, verified: true };
+          }
+
+          // Check buyable field (Udemy uses buyable: false for free courses)
+          if (courseData.buyable === false) return { isFree: true, verified: true };
+
           if (courseData.isFree === true) return { isFree: true, verified: true };
           if (courseData.isFree === false) return { isFree: false, verified: true };
 
-          // Check nested price objects
+          // Check nested price objects (current/discounted price, NOT list price)
           const price = courseData.price || courseData.purchasePrice || courseData.discountPrice || {};
           if (price && typeof price.amount === 'number') {
             if (price.amount === 0) return { isFree: true, verified: true };
@@ -422,12 +436,9 @@ async function verifyCouponOnUdemy(couponUrl: string): Promise<{ isFree: boolean
             if (currentPrice.amount > 0) return { isFree: false, verified: true };
           }
 
-          // Check list_price object
-          const listPrice = courseData.listPrice || courseData.list_price || {};
-          if (listPrice && typeof listPrice.amount === 'number') {
-            if (listPrice.amount === 0) return { isFree: true, verified: true };
-            if (listPrice.amount > 0) return { isFree: false, verified: true };
-          }
+          // NOTE: We intentionally do NOT use listPrice.amount > 0 as a "not free" indicator
+          // because listPrice is the ORIGINAL price before discount, not the current price.
+          // A course with listPrice = $89.99 can still be free with an active coupon.
         }
       } catch {
         // JSON parse failed, continue to regex strategies
@@ -534,6 +545,217 @@ async function verifyCouponOnUdemy(couponUrl: string): Promise<{ isFree: boolean
     return { isFree: false, verified: false };
   } catch {
     return { isFree: false, verified: false };
+  }
+}
+
+// ============================================
+// Udemy Course Enrichment Data Extraction
+// ============================================
+
+interface UdemyCourseEnrichment {
+  description: string;       // from headline
+  whatLearn: string;         // from what_you_will_learn joined with " • "
+  requirements: string;      // from requirements joined with " • "
+  whoFor: string;            // from target_audiences joined with " • "
+  instructor: string;        // from visible_instructors display_name
+  duration: string | null;  // from content_length_text
+  lastUpdated: string | null; // from last_modified_date
+  rating: number | null;    // from rating
+  studentsCount: number | null; // from num_subscribers
+  language: string | null;  // from locale.locale
+  originalPrice: string | null; // from list_price.price_string
+}
+
+/**
+ * Extract enrichment data from Udemy's __NEXT_DATA__ course JSON.
+ * Used by verifyAndEnrichFromUdemy to get rich course data in a single request.
+ */
+function extractUdemyPageData(courseData: any): UdemyCourseEnrichment | null {
+  if (!courseData) return null;
+
+  const description = typeof courseData.headline === 'string' ? courseData.headline : '';
+
+  // What you'll learn
+  const whatLearnItems: string[] = [];
+  try {
+    const wylData = courseData.what_you_will_learn?.data?.items;
+    if (Array.isArray(wylData)) {
+      for (const item of wylData) {
+        if (item?.text) whatLearnItems.push(item.text);
+      }
+    }
+  } catch { /* ignore */ }
+  const whatLearn = whatLearnItems.join(' • ');
+
+  // Requirements
+  const requirementItems: string[] = [];
+  try {
+    const reqData = courseData.requirements?.data?.items;
+    if (Array.isArray(reqData)) {
+      for (const item of reqData) {
+        if (item?.text) requirementItems.push(item.text);
+      }
+    }
+  } catch { /* ignore */ }
+  const requirements = requirementItems.join(' • ');
+
+  // Target audience (who this course is for)
+  const targetItems: string[] = [];
+  try {
+    const taData = courseData.target_audiences?.data?.items;
+    if (Array.isArray(taData)) {
+      for (const item of taData) {
+        if (item?.text) targetItems.push(item.text);
+      }
+    }
+  } catch { /* ignore */ }
+  const whoFor = targetItems.join(' • ');
+
+  // Instructor(s)
+  const instructors = courseData.visible_instructors || [];
+  const instructor = instructors
+    .map((i: any) => i?.display_name || i?.name || '')
+    .filter(Boolean)
+    .join(', ');
+
+  // Duration
+  const duration = typeof courseData.content_length_text === 'string' ? courseData.content_length_text : null;
+
+  // Last updated
+  let lastUpdated: string | null = null;
+  if (courseData.last_modified_date) {
+    try {
+      lastUpdated = new Date(courseData.last_modified_date).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    } catch { /* ignore */ }
+  }
+
+  // Rating
+  const rating = typeof courseData.rating === 'number' ? Math.round(courseData.rating * 10) / 10 : null;
+
+  // Students count
+  const studentsCount = typeof courseData.num_subscribers === 'number' ? courseData.num_subscribers : null;
+
+  // Language
+  const locale = courseData.locale;
+  const language = locale?.locale || null;
+
+  // Original price
+  const listPrice = courseData.list_price || courseData.listPrice || {};
+  const originalPrice = listPrice?.price_string || null;
+
+  return { description, whatLearn, requirements, whoFor, instructor, duration, lastUpdated, rating, studentsCount, language, originalPrice };
+}
+
+// ============================================
+// Combined Verify + Enrich from Udemy Page
+// ============================================
+
+/**
+ * Fetch a Udemy course page (with coupon applied) and return both
+ * verification result AND enrichment data in a single request.
+ * This avoids making two separate requests (verify + detail page).
+ */
+async function verifyAndEnrichFromUdemy(couponUrl: string): Promise<{
+  isFree: boolean;
+  verified: boolean;
+  enrichment: UdemyCourseEnrichment | null;
+}> {
+  try {
+    const shouldSkip = await waitForRateLimit();
+    if (shouldSkip) return { isFree: false, verified: false, enrichment: null };
+
+    const response = await fetch(couponUrl, {
+      headers: getRandomHeaders(),
+      signal: AbortSignal.timeout(10000),
+      redirect: 'follow',
+    });
+
+    // Handle rate limiting (429) with exponential backoff
+    if (response.status === 429) {
+      rateLimitBackoffAttempts++;
+      const backoffMs = Math.min(5000 * Math.pow(2, rateLimitBackoffAttempts - 1), 15000);
+      console.log(`[Scraper] Udemy returned 429 - rate limited. Backing off for ${backoffMs / 1000}s (attempt ${rateLimitBackoffAttempts})...`);
+      rateLimitBackoffUntil = Date.now() + backoffMs;
+      return { isFree: false, verified: false, enrichment: null };
+    }
+
+    // Reset backoff attempts on success
+    rateLimitBackoffAttempts = 0;
+
+    if (!response.ok) return { isFree: false, verified: false, enrichment: null };
+
+    const html = await response.text();
+    const htmlLower = html.toLowerCase();
+
+    // --- STRATEGY 0: Parse __NEXT_DATA__ JSON properly ---
+    const nextDataMatch = html.match(/<script[^>]*id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i);
+    if (nextDataMatch) {
+      try {
+        const jsonData = JSON.parse(nextDataMatch[1]);
+        const courseData = jsonData?.props?.pageProps?.course || jsonData?.props?.pageProps?.courseResult;
+        if (courseData) {
+          const enrichment = extractUdemyPageData(courseData);
+
+          // isPaid is the most reliable free/paid indicator
+          if (courseData.isPaid === false) return { isFree: true, verified: true, enrichment };
+          if (courseData.isPaid === true) {
+            // Could still be free if coupon makes it $0 — check more indicators below
+          }
+
+          // Check frontendDisplayPrice string
+          if (typeof courseData.frontendDisplayPrice === 'string') {
+            const displayPrice = courseData.frontendDisplayPrice.trim().toLowerCase();
+            if (displayPrice === 'free' || displayPrice === 'free!') return { isFree: true, verified: true, enrichment };
+          }
+
+          // Check buyable field
+          if (courseData.buyable === false) return { isFree: true, verified: true, enrichment };
+
+          if (courseData.isFree === true) return { isFree: true, verified: true, enrichment };
+          if (courseData.isFree === false) return { isFree: false, verified: true, enrichment };
+
+          // Check current/discounted price
+          const price = courseData.price || courseData.purchasePrice || courseData.discountPrice || {};
+          if (price && typeof price.amount === 'number') {
+            if (price.amount === 0) return { isFree: true, verified: true, enrichment };
+            if (price.amount > 0) return { isFree: false, verified: true, enrichment };
+          }
+
+          const currentPrice = courseData.currentPrice || courseData.frontendPrice || {};
+          if (currentPrice && typeof currentPrice.amount === 'number') {
+            if (currentPrice.amount === 0) return { isFree: true, verified: true, enrichment };
+            if (currentPrice.amount > 0) return { isFree: false, verified: true, enrichment };
+          }
+
+          // We have courseData but couldn't determine price conclusively
+          // Return enrichment even if unverified (caller can use it for metadata)
+          return { isFree: false, verified: false, enrichment };
+        }
+      } catch {
+        // JSON parse failed, fall through to HTML strategies
+      }
+    }
+
+    // --- HTML fallback (no enrichment from JSON, just verification) ---
+    const freeIndicators = ['enroll for free', 'data-purpose="enroll-free"'];
+    const paidIndicators = ['data-purpose="buy'];
+
+    let freeScore = 0;
+    let paidScore = 0;
+
+    for (const indicator of freeIndicators) {
+      if (htmlLower.includes(indicator)) freeScore++;
+    }
+    for (const indicator of paidIndicators) {
+      if (htmlLower.includes(indicator)) paidScore++;
+    }
+
+    if (freeScore >= 1 && paidScore === 0) return { isFree: true, verified: true, enrichment: null };
+    if (paidScore >= 1 && freeScore === 0) return { isFree: false, verified: true, enrichment: null };
+
+    return { isFree: false, verified: false, enrichment: null };
+  } catch {
+    return { isFree: false, verified: false, enrichment: null };
   }
 }
 
@@ -1293,27 +1515,31 @@ async function processUdemyFreebiesCourse(
     }
 
     // --- NEW COURSE ---
-    const detailPromise = scrapeDetailPage(course.detailUrl);
     const couponExpiry = estimateCouponExpiry(couponCode);
     const pageIndex = course.pageIndex ?? 99;
     const doVerify = shouldVerifyCoupon(pageIndex, couponCode);
 
     let couponVerified = false;
+    let enrichment: UdemyCourseEnrichment | null = null;
 
     if (doVerify) {
-      console.log(`[Scraper] Verifying coupon for "${course.title.substring(0, 40)}" (page ${pageIndex + 1})...`);
-      const verifyResult = await verifyCouponOnUdemy(couponUrl);
+      console.log(`[Scraper] Verifying & enriching from Udemy for "${course.title.substring(0, 40)}" (page ${pageIndex + 1})...`);
+      const veResult = await verifyAndEnrichFromUdemy(couponUrl);
 
-      if (verifyResult.verified) {
-        couponVerified = verifyResult.isFree;
-        if (!verifyResult.isFree) {
+      if (veResult.verified) {
+        couponVerified = veResult.isFree;
+        if (!veResult.isFree) {
           console.log(`[Scraper] Coupon verified as NOT FREE for "${course.title.substring(0, 40)}" - skipping`);
           return { saved: false, skipped: 'expired-coupon' };
         }
         console.log(`[Scraper] Coupon verified as FREE for "${course.title.substring(0, 40)}" ✓`);
       } else {
-        console.log(`[Scraper] Coupon verification inconclusive for "${course.title.substring(0, 40)}" - storing unverified`);
+        // Verification inconclusive — skip course to avoid saving paid courses
+        console.log(`[Scraper] Coupon verification inconclusive for "${course.title.substring(0, 40)}" - skipping`);
+        return { saved: false, skipped: 'verification-inconclusive' };
       }
+
+      enrichment = veResult.enrichment;
     }
 
     const courseData: ScrapedCourseData = {
@@ -1341,19 +1567,39 @@ async function processUdemyFreebiesCourse(
       source: 'udemyfreebies',
     };
 
-    try {
-      const detailData = await detailPromise;
-      if (detailData.description) {
-        courseData.description = detailData.description;
+    if (enrichment) {
+      // Use Udemy enrichment data for richer course details
+      if (enrichment.description) {
+        courseData.description = enrichment.description;
       } else {
         courseData.description = `Learn ${course.title} with this comprehensive free course. Covers ${course.category} skills and real-world applications.`;
       }
-      courseData.requirements = detailData.requirements;
-      courseData.whoFor = detailData.whoFor;
-      courseData.duration = detailData.duration;
-      courseData.lastUpdated = detailData.lastUpdated;
-    } catch {
-      courseData.description = `Learn ${course.title} with this comprehensive free course. Covers ${course.category} skills and real-world applications.`;
+      courseData.requirements = enrichment.requirements;
+      courseData.whoFor = enrichment.whoFor;
+      courseData.whatLearn = enrichment.whatLearn;
+      if (enrichment.duration) courseData.duration = enrichment.duration;
+      if (enrichment.lastUpdated) courseData.lastUpdated = enrichment.lastUpdated;
+      if (enrichment.instructor) courseData.instructor = enrichment.instructor;
+      if (enrichment.rating !== null) courseData.rating = enrichment.rating;
+      if (enrichment.studentsCount !== null) courseData.studentsCount = enrichment.studentsCount;
+      if (enrichment.language) courseData.language = enrichment.language;
+      if (enrichment.originalPrice) courseData.originalPrice = enrichment.originalPrice;
+    } else {
+      // Fall back to scraping the listing source's detail page
+      try {
+        const detailData = await scrapeDetailPage(course.detailUrl);
+        if (detailData.description) {
+          courseData.description = detailData.description;
+        } else {
+          courseData.description = `Learn ${course.title} with this comprehensive free course. Covers ${course.category} skills and real-world applications.`;
+        }
+        courseData.requirements = detailData.requirements;
+        courseData.whoFor = detailData.whoFor;
+        if (detailData.duration) courseData.duration = detailData.duration;
+        if (detailData.lastUpdated) courseData.lastUpdated = detailData.lastUpdated;
+      } catch {
+        courseData.description = `Learn ${course.title} with this comprehensive free course. Covers ${course.category} skills and real-world applications.`;
+      }
     }
 
     return await saveScrapedCourse(courseData, existingUrls, existingTitles);
@@ -1574,6 +1820,8 @@ async function extractStudyBulletDetail(detailUrl: string): Promise<{
   instructor: string;
   lastUpdated: string | null;
   description: string;
+  whatLearn: string;
+  requirements: string;
 } | null> {
   try {
     const response = await fetch(detailUrl, {
@@ -1685,17 +1933,55 @@ async function extractStudyBulletDetail(detailUrl: string): Promise<{
       lastUpdated = updateMatch[1];
     }
 
-    // 10. Extract description (first paragraph or article text)
+    // 10. Extract description — get ALL paragraphs from article content for richer descriptions
     let description = '';
-    const $desc = $('article p').first();
-    if ($desc.length > 0) {
-      description = $desc.text().trim().replace(/\s+/g, ' ');
-    }
-    if (!description) {
-      const $entryContent = $('article .entry-content p, article .post-content p').first();
-      if ($entryContent.length > 0) {
-        description = $entryContent.text().trim().replace(/\s+/g, ' ');
+    let whatLearnFromPage = '';
+    let requirementsFromPage = '';
+
+    // Try entry-content or post-content first (richer content area)
+    const $contentArea = $('article .entry-content, article .post-content');
+    if ($contentArea.length > 0) {
+      // Collect all paragraphs
+      const paragraphs: string[] = [];
+      $contentArea.find('p').each((_, pEl) => {
+        const text = $(pEl).text().trim().replace(/\s+/g, ' ');
+        if (text.length > 20) paragraphs.push(text);
+      });
+      description = paragraphs.slice(0, 5).join(' ').substring(0, 1500);
+
+      // Look for "What you'll learn" section
+      const $learnHeading = $contentArea.find('h2, h3, h4').filter(function() {
+        const text = $(this).text().trim().toLowerCase();
+        return text.includes('what you') && text.includes('learn');
+      });
+      if ($learnHeading.length > 0) {
+        const $learnList = $learnHeading.next('ul, ol');
+        if ($learnList.length > 0) {
+          whatLearnFromPage = $learnList.find('li').map((_, li) => $(li).text().trim()).get().join(' • ');
+        }
       }
+
+      // Look for "Requirements" section
+      const $reqHeading = $contentArea.find('h2, h3, h4').filter(function() {
+        const text = $(this).text().trim().toLowerCase();
+        return text.includes('requirement');
+      });
+      if ($reqHeading.length > 0) {
+        const $reqList = $reqHeading.next('ul, ol');
+        if ($reqList.length > 0) {
+          requirementsFromPage = $reqList.find('li').map((_, li) => $(li).text().trim()).get().join(' • ');
+        }
+      }
+    }
+
+    // Fallback: get all article paragraphs if no content area found
+    if (!description) {
+      const paragraphs: string[] = [];
+      $('article p').each((_, pEl) => {
+        const text = $(pEl).text().trim().replace(/\s+/g, ' ');
+        if (text.length > 20) paragraphs.push(text);
+      });
+      description = paragraphs.slice(0, 5).join(' ').substring(0, 1500);
     }
 
     return {
@@ -1709,6 +1995,8 @@ async function extractStudyBulletDetail(detailUrl: string): Promise<{
       instructor,
       lastUpdated,
       description,
+      whatLearn: whatLearnFromPage,
+      requirements: requirementsFromPage,
     };
   } catch {
     return null;
@@ -1780,21 +2068,26 @@ async function processStudyBulletCourse(
     const doVerify = shouldVerifyCoupon(pageIndex, couponCode);
 
     let couponVerified = false;
+    let enrichment: UdemyCourseEnrichment | null = null;
 
     if (doVerify) {
-      console.log(`[Scraper/StudyBullet] Verifying coupon for "${detail.title.substring(0, 40)}" (page ${pageIndex + 1})...`);
-      const verifyResult = await verifyCouponOnUdemy(couponUrl);
+      console.log(`[Scraper/StudyBullet] Verifying & enriching from Udemy for "${detail.title.substring(0, 40)}" (page ${pageIndex + 1})...`);
+      const veResult = await verifyAndEnrichFromUdemy(couponUrl);
 
-      if (verifyResult.verified) {
-        couponVerified = verifyResult.isFree;
-        if (!verifyResult.isFree) {
+      if (veResult.verified) {
+        couponVerified = veResult.isFree;
+        if (!veResult.isFree) {
           console.log(`[Scraper/StudyBullet] Coupon verified as NOT FREE for "${detail.title.substring(0, 40)}" - skipping`);
           return { saved: false, skipped: 'expired-coupon' };
         }
         console.log(`[Scraper/StudyBullet] Coupon verified as FREE for "${detail.title.substring(0, 40)}" ✓`);
       } else {
-        console.log(`[Scraper/StudyBullet] Coupon verification inconclusive for "${detail.title.substring(0, 40)}" - storing unverified`);
+        // Verification inconclusive — skip course to avoid saving paid courses
+        console.log(`[Scraper/StudyBullet] Coupon verification inconclusive for "${detail.title.substring(0, 40)}" - skipping`);
+        return { saved: false, skipped: 'verification-inconclusive' };
       }
+
+      enrichment = veResult.enrichment;
     }
 
     const courseData: ScrapedCourseData = {
@@ -1815,12 +2108,27 @@ async function processStudyBulletCourse(
       originalPrice: null,
       language: null,
       duration: detail.duration,
-      requirements: '',
+      requirements: detail.requirements || '',
       whoFor: '',
-      whatLearn: '',
+      whatLearn: detail.whatLearn || '',
       lastUpdated: detail.lastUpdated,
       source: 'studybullet',
     };
+
+    if (enrichment) {
+      // Use Udemy enrichment data for richer course details
+      if (enrichment.description) courseData.description = enrichment.description;
+      if (enrichment.requirements) courseData.requirements = enrichment.requirements;
+      if (enrichment.whoFor) courseData.whoFor = enrichment.whoFor;
+      if (enrichment.whatLearn) courseData.whatLearn = enrichment.whatLearn;
+      if (enrichment.duration) courseData.duration = enrichment.duration;
+      if (enrichment.lastUpdated) courseData.lastUpdated = enrichment.lastUpdated;
+      if (enrichment.instructor) courseData.instructor = enrichment.instructor;
+      if (enrichment.rating !== null) courseData.rating = enrichment.rating;
+      if (enrichment.studentsCount !== null) courseData.studentsCount = enrichment.studentsCount;
+      if (enrichment.language) courseData.language = enrichment.language;
+      if (enrichment.originalPrice) courseData.originalPrice = enrichment.originalPrice;
+    }
 
     return await saveScrapedCourse(courseData, existingUrls, existingTitles);
   } catch (err) {
