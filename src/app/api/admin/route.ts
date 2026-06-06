@@ -120,8 +120,7 @@ export async function POST(request: Request) {
         totalDuration: results.totalDuration,
         details: {
           udemyfreebies: results.udemyfreebies,
-          discudemy: results.discudemy,
-          freebiesglobal: results.freebiesglobal,
+          studybullet: results.studybullet,
         },
       });
     }

@@ -36,6 +36,13 @@ export async function GET(request: Request) {
           errCount: results.udemyfreebies.errCount,
           duration: Math.round(results.udemyfreebies.duration / 1000),
         },
+        studybullet: {
+          status: results.studybullet.status,
+          newCount: results.studybullet.newCount,
+          dupCount: results.studybullet.dupCount,
+          errCount: results.studybullet.errCount,
+          duration: Math.round(results.studybullet.duration / 1000),
+        },
       },
     };
 

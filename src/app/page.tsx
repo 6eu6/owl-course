@@ -126,15 +126,10 @@ const SOURCE_LABELS: Record<string, SourceInfo> = {
     color:
       'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400 border-blue-200 dark:border-blue-800',
   },
-  discudemy: {
-    name: 'DiscUdemy',
+  studybullet: {
+    name: 'StudyBullet',
     color:
-      'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-400 border-purple-200 dark:border-purple-800',
-  },
-  freebiesglobal: {
-    name: 'FreebiesGlobal',
-    color:
-      'bg-teal-100 text-teal-700 dark:bg-teal-950 dark:text-teal-400 border-teal-200 dark:border-teal-800',
+      'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-400 border-orange-200 dark:border-orange-800',
   },
   manual: {
     name: 'Manual',

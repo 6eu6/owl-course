@@ -136,12 +136,7 @@ async function handleScrape(chatId: string): Promise<void> {
       `\u23F1\uFE0F Duration: <b>${Math.round(results.totalDuration / 1000)}s</b>\n\n` +
       `<b>By Source:</b>\n` +
       `\u2022 UdemyFreebies: ${results.udemyfreebies.newCount} new, ${results.udemyfreebies.dupCount} dup\n` +
-      (results.discudemy
-        ? `\u2022 DiscUdemy: ${results.discudemy.newCount} new, ${results.discudemy.dupCount} dup\n`
-        : '') +
-      (results.freebiesglobal
-        ? `\u2022 FreebiesGlobal: ${results.freebiesglobal.newCount} new, ${results.freebiesglobal.dupCount} dup`
-        : '');
+      `\u2022 StudyBullet: ${results.studybullet.newCount} new, ${results.studybullet.dupCount} dup`;
 
     await sendAdminMessage(chatId, msg);
   } catch (e) {

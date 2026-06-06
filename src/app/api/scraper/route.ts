@@ -69,12 +69,8 @@ export async function POST(request: Request) {
           ...results.udemyfreebies,
           courses: undefined,
         },
-        discudemy: {
-          ...results.discudemy,
-          courses: undefined,
-        },
-        freebiesglobal: {
-          ...results.freebiesglobal,
+        studybullet: {
+          ...results.studybullet,
           courses: undefined,
         },
       },
