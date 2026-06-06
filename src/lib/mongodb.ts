@@ -238,17 +238,9 @@ export async function getAllSettings(): Promise<Record<string, string>> {
   return result;
 }
 
-export async function getAdminPassword(): Promise<string> {
-  // Env variable takes priority, then DB setting, then default
-  if (process.env.ADMIN_PASSWORD) return process.env.ADMIN_PASSWORD;
-  const password = await getSetting('admin_password');
-  return password || 'owl2024';
-}
-
-export async function verifyAdminPassword(password: string): Promise<boolean> {
-  const adminPassword = await getAdminPassword();
-  return password === adminPassword;
-}
+// Browser admin access has been removed — administration is done exclusively
+// through the Telegram admin bot (which authorises by ADMIN_CHAT_IDS). The old
+// password-based admin endpoints and their hard-coded fallback password are gone.
 
 // ============================================
 // Telegram Settings (JSON in Setting row)

@@ -5,9 +5,6 @@
   "installCommand": "npm install",
   "outputDirectory": ".next",
   "functions": {
-    "src/app/api/scraper/route.ts": {
-      "maxDuration": 60
-    },
     "src/app/api/cron/scrape/route.ts": {
       "maxDuration": 60
     },
