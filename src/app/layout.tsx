@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   keywords: ["free courses", "udemy", "online learning", "free udemy courses", "learn plus"],
   icons: {
     icon: [
-      { url: "/favicon.ico", sizes: "48x48" },
+      { url: "/icon.svg", type: "image/svg+xml" },
       { url: "/icon-32.png", sizes: "32x32", type: "image/png" },
     ],
     apple: "/apple-icon.png",

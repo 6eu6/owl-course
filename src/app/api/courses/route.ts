@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAllCourses, getAllCategories, countCourses, countCoursesBySource } from '@/lib/mongodb';
+import { getAllCourses, getAllCategories, countCourses } from '@/lib/mongodb';
 import { getSiteSettings } from '@/lib/settings';
 
 // GET /api/courses - List courses with pagination, filtering, search
@@ -24,7 +24,6 @@ export async function GET(request: Request) {
     const { courses, total } = await getAllCourses({ page, limit, search, category, source, sort });
     const categories = await getAllCategories();
     const totalCourses = await countCourses({ isPublished: true });
-    const bySource = await countCoursesBySource();
 
     return NextResponse.json({
       success: true,
@@ -37,8 +36,6 @@ export async function GET(request: Request) {
         category: c.category,
         imageUrl: c.imageUrl,
         image_url: c.imageUrl,
-        source: c.source,
-        sourceDetail: c.sourceDetail || null,
         rating: c.rating || null,
         students_count: c.studentsCount || null,
         original_price: c.originalPrice || null,
@@ -65,10 +62,6 @@ export async function GET(request: Request) {
       },
       stats: {
         total_courses: totalCourses,
-        by_source: bySource.reduce((acc, s) => {
-          acc[s._id] = s.count;
-          return acc;
-        }, {} as Record<string, number>),
       },
       settings,
     });
@@ -80,7 +73,7 @@ export async function GET(request: Request) {
         courses: [],
         pagination: { page: 1, limit: 12, total: 0, total_pages: 0 },
         filters: { categories: [], current_category: '', current_search: '', current_source: '', current_sort: 'newest', current_freeForever: '' },
-        stats: { total_courses: 0, by_source: {} },
+        stats: { total_courses: 0 },
         settings: { site_name: 'Learn Plus Courses', site_description: '', courses_per_page: 12 },
         error: String(e),
       },

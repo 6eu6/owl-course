@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getCourseBySlug, getRelatedCourses } from '@/lib/mongodb';
 import { CATEGORIES } from '@/lib/translations';
+import { LogoMark } from '@/components/logo';
 import { notFound, redirect } from 'next/navigation';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || '';
@@ -131,7 +132,7 @@ export default async function CoursePage({ params }: PageProps) {
             href={SITE_URL || '/'}
             className="flex items-center gap-2 text-sm font-semibold hover:text-muted-foreground dark:hover:text-muted-foreground transition-colors"
           >
-            <span className="text-lg">🦉</span>
+            <LogoMark className="h-5 w-5" />
             <span>Learn Plus Courses</span>
           </Link>
           <Link
@@ -398,8 +399,8 @@ export default async function CoursePage({ params }: PageProps) {
       {/* Footer */}
       <footer className="border-t mt-auto">
         <div className="max-w-5xl mx-auto px-4 py-6 text-center text-xs text-muted-foreground">
-          <p>🦉 Learn Plus Courses — Free Udemy Courses Aggregator</p>
-          <p className="mt-1">Auto-updated free coupons from multiple sources</p>
+          <p>Learn Plus Courses — Free Udemy Courses</p>
+          <p className="mt-1">Fresh free coupons, updated automatically</p>
         </div>
       </footer>
     </div>

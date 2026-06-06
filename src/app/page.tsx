@@ -49,6 +49,7 @@ import {
   Gift,
 } from 'lucide-react'
 import { tx, getCat } from '@/lib/translations'
+import { LogoMark } from '@/components/logo'
 
 // ============================================
 // Types
@@ -115,26 +116,6 @@ type View = 'grid' | 'detail' | 'link'
 // Constants
 // ============================================
 
-interface SourceInfo {
-  name: string
-  color: string
-}
-
-const SOURCE_LABELS: Record<string, SourceInfo> = {
-  udemyfreebies: {
-    name: 'UdemyFreebies',
-    color: 'bg-transparent text-muted-foreground border-border',
-  },
-  studybullet: {
-    name: 'StudyBullet',
-    color: 'bg-transparent text-muted-foreground border-border',
-  },
-  manual: {
-    name: 'Manual',
-    color: 'bg-transparent text-muted-foreground border-border',
-  },
-}
-
 const PLACEHOLDER_IMG =
   'https://img-b.udemycdn.com/course/480x270/placeholder.jpg'
 
@@ -153,22 +134,6 @@ function cn(
 // ============================================
 
 type TxFn = (key: string) => string
-
-// ============================================
-// Source Badge Component
-// ============================================
-
-function SourceBadge(props: { source: string }) {
-  const info = SOURCE_LABELS[props.source] || SOURCE_LABELS.manual
-  return (
-    <Badge
-      variant="outline"
-      className={cn('text-[10px] font-medium border', info.color)}
-    >
-      {info.name}
-    </Badge>
-  )
-}
 
 // ============================================
 // Coupon Badge Component
@@ -341,7 +306,6 @@ function CourseCard(props: {
         </div>
         <div className="flex items-center justify-between pt-0.5">
           <div className="flex items-center gap-1">
-            <SourceBadge source={course.source} />
             <CouponBadge
               isFreeForever={course.isFreeForever}
               couponExpiresAt={course.couponExpiresAt}
@@ -705,7 +669,6 @@ function DetailPage(props: DetailPageProps) {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
         <div className={badgesPositionClass}>
-          <SourceBadge source={course.source} />
           <CouponBadge
             isFreeForever={course.isFreeForever}
             couponExpiresAt={course.couponExpiresAt}
@@ -775,11 +738,6 @@ function DetailPage(props: DetailPageProps) {
             value={course.lastUpdated}
           />
         )}
-        <InfoCard
-          icon={<Zap className="h-3.5 w-3.5 text-muted-foreground" />}
-          label={t('source')}
-          value={course.sourceDetail || course.source}
-        />
       </div>
 
       {/* Free forever banner */}
@@ -890,7 +848,6 @@ function DetailPage(props: DetailPageProps) {
                     <span className="text-[10px] px-1 py-0.5 rounded border bg-muted">
                       {getCat(rc.category).icon} {getCat(rc.category).name}
                     </span>
-                    <SourceBadge source={rc.source} />
                   </div>
                 </CardContent>
               </Card>
@@ -1058,7 +1015,6 @@ function LinkPage(props: LinkPageProps) {
             </span>
           )}
           <span className="flex items-center gap-1">
-            <SourceBadge source={course.source} />
           </span>
           {/* Coupon status badge */}
           <CouponBadge
@@ -1405,7 +1361,7 @@ export default function Home() {
                 <ArrowRight className={backBtnArrowClass} />
               </div>
             )}
-            <img src="/logo.png" alt="Learn Plus Courses" className="h-6 w-6 rounded" />
+            <LogoMark className="h-6 w-6" />
             <span className="font-bold text-sm tracking-tight">
               Learn<span className="text-muted-foreground"> Plus</span>
             </span>
@@ -1504,7 +1460,7 @@ export default function Home() {
       <footer className="border-t bg-card/50 mt-auto">
         <div className="max-w-5xl mx-auto px-4 py-5 flex flex-col items-center gap-2">
           <div className="flex items-center gap-1.5">
-            <img src="/logo.png" alt="Learn Plus Courses" className="h-4 w-4 rounded" />
+            <LogoMark className="h-4 w-4" />
             <span className="font-bold text-xs">
               Learn<span className="text-muted-foreground"> Plus</span>
             </span>
