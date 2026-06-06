@@ -144,8 +144,8 @@ function extractLazyImage($: cheerio.CheerioAPI, selector: string): string {
   return extractLazyImageFromElement($el);
 }
 
-function extractLazyImageFromElement($el: cheerio.CheerioElement | cheerio.Cheerio<any>): string {
-  if (!$el || !($el as any).attr) return '';
+function extractLazyImageFromElement($el: any): string {
+  if (!$el || !$el.attr) return '';
   const el = $el as cheerio.Cheerio<any>;
   const src = el.attr('src') || '';
   const dataSrc = el.attr('data-src') || '';
