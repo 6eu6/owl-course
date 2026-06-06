@@ -279,6 +279,9 @@ export async function autoPostToTelegram(
     return { posted: 0, errors: ['Telegram not configured or auto-post disabled'] };
   }
 
+  // Read custom delay from settings (default 60s)
+  const delayMs = settings.post_delay_ms ? settings.post_delay_ms : DEFAULT_POST_DELAY_MS;
+
   const unposted = await getUnpostedCourses(limit);
   const errors: string[] = [];
   let posted = 0;
@@ -305,7 +308,7 @@ export async function autoPostToTelegram(
 
     // Add delay between messages (skip delay after the last one)
     if (i < unposted.length - 1) {
-      await new Promise((resolve) => setTimeout(resolve, DEFAULT_POST_DELAY_MS));
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
   }
 

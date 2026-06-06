@@ -260,6 +260,7 @@ export interface TelegramSettingsConfig {
   auto_post: boolean;
   message_template: string;
   message_template_ar: string;
+  post_delay_ms?: number;
 }
 
 export async function getTelegramSettings(): Promise<TelegramSettingsConfig> {
