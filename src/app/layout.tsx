@@ -15,11 +15,23 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "OWL COURSE — Free Udemy Courses",
-  description: "Discover the best free Udemy courses. Automatically updated from UdemyFreebies.",
-  keywords: ["free courses", "udemy", "online learning", "free udemy courses"],
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://www.learn-plus.uk'),
+  title: "Learn Plus Courses — Free Udemy Courses",
+  description: "Discover the best free Udemy courses. Automatically updated from multiple sources.",
+  keywords: ["free courses", "udemy", "online learning", "free udemy courses", "learn plus"],
   icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    icon: [
+      { url: "/favicon.ico", sizes: "48x48" },
+      { url: "/icon-32.png", sizes: "32x32", type: "image/png" },
+    ],
+    apple: "/apple-icon.png",
+  },
+  openGraph: {
+    title: "Learn Plus Courses",
+    description: "Discover the best free Udemy courses. Automatically updated from multiple sources.",
+    siteName: "Learn Plus Courses",
+    type: "website",
+    locale: "en_US",
   },
 };
 

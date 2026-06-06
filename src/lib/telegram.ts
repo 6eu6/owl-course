@@ -327,7 +327,7 @@ export async function testTelegramConnection(
     const ok = await sendMessage(
       botToken,
       chatId,
-      '🧪 Test message from OWL COURSE\n\n✅ Connection successful!'
+      '🧪 Test message from Learn Plus Courses\n\n✅ Connection successful!'
     );
     return ok
       ? { success: true, message: 'Test message sent successfully!' }

@@ -1411,9 +1411,9 @@ export default function Home() {
                 <ArrowRight className={backBtnArrowClass} />
               </div>
             )}
-            <GraduationCap className="h-5 w-5 text-amber-600" />
+            <img src="/logo.png" alt="Learn Plus Courses" className="h-6 w-6 rounded" />
             <span className="font-bold text-sm tracking-tight">
-              OWL<span className="text-amber-600">COURSE</span>
+              Learn<span className="text-amber-600"> Plus</span>
             </span>
           </button>
 
@@ -1510,9 +1510,9 @@ export default function Home() {
       <footer className="border-t bg-card/50 mt-auto">
         <div className="max-w-5xl mx-auto px-4 py-5 flex flex-col items-center gap-2">
           <div className="flex items-center gap-1.5">
-            <GraduationCap className="h-4 w-4 text-amber-600" />
+            <img src="/logo.png" alt="Learn Plus Courses" className="h-4 w-4 rounded" />
             <span className="font-bold text-xs">
-              OWL<span className="text-amber-600">COURSE</span>
+              Learn<span className="text-amber-600"> Plus</span>
             </span>
           </div>
           <p className="text-[11px] text-muted-foreground text-center max-w-sm">

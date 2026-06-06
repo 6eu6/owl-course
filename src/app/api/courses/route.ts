@@ -18,7 +18,7 @@ export async function GET(request: Request) {
     try {
       settings = await getSiteSettings();
     } catch {
-      settings = { site_name: 'OWL COURSE', site_description: '', courses_per_page: 12 };
+      settings = { site_name: 'Learn Plus Courses', site_description: '', courses_per_page: 12 };
     }
 
     const { courses, total } = await getAllCourses({ page, limit, search, category, source, sort });
@@ -81,7 +81,7 @@ export async function GET(request: Request) {
         pagination: { page: 1, limit: 12, total: 0, total_pages: 0 },
         filters: { categories: [], current_category: '', current_search: '', current_source: '', current_sort: 'newest', current_freeForever: '' },
         stats: { total_courses: 0, by_source: {} },
-        settings: { site_name: 'OWL COURSE', site_description: '', courses_per_page: 12 },
+        settings: { site_name: 'Learn Plus Courses', site_description: '', courses_per_page: 12 },
         error: String(e),
       },
       { status: 500 }

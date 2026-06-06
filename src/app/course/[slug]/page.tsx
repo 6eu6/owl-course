@@ -20,7 +20,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const course = await getCourseBySlug(slug);
 
   if (!course) {
-    return { title: 'Course Not Found | OWL COURSE' };
+    return { title: 'Course Not Found | Learn Plus Courses' };
   }
 
   const description = (course.description || '').slice(0, 200).trim() || `Free Udemy course: ${course.title}`;
@@ -28,13 +28,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const courseUrl = `${SITE_URL}/course/${course.slug}`;
 
   return {
-    title: `${course.title} | OWL COURSE`,
+    title: `${course.title} | Learn Plus Courses`,
     description,
     openGraph: {
       title: course.title,
       description,
       url: courseUrl,
-      siteName: 'OWL COURSE',
+      siteName: 'Learn Plus Courses',
       images: [
         {
           url: imageUrl,
@@ -132,7 +132,7 @@ export default async function CoursePage({ params }: PageProps) {
             className="flex items-center gap-2 text-sm font-semibold hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
           >
             <span className="text-lg">🦉</span>
-            <span>OWL COURSE</span>
+            <span>Learn Plus Courses</span>
           </Link>
           <Link
             href={SITE_URL || '/'}
@@ -398,7 +398,7 @@ export default async function CoursePage({ params }: PageProps) {
       {/* Footer */}
       <footer className="border-t mt-auto">
         <div className="max-w-5xl mx-auto px-4 py-6 text-center text-xs text-muted-foreground">
-          <p>🦉 OWL COURSE — Free Udemy Courses Aggregator</p>
+          <p>🦉 Learn Plus Courses — Free Udemy Courses Aggregator</p>
           <p className="mt-1">Auto-updated free coupons from multiple sources</p>
         </div>
       </footer>

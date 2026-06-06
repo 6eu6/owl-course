@@ -50,7 +50,7 @@ function isAuthorized(chatId: number | string): boolean {
 
 async function handleStart(): Promise<string> {
   return (
-    `\u{1F989} <b>OWL COURSE \u2014 Admin Bot</b>\n\n` +
+    `\u{1F989} <b>Learn Plus Courses \u2014 Admin Bot</b>\n\n` +
     `\u{1F4CB} <b>Available Commands:</b>\n\n` +
     `\u{1F4CA} <b>/stats</b> \u2014 View course statistics\n\n` +
     `\u{1F504} <b>/scrape</b> \u2014 Run the scraper manually\n\n` +
@@ -102,7 +102,7 @@ async function handleStats(): Promise<string> {
       : 'Never';
 
     const msg =
-      `\u{1F4CA} <b>OWL COURSE \u2014 Statistics</b>\n\n` +
+      `\u{1F4CA} <b>Learn Plus Courses \u2014 Statistics</b>\n\n` +
       `\u{1F4DA} Total Courses: <b>${total}</b>\n` +
       `\u2705 Published: <b>${published}</b>\n` +
       `\u{1F195} New Today: <b>${newToday}</b>\n` +
@@ -767,6 +767,6 @@ export async function POST(request: Request) {
 export async function GET() {
   return NextResponse.json({
     status: 'ok',
-    message: 'OWL COURSE Admin Bot webhook endpoint',
+    message: 'Learn Plus Courses Admin Bot webhook endpoint',
   });
 }

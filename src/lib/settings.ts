@@ -1,7 +1,7 @@
 import { getAllSettings } from './mongodb';
 
 const DEFAULT_SITE_SETTINGS = {
-  site_name: 'OWL COURSE',
+  site_name: 'Learn Plus Courses',
   site_description: 'Free Online Courses Platform',
   courses_per_page: 12,
   scraper_enabled: true,
