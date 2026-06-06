@@ -20,8 +20,9 @@ export async function GET(request: Request) {
 
     console.log(`[Cron/Scrape] Starting scheduled scrape at ${new Date().toISOString()}`);
 
-    // Run scraper with default settings: 5 pages, all sources
-    const results = await runFullScrape({ pages: 5 });
+    // Run scraper with verification skipped to fit within Vercel 60s function timeout.
+    // Verification and cleanup are too slow for serverless — they need a long-running process.
+    const results = await runFullScrape({ pages: 5, skipVerification: true, skipCleanup: true });
 
     const scrapeStats = {
       totalNew: results.totalNew,

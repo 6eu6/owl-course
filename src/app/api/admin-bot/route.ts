@@ -123,10 +123,12 @@ async function handleStats(): Promise<string> {
 
 async function handleScrape(chatId: string): Promise<void> {
   try {
-    await sendAdminMessage(chatId, '\u23F3 Working... Starting scraper. This may take a few minutes.');
+    await sendAdminMessage(chatId, '\u23F3 Working... Starting scraper.');
 
     const { runFullScrape } = await import('@/lib/scraper');
-    const results = await runFullScrape({ pages: 5 });
+    // Use 3 pages to fit within Vercel 60s function timeout.
+    // Oracle cron handles the full scrape (5+ pages) separately.
+    const results = await runFullScrape({ pages: 3, skipVerification: true, skipCleanup: true });
 
     const msg =
       `\u{1F504} <b>Scraper Results</b>\n\n` +
@@ -670,8 +672,9 @@ export async function POST(request: Request) {
       }
 
       case '/scrape': {
-        handleScrape(chatId);
-        return NextResponse.json({ ok: true, message: 'Scraper started' });
+        // IMPORTANT: Must await on Vercel serverless — fire-and-forget gets killed after response
+        await handleScrape(chatId);
+        return NextResponse.json({ ok: true });
       }
 
       case '/purge':
@@ -737,13 +740,13 @@ export async function POST(request: Request) {
       }
 
       case '/broadcast': {
-        handleBroadcast(chatId, text);
-        return NextResponse.json({ ok: true, message: 'Broadcast started' });
+        await handleBroadcast(chatId, text);
+        return NextResponse.json({ ok: true });
       }
 
       case '/post': {
-        handlePost(chatId);
-        return NextResponse.json({ ok: true, message: 'Post started' });
+        await handlePost(chatId);
+        return NextResponse.json({ ok: true });
       }
 
       default: {

@@ -1463,7 +1463,8 @@ async function scrapeDetailPage(detailUrl: string): Promise<DetailPageData> {
 async function processUdemyFreebiesCourse(
   course: ListingCourse,
   existingUrls: Set<string>,
-  existingTitles: Set<string>
+  existingTitles: Set<string>,
+  skipVerification: boolean = false,
 ): Promise<{ saved: boolean; updated?: boolean; skipped?: string; data?: ScrapedCourseData }> {
   try {
     const normTitle = normalizeTitle(course.title);
@@ -1496,7 +1497,7 @@ async function processUdemyFreebiesCourse(
         console.log(`[Scraper] Updated coupon for existing course: "${course.title.substring(0, 40)}" → ${couponCode}`);
 
         const pageIndex = course.pageIndex ?? 99;
-        if (shouldVerifyCoupon(pageIndex, couponCode)) {
+        if (!skipVerification && shouldVerifyCoupon(pageIndex, couponCode)) {
           const verifyResult = await verifyCouponOnUdemy(couponUrl);
           if (verifyResult.verified) {
             await upsertCourseCoupon(baseUrl, {
@@ -1517,7 +1518,7 @@ async function processUdemyFreebiesCourse(
     // --- NEW COURSE ---
     const couponExpiry = estimateCouponExpiry(couponCode);
     const pageIndex = course.pageIndex ?? 99;
-    const doVerify = shouldVerifyCoupon(pageIndex, couponCode);
+    const doVerify = !skipVerification && shouldVerifyCoupon(pageIndex, couponCode);
 
     let couponVerified = false;
     let enrichment: UdemyCourseEnrichment | null = null;
@@ -1614,7 +1615,7 @@ async function processUdemyFreebiesCourse(
 // UdemyFreebies Scraper - Main Function
 // ============================================
 
-async function scrapeUdemyFreebies(maxPages: number = 5): Promise<SourceResult> {
+async function scrapeUdemyFreebies(maxPages: number = 5, skipVerification: boolean = false): Promise<SourceResult> {
   const start = Date.now();
   let newCount = 0;
   let dupCount = 0;
@@ -1660,7 +1661,7 @@ async function scrapeUdemyFreebies(maxPages: number = 5): Promise<SourceResult> 
       const batchResults: PromiseSettledResult<{ saved: boolean; updated?: boolean; skipped?: string; data?: ScrapedCourseData }>[] = [];
 
       for (const course of batch) {
-        const result = await processUdemyFreebiesCourse(course, existingUrls, existingTitles);
+        const result = await processUdemyFreebiesCourse(course, existingUrls, existingTitles, skipVerification);
         batchResults.push({ status: 'fulfilled', value: result });
       }
 
@@ -2060,6 +2061,7 @@ async function processStudyBulletCourse(
   existingUrls: Set<string>,
   existingTitles: Set<string>,
   pageIndex: number,
+  skipVerification: boolean = false,
 ): Promise<{ saved: boolean; updated?: boolean; skipped?: string; data?: ScrapedCourseData }> {
   try {
     const normTitle = normalizeTitle(listing.title);
@@ -2094,7 +2096,7 @@ async function processStudyBulletCourse(
       if (upsertResult.updated) {
         console.log(`[Scraper/StudyBullet] Updated coupon for existing course: "${detail.title.substring(0, 40)}" → ${couponCode}`);
 
-        if (shouldVerifyCoupon(pageIndex, couponCode)) {
+        if (!skipVerification && shouldVerifyCoupon(pageIndex, couponCode)) {
           const verifyResult = await verifyCouponOnUdemy(couponUrl);
           if (verifyResult.verified) {
             await upsertCourseCoupon(baseUrl, {
@@ -2114,7 +2116,7 @@ async function processStudyBulletCourse(
 
     // --- NEW COURSE ---
     const couponExpiry = estimateCouponExpiry(couponCode);
-    const doVerify = shouldVerifyCoupon(pageIndex, couponCode);
+    const doVerify = !skipVerification && shouldVerifyCoupon(pageIndex, couponCode);
 
     let couponVerified = false;
     let enrichment: UdemyCourseEnrichment | null = null;
@@ -2190,7 +2192,7 @@ async function processStudyBulletCourse(
  * Main StudyBullet scraper function.
  * Scrapes listing pages, fetches detail pages for coupon extraction, verifies, and saves.
  */
-async function scrapeStudyBullet(maxPages: number = 5): Promise<SourceResult> {
+async function scrapeStudyBullet(maxPages: number = 5, skipVerification: boolean = false): Promise<SourceResult> {
   const start = Date.now();
   let newCount = 0;
   let dupCount = 0;
@@ -2251,7 +2253,7 @@ async function scrapeStudyBullet(maxPages: number = 5): Promise<SourceResult> {
       const batchNum = Math.floor(i / 5) + 1;
 
       try {
-        const result = await processStudyBulletCourse(listing, existingUrls, existingTitles, Math.floor(i / 21));
+        const result = await processStudyBulletCourse(listing, existingUrls, existingTitles, Math.floor(i / 21), skipVerification);
 
         if (result.saved) {
           newCount++;
@@ -2377,16 +2379,20 @@ function makeEmptySourceResult(source: string): SourceResult {
  *   4. removeOldExpiredCourses() — removes courses with coupons expired >7 days ago
  */
 export async function runFullScrape(
-  arg?: string[] | { pages?: number; sources?: string[] }
+  arg?: string[] | { pages?: number; sources?: string[]; skipVerification?: boolean; skipCleanup?: boolean }
 ): Promise<ScrapeResult> {
   // Normalize arguments: handle both call signatures
-  const opts: { pages: number; sources?: string[] } = typeof arg === 'object' && !Array.isArray(arg)
-    ? { pages: arg.pages ?? 5, sources: arg.sources }
-    : { pages: 5, sources: Array.isArray(arg) ? arg : undefined };
+  const rawOpts = typeof arg === 'object' && !Array.isArray(arg) ? arg : { sources: Array.isArray(arg) ? arg : undefined };
+  const opts = {
+    pages: rawOpts.pages ?? 5,
+    sources: rawOpts.sources,
+    skipVerification: rawOpts.skipVerification ?? false,
+    skipCleanup: rawOpts.skipCleanup ?? false,
+  };
 
   const pages = Math.min(Math.max(opts.pages, 1), 20);
 
-  console.log(`[Scraper] Starting full scrape: ${pages} pages, sources: ${opts.sources?.join(', ') || 'all'}`);
+  console.log(`[Scraper] Starting full scrape: ${pages} pages, sources: ${opts.sources?.join(', ') || 'all'}, skipVerification: ${opts.skipVerification}, skipCleanup: ${opts.skipCleanup}`);
 
   let udemyfreebiesResult: SourceResult = makeEmptySourceResult('udemyfreebies');
   let studybulletResult: SourceResult = makeEmptySourceResult('studybullet');
@@ -2399,7 +2405,7 @@ export async function runFullScrape(
   // --- Source 1: UdemyFreebies ---
   if (shouldRunUdemyFreebies) {
     try {
-      udemyfreebiesResult = await scrapeUdemyFreebies(pages);
+      udemyfreebiesResult = await scrapeUdemyFreebies(pages, opts.skipVerification);
     } catch (err) {
       console.error('[Scraper] UdemyFreebies scrape failed:', err);
       udemyfreebiesResult = {
@@ -2420,7 +2426,7 @@ export async function runFullScrape(
   // --- Source 2: StudyBullet ---
   if (shouldRunStudyBullet) {
     try {
-      studybulletResult = await scrapeStudyBullet(pages);
+      studybulletResult = await scrapeStudyBullet(pages, opts.skipVerification);
     } catch (err) {
       console.error('[Scraper] StudyBullet scrape failed:', err);
       studybulletResult = {
@@ -2440,48 +2446,53 @@ export async function runFullScrape(
 
   // ============================================
   // Post-Scrape Cleanup & Verification
+  // Skip when called from Vercel serverless (60s timeout) — cleanup runs separately via cron
   // ============================================
 
-  const allNewCourses = [
-    ...udemyfreebiesResult.courses,
-    ...studybulletResult.courses,
-  ];
+  if (!opts.skipCleanup) {
+    const allNewCourses = [
+      ...udemyfreebiesResult.courses,
+      ...studybulletResult.courses,
+    ];
 
-  // 1. Post-scrape verification sweep: re-verify newly added courses
-  if (allNewCourses.length > 0) {
-    try {
-      console.log(`[Scraper] Running post-scrape verification sweep on ${allNewCourses.length} newly added courses...`);
-      await postScrapeVerificationSweep(allNewCourses);
-    } catch (err) {
-      console.error('[Scraper] Post-scrape verification sweep failed:', err);
+    // 1. Post-scrape verification sweep: re-verify newly added courses
+    if (!opts.skipVerification && allNewCourses.length > 0) {
+      try {
+        console.log(`[Scraper] Running post-scrape verification sweep on ${allNewCourses.length} newly added courses...`);
+        await postScrapeVerificationSweep(allNewCourses);
+      } catch (err) {
+        console.error('[Scraper] Post-scrape verification sweep failed:', err);
+      }
     }
-  }
 
-  // 2. Cleanup invalid courses (bad coupons, fake free-forever, duplicates)
-  try {
-    console.log(`[Scraper] Running cleanupInvalidCourses()...`);
-    const cleanupResult = await cleanupInvalidCourses();
-    console.log(`[Scraper] Cleanup removed ${cleanupResult.totalRemoved} invalid courses`);
-  } catch (err) {
-    console.error('[Scraper] cleanupInvalidCourses failed:', err);
-  }
+    // 2. Cleanup invalid courses (bad coupons, fake free-forever, duplicates)
+    try {
+      console.log(`[Scraper] Running cleanupInvalidCourses()...`);
+      const cleanupResult = await cleanupInvalidCourses();
+      console.log(`[Scraper] Cleanup removed ${cleanupResult.totalRemoved} invalid courses`);
+    } catch (err) {
+      console.error('[Scraper] cleanupInvalidCourses failed:', err);
+    }
 
-  // 3. Cleanup title-based duplicates
-  try {
-    console.log(`[Scraper] Running cleanupDuplicates()...`);
-    const dupResult = await cleanupDuplicates();
-    console.log(`[Scraper] Duplicate cleanup removed ${dupResult.removed} courses`);
-  } catch (err) {
-    console.error('[Scraper] cleanupDuplicates failed:', err);
-  }
+    // 3. Cleanup title-based duplicates
+    try {
+      console.log(`[Scraper] Running cleanupDuplicates()...`);
+      const dupResult = await cleanupDuplicates();
+      console.log(`[Scraper] Duplicate cleanup removed ${dupResult.removed} courses`);
+    } catch (err) {
+      console.error('[Scraper] cleanupDuplicates failed:', err);
+    }
 
-  // 4. Remove courses older than 7 days with expired coupons
-  try {
-    console.log(`[Scraper] Removing old expired courses (>7 days)...`);
-    const oldResult = await removeOldExpiredCourses();
-    console.log(`[Scraper] Removed ${oldResult.removed} old expired courses`);
-  } catch (err) {
-    console.error('[Scraper] removeOldExpiredCourses failed:', err);
+    // 4. Remove courses older than 7 days with expired coupons
+    try {
+      console.log(`[Scraper] Removing old expired courses (>7 days)...`);
+      const oldResult = await removeOldExpiredCourses();
+      console.log(`[Scraper] Removed ${oldResult.removed} old expired courses`);
+    } catch (err) {
+      console.error('[Scraper] removeOldExpiredCourses failed:', err);
+    }
+  } else {
+    console.log(`[Scraper] Skipping post-scrape cleanup (skipCleanup=true)`);
   }
 
   // ============================================
