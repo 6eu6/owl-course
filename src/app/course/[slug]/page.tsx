@@ -158,7 +158,7 @@ export default async function CoursePage({ params }: PageProps) {
         {course.description && (
           <div className="p-4 rounded-lg border bg-card">
             <h3 className="text-xs font-semibold mb-2">Description</h3>
-            <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">{course.description}</p>
+            <BulletList text={course.description} />
           </div>
         )}
         {course.whatLearn && (
