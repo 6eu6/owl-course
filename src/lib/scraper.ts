@@ -6,7 +6,7 @@ import {
   upsertCourseCoupon,
   cleanupInvalidCourses,
   type ScraperLogEntry,
-} from './mongodb';
+} from './queries';
 
 // ============================================
 // Types

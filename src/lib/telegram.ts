@@ -1,4 +1,4 @@
-import { getTelegramSettings, getUnpostedCourses, markCourseTelegramPosted, logTelegramMessage } from './mongodb';
+import { getTelegramSettings, getUnpostedCourses, markCourseTelegramPosted, logTelegramMessage } from './queries';
 import { DEFAULT_TEMPLATES } from './templates';
 
 const TELEGRAM_API = 'https://api.telegram.org';

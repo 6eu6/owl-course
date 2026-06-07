@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAllCourses, getAllCategories, countCourses } from '@/lib/mongodb';
+import { getAllCourses, getAllCategories, countCourses } from '@/lib/queries';
 import { getSiteSettings } from '@/lib/settings';
 
 // GET /api/courses - List courses with pagination, filtering, search

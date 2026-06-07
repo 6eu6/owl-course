@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { getCourseBySlug, getRelatedCourses } from '@/lib/mongodb';
+import { getCourseBySlug, getRelatedCourses } from '@/lib/queries';
 import { CATEGORIES } from '@/lib/translations';
 import { LogoMark } from '@/components/logo';
 import { CourseImage } from '@/components/course-image';

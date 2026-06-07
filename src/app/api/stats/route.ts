@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { countCourses, countCoursesBySource, countNewToday, getLastScrapeTime } from '@/lib/mongodb';
+import { countCourses, countCoursesBySource, countNewToday, getLastScrapeTime } from '@/lib/queries';
 import { db } from '@/lib/db';
 
 // GET /api/stats - Dashboard statistics

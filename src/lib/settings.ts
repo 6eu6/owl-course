@@ -1,4 +1,4 @@
-import { getAllSettings } from './mongodb';
+import { getAllSettings } from './queries';
 
 const DEFAULT_SITE_SETTINGS = {
   site_name: 'Learn Plus Courses',

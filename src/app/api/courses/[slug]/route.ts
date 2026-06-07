@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getCourseBySlug, getRelatedCourses, updateCourse } from '@/lib/mongodb';
+import { getCourseBySlug, getRelatedCourses, updateCourse } from '@/lib/queries';
 
 // GET /api/courses/[slug] - Get single course by slug
 export async function GET(

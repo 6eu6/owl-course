@@ -80,12 +80,12 @@ function isAuthorized(chatId: number | string): boolean {
 // --------------------------------------------------------------------
 
 async function setState(chatId: string, action: string, extra?: string): Promise<void> {
-  const { setSetting } = await import('@/lib/mongodb');
+  const { setSetting } = await import('@/lib/queries');
   await setSetting(`botstate:${chatId}`, JSON.stringify({ action, extra: extra || '', ts: Date.now() }));
 }
 
 async function getState(chatId: string): Promise<{ action: string; extra: string } | null> {
-  const { getSetting } = await import('@/lib/mongodb');
+  const { getSetting } = await import('@/lib/queries');
   const raw = await getSetting(`botstate:${chatId}`);
   if (!raw) return null;
   try {
@@ -98,7 +98,7 @@ async function getState(chatId: string): Promise<{ action: string; extra: string
 }
 
 async function clearState(chatId: string): Promise<void> {
-  const { setSetting } = await import('@/lib/mongodb');
+  const { setSetting } = await import('@/lib/queries');
   await setSetting(`botstate:${chatId}`, '');
 }
 
@@ -131,7 +131,7 @@ function viewMain(): { text: string; keyboard: Keyboard } {
 }
 
 async function viewStats(): Promise<{ text: string; keyboard: Keyboard }> {
-  const { countCourses, countNewToday, getLastScrapeTime, countCoursesBySource } = await import('@/lib/mongodb');
+  const { countCourses, countNewToday, getLastScrapeTime, countCoursesBySource } = await import('@/lib/queries');
   const [total, published, bySource, newToday, last] = await Promise.all([
     countCourses({}),
     countCourses({ isPublished: true }),
@@ -190,7 +190,7 @@ function viewClean(): { text: string; keyboard: Keyboard } {
 }
 
 async function viewChannels(): Promise<{ text: string; keyboard: Keyboard }> {
-  const { getTelegramSettings } = await import('@/lib/mongodb');
+  const { getTelegramSettings } = await import('@/lib/queries');
   const s = await getTelegramSettings();
   const channels = s.channels || [];
   const rows: Btn[][] = [];
@@ -213,7 +213,7 @@ async function viewChannels(): Promise<{ text: string; keyboard: Keyboard }> {
 }
 
 async function viewPosting(): Promise<{ text: string; keyboard: Keyboard }> {
-  const { getTelegramSettings } = await import('@/lib/mongodb');
+  const { getTelegramSettings } = await import('@/lib/queries');
   const s = await getTelegramSettings();
   const delay = s.post_delay_ms ? Math.round(s.post_delay_ms / 1000) : 60;
   return {
@@ -234,7 +234,7 @@ async function viewPosting(): Promise<{ text: string; keyboard: Keyboard }> {
 }
 
 async function viewTemplates(): Promise<{ text: string; keyboard: Keyboard }> {
-  const { getTelegramSettings } = await import('@/lib/mongodb');
+  const { getTelegramSettings } = await import('@/lib/queries');
   const s = await getTelegramSettings();
   return {
     text:
@@ -295,7 +295,7 @@ async function runScrape(chatId: string, pages: number, which: 'all' | 'uf' | 's
 }
 
 async function postNow(chatId: string) {
-  const { getUnpostedCourses, getTelegramSettings, markCourseTelegramPosted, logTelegramMessage } = await import('@/lib/mongodb');
+  const { getUnpostedCourses, getTelegramSettings, markCourseTelegramPosted, logTelegramMessage } = await import('@/lib/queries');
   const { postCourseToTelegram } = await import('@/lib/telegram');
   const settings = await getTelegramSettings();
   const token = process.env.TELEGRAM_BOT_TOKEN || settings.bot_token;
@@ -337,7 +337,7 @@ async function postNow(chatId: string) {
 }
 
 async function broadcast(chatId: string, msg: string) {
-  const { getTelegramSettings } = await import('@/lib/mongodb');
+  const { getTelegramSettings } = await import('@/lib/queries');
   const settings = await getTelegramSettings();
   const token = process.env.TELEGRAM_BOT_TOKEN || settings.bot_token;
   const channels = (settings.channels || []).filter((c) => c.active && c.id);
@@ -360,7 +360,7 @@ async function broadcast(chatId: string, msg: string) {
 // --------------------------------------------------------------------
 
 async function handleCallback(chatId: string, messageId: number, data: string, cbId: string) {
-  const { getTelegramSettings, saveTelegramSettings, cleanupInvalidCourses, purgeAllCourses } = await import('@/lib/mongodb');
+  const { getTelegramSettings, saveTelegramSettings, cleanupInvalidCourses, purgeAllCourses } = await import('@/lib/queries');
 
   // Navigation
   if (data === 'nav:main') { await answerCallback(cbId); const v = viewMain(); return editMessage(chatId, messageId, v.text, v.keyboard); }
@@ -502,7 +502,7 @@ function promptText(action: string): string {
 // --------------------------------------------------------------------
 
 async function processInput(chatId: string, action: string, text: string) {
-  const { getTelegramSettings, saveTelegramSettings, setSetting } = await import('@/lib/mongodb');
+  const { getTelegramSettings, saveTelegramSettings, setSetting } = await import('@/lib/queries');
   await clearState(chatId);
 
   if (action === 'bcast') { await broadcast(chatId, text); return; }
