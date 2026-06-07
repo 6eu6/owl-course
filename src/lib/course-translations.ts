@@ -28,6 +28,18 @@ function clean(value: unknown): string {
   return String(value ?? '').replace(/\r/g, '\n').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim()
 }
 
+// Some providers wrap JSON in ```json fences or add stray prose. Pull out the
+// first balanced-looking JSON object so JSON.parse succeeds across providers.
+function extractJson(content: string): string {
+  const text = String(content || '').trim()
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i)
+  const body = fenced ? fenced[1].trim() : text
+  const start = body.indexOf('{')
+  const end = body.lastIndexOf('}')
+  if (start !== -1 && end !== -1 && end > start) return body.slice(start, end + 1)
+  return body || '{}'
+}
+
 function originalPayload(course: CourseLike): TranslationPayload {
   return {
     title: clean(course.title),
@@ -98,6 +110,10 @@ async function translateWithModel(course: CourseLike): Promise<TranslationPayloa
   const apiKey = process.env.TRANSLATION_API_KEY || process.env.OPENAI_API_KEY || ''
   if (!apiKey) throw new Error('Missing TRANSLATION_API_KEY or OPENAI_API_KEY')
 
+  // Works with any OpenAI-compatible chat/completions endpoint. Defaults to
+  // OpenAI but can point at a free provider (e.g. Groq, Google Gemini's
+  // OpenAI-compatible endpoint, or OpenRouter) via TRANSLATION_API_URL.
+  const apiUrl = process.env.TRANSLATION_API_URL || 'https://api.openai.com/v1/chat/completions'
   const model = process.env.TRANSLATION_MODEL || 'gpt-4o-mini'
   const input = originalPayload(course)
 
@@ -114,7 +130,7 @@ async function translateWithModel(course: CourseLike): Promise<TranslationPayloa
     JSON.stringify(input),
   ].join('\n')
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  const response = await fetch(apiUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -135,7 +151,7 @@ async function translateWithModel(course: CourseLike): Promise<TranslationPayloa
   if (!response.ok) throw new Error(`Translation API failed: ${response.status}`)
   const json = await response.json()
   const content = json?.choices?.[0]?.message?.content || '{}'
-  const parsed = JSON.parse(content)
+  const parsed = JSON.parse(extractJson(content))
 
   return {
     title: clean(parsed.title) || input.title,
