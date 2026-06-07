@@ -2,8 +2,9 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getCourseBySlug, getRelatedCourses } from '@/lib/queries';
 import { CATEGORIES } from '@/lib/translations';
-import { LogoMark } from '@/components/logo';
+import { SiteHeader, SiteFooter } from '@/components/site-chrome';
 import { CourseImage } from '@/components/course-image';
+import { BulletList } from '@/components/bullet-list';
 import { TimedReveal } from '@/components/timed-reveal';
 import { ShareButtons } from '@/components/share-buttons';
 import { notFound } from 'next/navigation';
@@ -124,23 +125,7 @@ export default async function CoursePage({ params }: PageProps) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       {/* Header / Nav */}
-      <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-sm">
-        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-          <Link
-            href={SITE_URL || '/'}
-            className="flex items-center gap-2 text-sm font-semibold hover:text-muted-foreground dark:hover:text-muted-foreground transition-colors"
-          >
-            <LogoMark className="h-5 w-5" />
-            <span>Learn Plus Courses</span>
-          </Link>
-          <Link
-            href={SITE_URL || '/'}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            ← Back to Home
-          </Link>
-        </div>
-      </header>
+      <SiteHeader backHref="/" backLabel="Home" />
 
       {/* Main Content */}
       <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
@@ -241,23 +226,6 @@ export default async function CoursePage({ params }: PageProps) {
           </div>
         )}
 
-        {/* Step 1: prepare access (10s) → continue to the enroll page, then share */}
-        <div className="space-y-3">
-          <div className="p-4 rounded-lg border bg-card text-center space-y-1">
-            <h2 className="font-bold text-sm">Get this course for free</h2>
-            <p className="text-[11px] text-muted-foreground">
-              We are preparing your free access — the button appears in a few seconds.
-            </p>
-          </div>
-          <TimedReveal
-            seconds={10}
-            loadingText="Loading your course…"
-            buttonText="Continue to the course →"
-            href={`/course/${course.slug}/enroll`}
-          />
-          <ShareButtons url={`${SITE_URL}/course/${course.slug}`} title={course.title} />
-        </div>
-
         {/* Description */}
         {course.description && (
           <div className="p-4 rounded-lg border bg-card">
@@ -276,9 +244,7 @@ export default async function CoursePage({ params }: PageProps) {
             <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
               <span className="text-muted-foreground">🎯</span> What You&apos;ll Learn
             </h3>
-            <div className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">
-              {course.whatLearn}
-            </div>
+            <BulletList text={course.whatLearn} />
           </div>
         )}
 
@@ -288,9 +254,7 @@ export default async function CoursePage({ params }: PageProps) {
             <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
               <span className="text-muted-foreground">⚠️</span> Requirements
             </h3>
-            <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">
-              {course.requirements}
-            </p>
+            <BulletList text={course.requirements} />
           </div>
         )}
 
@@ -300,9 +264,7 @@ export default async function CoursePage({ params }: PageProps) {
             <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
               <span className="text-muted-foreground">👥</span> Who This Course Is For
             </h3>
-            <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">
-              {course.whoFor}
-            </p>
+            <BulletList text={course.whoFor} />
           </div>
         )}
 
@@ -323,6 +285,23 @@ export default async function CoursePage({ params }: PageProps) {
               Free access is time-limited. If a course is no longer free when you reach it, please check back later — the catalogue updates regularly.
             </p>
           </div>
+        </div>
+
+        {/* Primary action — placed after the course info, with share */}
+        <div className="space-y-3">
+          <div className="p-4 rounded-lg border bg-card text-center space-y-1">
+            <h2 className="font-bold text-sm">Get this course for free</h2>
+            <p className="text-[11px] text-muted-foreground">
+              We are preparing your free access — the button appears in a few seconds.
+            </p>
+          </div>
+          <TimedReveal
+            seconds={10}
+            loadingText="Loading your course…"
+            buttonText="Continue to the course →"
+            href={`/course/${course.slug}/enroll`}
+          />
+          <ShareButtons url={`${SITE_URL}/course/${course.slug}`} title={course.title} />
         </div>
 
         {/* Related Courses */}
@@ -370,28 +349,18 @@ export default async function CoursePage({ params }: PageProps) {
           </div>
         )}
 
-        {/* Back to Home */}
+        {/* Back to all courses */}
         <div className="text-center pt-4 pb-8">
           <Link
-            href={SITE_URL || '/'}
+            href="/"
             className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
-            ← Browse All Free Courses
+            Browse all free courses →
           </Link>
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t mt-auto">
-        <div className="max-w-5xl mx-auto px-4 py-6 text-center text-xs text-muted-foreground space-y-2">
-          <p>Learn Plus Courses — Free Udemy Courses</p>
-          <div className="space-x-3">
-            <Link href="/about" className="hover:text-foreground">About</Link>
-            <Link href="/privacy" className="hover:text-foreground">Privacy</Link>
-            <Link href="/terms" className="hover:text-foreground">Terms</Link>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

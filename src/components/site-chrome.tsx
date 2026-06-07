@@ -1,7 +1,9 @@
 import Link from 'next/link'
+import { ArrowRight } from 'lucide-react'
 import { LogoMark } from '@/components/logo'
+import { ThemeToggle } from '@/components/theme-toggle'
 
-export function SiteHeader() {
+export function SiteHeader({ backHref = '/', backLabel = 'Home' }: { backHref?: string; backLabel?: string }) {
   return (
     <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-sm">
       <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
@@ -9,9 +11,16 @@ export function SiteHeader() {
           <LogoMark className="h-5 w-5" />
           <span>Learn Plus Courses</span>
         </Link>
-        <Link href="/" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-          ← Home
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href={backHref}
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {backLabel}
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+          <ThemeToggle />
+        </div>
       </div>
     </header>
   )

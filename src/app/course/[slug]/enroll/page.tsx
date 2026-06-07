@@ -3,11 +3,11 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getCourseBySlug } from '@/lib/queries'
 import { buildUdemyUrl } from '@/lib/course-url'
-import { LogoMark } from '@/components/logo'
 import { CourseImage } from '@/components/course-image'
 import { TimedReveal } from '@/components/timed-reveal'
+import { BulletList } from '@/components/bullet-list'
+import { SiteHeader, SiteFooter } from '@/components/site-chrome'
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || ''
 const PLACEHOLDER_IMG = 'https://img-b.udemycdn.com/course/480x270/placeholder.jpg'
 
 interface PageProps {
@@ -35,20 +35,7 @@ export default async function EnrollPage({ params }: PageProps) {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
-      <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-sm">
-        <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 text-sm font-semibold">
-            <LogoMark className="h-5 w-5" />
-            <span>Learn Plus Courses</span>
-          </Link>
-          <Link
-            href={`/course/${slug}`}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            ← Course details
-          </Link>
-        </div>
-      </header>
+      <SiteHeader backHref={`/course/${slug}`} backLabel="Course details" />
 
       <main className="max-w-3xl mx-auto w-full px-4 py-6 space-y-5">
         <div className="relative aspect-[16/7] bg-muted rounded-xl overflow-hidden">
@@ -68,18 +55,10 @@ export default async function EnrollPage({ params }: PageProps) {
         <div className="rounded-lg border bg-card p-4 text-center space-y-1">
           <h2 className="font-bold text-sm">You are almost there</h2>
           <p className="text-[11px] text-muted-foreground">
-            We are generating your free enrollment link. It opens directly on Udemy with the
-            discount already applied — no code to enter.
+            Read the details below while we generate your free enrollment link — it opens directly
+            on Udemy with the discount already applied, no code to enter.
           </p>
         </div>
-
-        <TimedReveal
-          seconds={25}
-          loadingText="Preparing your free course link…"
-          buttonText="🚀 Start the course on Udemy →"
-          href={udemyUrl}
-          external
-        />
 
         {/* More info to read while the link is being prepared */}
         {course.description && (
@@ -93,28 +72,32 @@ export default async function EnrollPage({ params }: PageProps) {
         {course.whatLearn && (
           <section className="p-4 rounded-lg border bg-card">
             <h3 className="text-xs font-semibold mb-2">What you&apos;ll learn</h3>
-            <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">
-              {course.whatLearn}
-            </p>
+            <BulletList text={course.whatLearn} />
           </section>
         )}
         {course.requirements && (
           <section className="p-4 rounded-lg border bg-card">
             <h3 className="text-xs font-semibold mb-2">Requirements</h3>
-            <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">
-              {course.requirements}
-            </p>
+            <BulletList text={course.requirements} />
           </section>
         )}
+
+        {/* Final action — placed after the info */}
+        <TimedReveal
+          seconds={25}
+          loadingText="Preparing your free course link…"
+          buttonText="🚀 Start the course on Udemy →"
+          href={udemyUrl}
+          external
+        />
+        <div className="text-center pb-4">
+          <Link href={`/course/${slug}`} className="text-xs text-muted-foreground hover:text-foreground">
+            Back to course details →
+          </Link>
+        </div>
       </main>
 
-      <footer className="border-t mt-auto">
-        <div className="max-w-3xl mx-auto px-4 py-6 text-center text-xs text-muted-foreground space-x-3">
-          <Link href="/about" className="hover:text-foreground">About</Link>
-          <Link href="/privacy" className="hover:text-foreground">Privacy</Link>
-          <Link href="/terms" className="hover:text-foreground">Terms</Link>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   )
 }
