@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { runFullScrape } from '@/lib/scraper';
 import { autoPostToTelegram } from '@/lib/telegram';
+import { getTelegramSettings, getUnpostedCourses } from '@/lib/queries';
 
-// GET /api/cron/scrape - Vercel Cron endpoint (runs every 4 hours)
+// GET /api/cron/scrape - scheduled scrape endpoint triggered by Oracle VM or cron
 // Protected by CRON_SECRET or ADMIN_PASSWORD env variable
 export async function GET(request: Request) {
   try {
@@ -47,25 +48,39 @@ export async function GET(request: Request) {
       },
     };
 
-    // Auto-post new courses to Telegram if enabled
-    let telegramStats: { posted: number; errors: string[] } | null = null;
-    if (results.totalNew > 0) {
-      try {
+    // Auto-post any published courses that are still not posted.
+    // This is not limited to results.totalNew, so Oracle VM can recover pending courses
+    // from previous scrape runs. The delay between messages is read from post_delay_ms.
+    let telegramStats: { posted: number; errors: string[]; skipped?: string; pending?: number } | null = null;
+    try {
+      const settings = await getTelegramSettings();
+      const token = process.env.TELEGRAM_BOT_TOKEN || settings.bot_token;
+      const activeChannels = (settings.channels || []).filter((c) => c.active && c.id);
+      const pendingCourses = await getUnpostedCourses(10);
+
+      if (!settings.auto_post) {
+        telegramStats = { posted: 0, errors: [], skipped: 'auto-post disabled', pending: pendingCourses.length };
+      } else if (!token) {
+        telegramStats = { posted: 0, errors: ['TELEGRAM_BOT_TOKEN is not set'], pending: pendingCourses.length };
+      } else if (activeChannels.length === 0) {
+        telegramStats = { posted: 0, errors: ['no active Telegram channels'], pending: pendingCourses.length };
+      } else if (pendingCourses.length === 0) {
+        telegramStats = { posted: 0, errors: [], skipped: 'no unposted courses', pending: 0 };
+      } else {
         telegramStats = await autoPostToTelegram(10);
+        telegramStats.pending = pendingCourses.length;
         console.log(`[Cron/Scrape] Telegram auto-post: ${telegramStats.posted} posted`);
-      } catch (tgErr) {
-        console.error('[Cron/Scrape] Telegram auto-post failed:', tgErr);
-        telegramStats = { posted: 0, errors: [String(tgErr)] };
       }
+    } catch (tgErr) {
+      console.error('[Cron/Scrape] Telegram auto-post failed:', tgErr);
+      telegramStats = { posted: 0, errors: [String(tgErr)] };
     }
 
     return NextResponse.json({
       success: true,
       message: `Cron scrape complete: ${results.totalNew} new courses in ${scrapeStats.totalDuration}s`,
       scraped: scrapeStats,
-      telegram: telegramStats
-        ? { posted: telegramStats.posted, errors: telegramStats.errors }
-        : null,
+      telegram: telegramStats,
       timestamp: new Date().toISOString(),
     });
   } catch (e) {
