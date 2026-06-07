@@ -161,7 +161,8 @@
   margin: 1.25rem auto 0;
   border-radius: 1rem;
   background-image: url('/learn-plus-hero.svg');
-  background-size: cover;
+  background-repeat: no-repeat;
+  background-size: contain;
   background-position: center;
   box-shadow: 0 16px 40px rgb(15 23 42 / 0.14);
 }
@@ -169,9 +170,13 @@
 @media (max-width: 640px) {
   .view-enter::before {
     width: calc(100% - 1.5rem);
-    aspect-ratio: 1.45 / 1;
+    max-width: 26.25rem;
+    aspect-ratio: 420 / 560;
     margin-top: 1rem;
-    border-radius: 0.85rem;
+    border-radius: 1rem;
+    background-image: url('/learn-plus-hero-mobile.svg');
+    background-size: contain;
+    background-position: center;
   }
 }
 
