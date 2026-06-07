@@ -6,21 +6,22 @@ import { ThemeToggle } from '@/components/theme-toggle'
 export function SiteHeader({ backHref = '/', backLabel = 'Home' }: { backHref?: string; backLabel?: string }) {
   return (
     <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-sm">
-      <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2 text-sm font-semibold">
-          <LogoMark className="h-5 w-5" />
-          <span>Learn Plus Courses</span>
-        </Link>
-        <div className="flex items-center gap-2">
+      <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
           <Link
             href={backHref}
-            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md border px-2 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
-            {backLabel}
             <ArrowRight className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">{backLabel}</span>
+            <span className="sm:hidden">Back</span>
           </Link>
-          <ThemeToggle />
+          <Link href="/" className="flex min-w-0 items-center gap-2 text-sm font-semibold">
+            <LogoMark className="h-5 w-5 shrink-0" />
+            <span className="truncate">Learn Plus Courses</span>
+          </Link>
         </div>
+        <ThemeToggle />
       </div>
     </header>
   )
@@ -35,7 +36,7 @@ export function SiteFooter() {
           <Link href="/privacy" className="hover:text-foreground">Privacy</Link>
           <Link href="/terms" className="hover:text-foreground">Terms</Link>
         </div>
-        <p>© {new Date().getFullYear()} Learn Plus Courses — Free Udemy Courses</p>
+        <p>© {new Date().getFullYear()} Learn Plus Courses. Free Udemy Courses</p>
       </div>
     </footer>
   )
