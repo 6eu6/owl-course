@@ -46,7 +46,7 @@ export function ReportBrokenLinkButton({
       className="flex w-full items-center justify-center gap-2 rounded-lg bg-red-600 px-6 py-3.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70"
       aria-live="polite"
     >
-      {status === 'sending' ? '⏳' : status === 'sent' ? '✅' : '🚨'}
+      {status === 'sending' ? '⏳' : status === 'sent' ? '✅' : null}
       {label}
     </button>
   )
