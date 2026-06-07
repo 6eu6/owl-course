@@ -221,7 +221,7 @@ export default async function CoursePage({ params }: PageProps) {
           <div className="flex items-center gap-2 p-3 rounded-lg bg-muted dark:bg-muted border border-border dark:border-border">
             <span className="text-xl shrink-0">♾️</span>
             <p className="text-xs text-muted-foreground dark:text-muted-foreground font-medium">
-              This course is free forever — you keep it for life after enrolling
+              This course is free forever. You keep it for life after enrolling.
             </p>
           </div>
         )}
@@ -276,29 +276,29 @@ export default async function CoursePage({ params }: PageProps) {
           <div className="flex items-start gap-2 text-[11px] text-muted-foreground">
             <span className="text-muted-foreground shrink-0">✓</span>
             <p className="leading-relaxed">
-              Once you start the course for free, it stays in your account forever — you keep lifetime access.
+              Once you start the course for free, it stays in your account forever. You keep lifetime access.
             </p>
           </div>
           <div className="flex items-start gap-2 text-[11px] text-muted-foreground">
             <span className="text-muted-foreground shrink-0">⚠</span>
             <p className="leading-relaxed">
-              Free access is time-limited. If a course is no longer free when you reach it, please check back later — the catalogue updates regularly.
+              Free access is time-limited. If a course is no longer free when you reach it, please check back later. The catalogue updates regularly.
             </p>
           </div>
         </div>
 
-        {/* Primary action — placed after the course info, with share */}
+        {/* Primary action with share */}
         <div className="space-y-3">
           <div className="p-4 rounded-lg border bg-card text-center space-y-1">
             <h2 className="font-bold text-sm">Get this course for free</h2>
             <p className="text-[11px] text-muted-foreground">
-              We are preparing your free access — the button appears in a few seconds.
+              We are preparing your free access. The button appears in a few seconds.
             </p>
           </div>
           <TimedReveal
             seconds={10}
             loadingText="Loading your course…"
-            buttonText="Continue to the course →"
+            buttonText="Continue to the course"
             href={`/course/${course.slug}/enroll`}
           />
           <ShareButtons url={`${SITE_URL}/course/${course.slug}`} title={course.title} />
@@ -355,7 +355,7 @@ export default async function CoursePage({ params }: PageProps) {
             href="/"
             className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
-            Browse all free courses →
+            Browse all free courses
           </Link>
         </div>
       </main>
