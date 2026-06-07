@@ -11,6 +11,12 @@
     "src/app/api/cron/post/route.ts": {
       "maxDuration": 60
     },
+    "src/app/api/cron/translate/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron/i18n-bootstrap/route.ts": {
+      "maxDuration": 60
+    },
     "src/app/api/admin-bot/route.ts": {
       "maxDuration": 60
     }
