@@ -36,7 +36,7 @@ export default async function EnrollPage({ params }: PageProps) {
       <SiteHeader backHref={`/course/${slug}`} backLabel="Course details" />
 
       <main className="max-w-3xl mx-auto w-full px-4 py-6 space-y-5">
-        <div className="relative aspect-[1200/560] rounded-xl border bg-card p-1 shadow-sm overflow-hidden">
+        <div className="relative aspect-[1600/746] rounded-xl border bg-card p-1 shadow-sm overflow-hidden">
           <img
             src="/enroll-guide-hero.svg"
             alt="Scroll down, wait for the course link, then press the green button"
@@ -87,7 +87,7 @@ export default async function EnrollPage({ params }: PageProps) {
         <div className="text-center pb-4">
           <Link
             href={`/course/${slug}`}
-            className="inline-flex items-center justify-center rounded-lg border border-black bg-black px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-zinc-800 dark:border-white/10 dark:bg-black dark:text-white dark:hover:bg-zinc-900"
+            className="inline-flex items-center justify-center rounded-lg border border-black bg-black px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-zinc-800 dark:border-white dark:bg-white dark:text-black dark:hover:bg-zinc-200"
           >
             Back to course details
           </Link>
