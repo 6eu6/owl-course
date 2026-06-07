@@ -1,26 +1,31 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { PrismaClient } from '@prisma/client';
 
 // =============================================================================
 // TEMPORARY i18n migration endpoint — Learn Plus Courses
 // -----------------------------------------------------------------------------
 // Creates the CourseTranslation and TelegramPost tables (+ indexes + foreign
-// keys) on the live PostgreSQL database used through DATABASE_URL, matching the
-// Prisma schema. It exists because the scheduler (Oracle) only hits HTTPS
+// keys) matching the Prisma schema. The scheduler (Oracle) only hits HTTPS
 // endpoints and cannot run Prisma, and the Vercel build only runs
 // `prisma generate` (never a schema push).
+//
+// DDL runs through MIGRATION_DATABASE_URL (a connection string for a role that
+// owns / can CREATE in the public schema), NOT the runtime DATABASE_URL, which
+// is permission-restricted (it raised 42501 "permission denied for schema
+// public"). Runtime Prisma keeps using DATABASE_URL untouched.
 //
 // It is:
 //   - Idempotent: CREATE TABLE/INDEX IF NOT EXISTS; foreign keys are added only
 //     when missing. Safe to call repeatedly.
 //   - Non-destructive: no DROP / destructive ALTER. Never touches existing rows.
 //   - Protected by CRON_SECRET (falls back to ADMIN_PASSWORD).
-//   - Secret-safe: never echoes DATABASE_URL or any env value.
+//   - Secret-safe: never echoes any connection string or env value.
 //
 // GET /api/cron/i18n-bootstrap?secret=CRON_SECRET
 //
-// TODO(i18n): remove this route once the migration has been applied in
-// production and confirmed (tables present, translate + post cron green).
+// TODO(i18n): remove this route (and MIGRATION_DATABASE_URL) once the migration
+// has been applied in production and confirmed (tables present, translate +
+// post cron green).
 // =============================================================================
 
 // Each statement is run on its own. CREATE ... IF NOT EXISTS is naturally
@@ -111,20 +116,39 @@ function isDuplicateObject(error: unknown): boolean {
 }
 
 export async function GET(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const secret = searchParams.get('secret') || '';
-    const expected = process.env.CRON_SECRET || process.env.ADMIN_PASSWORD || '';
-    if (expected && secret !== expected) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    }
+  const { searchParams } = new URL(request.url);
+  const secret = searchParams.get('secret') || '';
+  const expected = process.env.CRON_SECRET || process.env.ADMIN_PASSWORD || '';
+  if (expected && secret !== expected) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
 
+  // DDL must run through a privileged connection. The runtime DATABASE_URL is
+  // permission-restricted and cannot CREATE in the public schema.
+  const migrationUrl = process.env.MIGRATION_DATABASE_URL || '';
+  if (!migrationUrl) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'MIGRATION_DATABASE_URL is required because DATABASE_URL does not have schema permissions.',
+      },
+      { status: 400 }
+    );
+  }
+
+  // Dedicated client for the migration only. A direct (non-Accelerate) Postgres
+  // URL for an owner/admin role is expected here.
+  const migrationDb = new PrismaClient({
+    datasources: { db: { url: process.env.MIGRATION_DATABASE_URL || process.env.DATABASE_URL } },
+  });
+
+  try {
     const applied: string[] = [];
     const skipped: string[] = [];
 
     for (const stmt of STATEMENTS) {
       try {
-        await db.$executeRawUnsafe(stmt.sql);
+        await migrationDb.$executeRawUnsafe(stmt.sql);
         applied.push(stmt.label);
       } catch (e) {
         if (stmt.ignoreDuplicate && isDuplicateObject(e)) {
@@ -136,7 +160,7 @@ export async function GET(request: Request) {
     }
 
     // Confirm the tables are present (do not leak any connection details).
-    const present = await db.$queryRawUnsafe<Array<{ table_name: string }>>(
+    const present = await migrationDb.$queryRawUnsafe<Array<{ table_name: string }>>(
       `SELECT table_name FROM information_schema.tables
        WHERE table_schema = 'public'
          AND table_name IN ('CourseTranslation', 'TelegramPost')`
@@ -155,5 +179,7 @@ export async function GET(request: Request) {
     });
   } catch (e) {
     return NextResponse.json({ success: false, error: String(e) }, { status: 500 });
+  } finally {
+    await migrationDb.$disconnect();
   }
 }
