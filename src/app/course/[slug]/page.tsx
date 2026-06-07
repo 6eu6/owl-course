@@ -13,10 +13,6 @@ import { notFound } from 'next/navigation';
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || '';
 const PLACEHOLDER_IMG = 'https://img-b.udemycdn.com/course/480x270/placeholder.jpg';
 
-// ============================================
-// Metadata Generation (Server-side)
-// ============================================
-
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
@@ -42,36 +38,16 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       description,
       url: courseUrl,
       siteName: 'Learn Plus Courses',
-      images: [
-        {
-          url: imageUrl,
-          width: 750,
-          height: 422,
-          alt: course.title,
-        },
-      ],
+      images: [{ url: imageUrl, width: 750, height: 422, alt: course.title }],
       type: 'article',
     },
-    twitter: {
-      card: 'summary_large_image',
-      title: course.title,
-      description,
-      images: [imageUrl],
-    },
+    twitter: { card: 'summary_large_image', title: course.title, description, images: [imageUrl] },
   };
 }
 
-// ============================================
-// Helper: Get category info
-// ============================================
-
 function getCat(name: string): { name: string; icon: string } {
-  return CATEGORIES[name] || { name: 'Other', icon: '\u{1F4DA}' };
+  return CATEGORIES[name] || { name: 'Other', icon: '' };
 }
-
-// ============================================
-// Helper: Format number
-// ============================================
 
 function formatNumber(n: number | null | undefined): string {
   if (n == null || n === 0) return '-';
@@ -80,27 +56,16 @@ function formatNumber(n: number | null | undefined): string {
   return n.toLocaleString();
 }
 
-// ============================================
-// Course Page Component (Server Component)
-// ============================================
-
 export default async function CoursePage({ params }: PageProps) {
   const { slug } = await params;
   const course = await getCourseBySlug(slug);
 
-  if (!course) {
-    notFound();
-  }
-
-  // Only show published courses
-  if (!course.isPublished) {
-    notFound();
-  }
+  if (!course) notFound();
+  if (!course.isPublished) notFound();
 
   const related = await getRelatedCourses(course.category, slug, 4);
   const catInfo = getCat(course.category);
 
-  // Structured data (schema.org Course) for rich search results.
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Course',
@@ -110,58 +75,34 @@ export default async function CoursePage({ params }: PageProps) {
     ...(course.imageUrl ? { image: course.imageUrl } : {}),
     ...(course.language ? { inLanguage: course.language } : {}),
     provider: { '@type': 'Organization', name: 'Udemy', sameAs: 'https://www.udemy.com' },
-    offers: {
-      '@type': 'Offer',
-      price: '0',
-      priceCurrency: 'USD',
-      category: 'Free',
-      availability: 'https://schema.org/InStock',
-    },
+    offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD', category: 'Free', availability: 'https://schema.org/InStock' },
   };
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
-      {/* Header / Nav */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <SiteHeader backHref="/" backLabel="Home" />
 
-      {/* Main Content */}
       <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
-        {/* Hero Image */}
         <div className="relative aspect-[16/7] bg-muted rounded-xl overflow-hidden">
-          <CourseImage
-            src={course.imageUrl || PLACEHOLDER_IMG}
-            alt={course.title}
-            className="w-full h-full object-cover"
-          />
+          <CourseImage src={course.imageUrl || PLACEHOLDER_IMG} alt={course.title} className="w-full h-full object-cover" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-
-          {/* Badges */}
           <div className="absolute top-3 left-3 flex gap-1.5 flex-wrap">
             <span className="text-[10px] px-2 py-0.5 rounded-md border bg-white/90 dark:bg-black/60 text-foreground dark:text-white backdrop-blur-sm font-medium">
-              {catInfo.icon} {catInfo.name}
+              {catInfo.name}
             </span>
             <span className="text-[10px] px-2 py-0.5 rounded-md bg-foreground text-background font-bold">
               {course.isFreeForever ? 'FREE FOREVER' : 'FREE COUPON'}
             </span>
           </div>
-
-          {/* Title overlay */}
           <div className="absolute bottom-3 left-3 right-3">
-            <h1 className="text-white font-bold text-lg sm:text-2xl leading-tight drop-shadow-md line-clamp-2">
-              {course.title}
-            </h1>
+            <h1 className="text-white font-bold text-lg sm:text-2xl leading-tight drop-shadow-md line-clamp-2">{course.title}</h1>
           </div>
         </div>
 
-        {/* Info Cards Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {course.instructor && (
             <div className="flex items-center gap-2 p-2.5 bg-card rounded-lg border text-xs">
-              <span className="shrink-0 text-muted-foreground">\u{1F464}</span>
               <div className="min-w-0">
                 <p className="text-muted-foreground text-[10px]">Instructor</p>
                 <p className="font-medium truncate">{course.instructor}</p>
@@ -169,17 +110,13 @@ export default async function CoursePage({ params }: PageProps) {
             </div>
           )}
           <div className="flex items-center gap-2 p-2.5 bg-card rounded-lg border text-xs">
-            <span className="shrink-0 text-muted-foreground">⭐</span>
             <div className="min-w-0">
               <p className="text-muted-foreground text-[10px]">Rating</p>
-              <p className="font-medium">
-                {course.rating ? `${course.rating}/5` : '-'}
-              </p>
+              <p className="font-medium">{course.rating ? `${course.rating}/5` : '-'}</p>
             </div>
           </div>
           {course.studentsCount && course.studentsCount > 0 && (
             <div className="flex items-center gap-2 p-2.5 bg-card rounded-lg border text-xs">
-              <span className="shrink-0 text-muted-foreground">\u{1F465}</span>
               <div className="min-w-0">
                 <p className="text-muted-foreground text-[10px]">Students</p>
                 <p className="font-medium">{formatNumber(course.studentsCount)}</p>
@@ -188,7 +125,6 @@ export default async function CoursePage({ params }: PageProps) {
           )}
           {course.language && (
             <div className="flex items-center gap-2 p-2.5 bg-card rounded-lg border text-xs">
-              <span className="shrink-0 text-muted-foreground">\u{1F30D}</span>
               <div className="min-w-0">
                 <p className="text-muted-foreground text-[10px]">Language</p>
                 <p className="font-medium">{course.language}</p>
@@ -197,7 +133,6 @@ export default async function CoursePage({ params }: PageProps) {
           )}
           {course.duration && (
             <div className="flex items-center gap-2 p-2.5 bg-card rounded-lg border text-xs">
-              <span className="shrink-0 text-muted-foreground">⏱️</span>
               <div className="min-w-0">
                 <p className="text-muted-foreground text-[10px]">Duration</p>
                 <p className="font-medium">{course.duration}</p>
@@ -206,142 +141,77 @@ export default async function CoursePage({ params }: PageProps) {
           )}
           {course.originalPrice && (
             <div className="flex items-center gap-2 p-2.5 bg-card rounded-lg border text-xs">
-              <span className="shrink-0 text-muted-foreground">\u{1F3F7}️</span>
               <div className="min-w-0">
                 <p className="text-muted-foreground text-[10px]">Was</p>
-                <p className="font-medium line-through text-muted-foreground">
-                  ${course.originalPrice}
-                </p>
+                <p className="font-medium line-through text-muted-foreground">${course.originalPrice}</p>
               </div>
             </div>
           )}
         </div>
 
-        {/* Free forever banner */}
         {course.isFreeForever && (
-          <div className="flex items-center gap-2 p-3 rounded-lg bg-muted dark:bg-muted border border-border dark:border-border">
-            <span className="text-xl shrink-0">♾️</span>
-            <p className="text-xs text-muted-foreground dark:text-muted-foreground font-medium">
-              This course is free forever. You keep it for life after enrolling.
-            </p>
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-muted border border-border">
+            <p className="text-xs text-muted-foreground font-medium">This course is free forever. You keep it for life after enrolling.</p>
           </div>
         )}
 
-        {/* Description */}
         {course.description && (
           <div className="p-4 rounded-lg border bg-card">
-            <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
-              <span className="text-muted-foreground">\u{1F4D6}</span> Description
-            </h3>
-            <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">
-              {course.description}
-            </p>
+            <h3 className="text-xs font-semibold mb-2">Description</h3>
+            <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">{course.description}</p>
           </div>
         )}
-
-        {/* What You'll Learn */}
         {course.whatLearn && (
           <div className="p-4 rounded-lg border bg-card">
-            <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
-              <span className="text-muted-foreground">\u{1F3AF}</span> What You&apos;ll Learn
-            </h3>
+            <h3 className="text-xs font-semibold mb-2">What You&apos;ll Learn</h3>
             <BulletList text={course.whatLearn} />
           </div>
         )}
-
-        {/* Requirements */}
         {course.requirements && (
           <div className="p-4 rounded-lg border bg-card">
-            <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
-              <span className="text-muted-foreground">⚠️</span> Requirements
-            </h3>
+            <h3 className="text-xs font-semibold mb-2">Requirements</h3>
             <BulletList text={course.requirements} />
           </div>
         )}
-
-        {/* Who This Course Is For */}
         {course.whoFor && (
           <div className="p-4 rounded-lg border bg-card">
-            <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
-              <span className="text-muted-foreground">\u{1F465}</span> Who This Course Is For
-            </h3>
+            <h3 className="text-xs font-semibold mb-2">Who This Course Is For</h3>
             <BulletList text={course.whoFor} />
           </div>
         )}
 
-        {/* Important Notes */}
         <div className="p-4 rounded-lg border bg-card space-y-2">
-          <h3 className="text-xs font-semibold flex items-center gap-1.5">
-            <span className="text-muted-foreground">\u{1F6E1}️</span> Important Notes
-          </h3>
-          <div className="flex items-start gap-2 text-[11px] text-muted-foreground">
-            <span className="text-muted-foreground shrink-0">✓</span>
-            <p className="leading-relaxed">
-              Once you start the course for free, it stays in your account forever. You keep lifetime access.
-            </p>
-          </div>
-          <div className="flex items-start gap-2 text-[11px] text-muted-foreground">
-            <span className="text-muted-foreground shrink-0">⚠</span>
-            <p className="leading-relaxed">
-              Free access is time-limited. If a course is no longer free when you reach it, please check back later. The catalogue updates regularly.
-            </p>
-          </div>
+          <h3 className="text-xs font-semibold">Important Notes</h3>
+          <p className="text-[11px] text-muted-foreground leading-relaxed">Once you start the course for free, it stays in your account forever. You keep lifetime access.</p>
+          <p className="text-[11px] text-muted-foreground leading-relaxed">Free access is time-limited. If a course is no longer free when you reach it, please check back later. The catalogue updates regularly.</p>
         </div>
 
-        {/* Primary action with share */}
         <div className="space-y-3">
           <div className="p-4 rounded-lg border bg-card text-center space-y-1">
             <h2 className="font-bold text-sm">Get this course for free</h2>
-            <p className="text-[11px] text-muted-foreground">
-              We are preparing your free access. The button appears in a few seconds.
-            </p>
+            <p className="text-[11px] text-muted-foreground">We are preparing your free access. The button appears in a few seconds.</p>
           </div>
-          <TimedReveal
-            seconds={10}
-            loadingText="Loading your course…"
-            buttonText="Continue to the course"
-            href={`/course/${course.slug}/enroll`}
-          />
+          <TimedReveal seconds={10} loadingText="Loading your course..." buttonText="Continue to the course" href={`/course/${course.slug}/enroll`} />
           <TelegramChannelButton label="Join our channel for more free courses" />
           <ShareButtons url={`${SITE_URL}/course/${course.slug}`} title={course.title} />
         </div>
 
-        {/* Related Courses */}
         {related.length > 0 && (
           <div>
-            <h3 className="text-xs font-semibold mb-3">
-              Related Courses
-            </h3>
+            <h3 className="text-xs font-semibold mb-3">Related Courses</h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {related.map((rc) => {
                 const rcCat = getCat(rc.category);
                 return (
-                  <Link
-                    key={rc.id}
-                    href={`/course/${rc.slug}`}
-                    className="block overflow-hidden rounded-lg border bg-card hover:shadow-md hover:border-border dark:hover:border-border transition-all group"
-                  >
+                  <Link key={rc.id} href={`/course/${rc.slug}`} className="block overflow-hidden rounded-lg border bg-card hover:shadow-md hover:border-border transition-all group">
                     <div className="relative aspect-[16/9] bg-muted">
-                      <CourseImage
-                        src={rc.imageUrl || PLACEHOLDER_IMG}
-                        alt={rc.title}
-                        className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300"
-                        loading="lazy"
-                      />
+                      <CourseImage src={rc.imageUrl || PLACEHOLDER_IMG} alt={rc.title} className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300" loading="lazy" />
                     </div>
                     <div className="p-2">
-                      <h4 className="text-[11px] font-medium line-clamp-2 group-hover:text-muted-foreground dark:group-hover:text-muted-foreground leading-snug">
-                        {rc.title}
-                      </h4>
+                      <h4 className="text-[11px] font-medium line-clamp-2 group-hover:text-muted-foreground leading-snug">{rc.title}</h4>
                       <div className="flex items-center gap-1 mt-1">
-                        <span className="text-[10px] px-1 py-0.5 rounded border bg-muted">
-                          {rcCat.icon} {rcCat.name}
-                        </span>
-                        {rc.rating && (
-                          <span className="text-[10px] text-muted-foreground">
-                            ⭐ {rc.rating}
-                          </span>
-                        )}
+                        <span className="text-[10px] px-1 py-0.5 rounded border bg-muted">{rcCat.name}</span>
+                        {rc.rating && <span className="text-[10px] text-muted-foreground">{rc.rating}</span>}
                       </div>
                     </div>
                   </Link>
@@ -351,14 +221,8 @@ export default async function CoursePage({ params }: PageProps) {
           </div>
         )}
 
-        {/* Back to all courses */}
         <div className="text-center pt-4 pb-8">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Browse all free courses
-          </Link>
+          <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">Browse all free courses</Link>
         </div>
       </main>
 
