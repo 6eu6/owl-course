@@ -2,9 +2,13 @@ import { NextResponse } from 'next/server';
 
 // =====================================================================
 // Learn Plus Courses — Telegram Admin Bot
-// Full inline-keyboard control panel. Authorisation is by ADMIN_CHAT_IDS.
-// Free-text inputs (add channel, templates, delay, broadcast, settings)
-// use a short-lived pending state stored in the DB (Setting `botstate:*`).
+// The MAIN MENU is a persistent Reply Keyboard (English) shown under the
+// message input; its buttons arrive as normal text messages. Detailed
+// actions inside a section still use inline keyboards. Authorisation is by
+// ADMIN_CHAT_IDS. Free-text / guided inputs (add channel, templates, delay,
+// broadcast, settings) use a short-lived pending state in the DB
+// (Setting `botstate:*`); the Add Channel flow is multi-step
+// (name -> @handle/chat_id -> language).
 // =====================================================================
 
 const TELEGRAM_API = 'https://api.telegram.org';
@@ -12,6 +16,11 @@ const LANGS = ['en', 'ar', 'es', 'fr', 'pt', 'tr', 'hi', 'zh', 'ja', 'ko', 'de',
 
 type Btn = { text: string; callback_data: string };
 type Keyboard = { inline_keyboard: Btn[][] };
+type ReplyKeyboard = {
+  keyboard: { text: string }[][];
+  resize_keyboard: boolean;
+  is_persistent: boolean;
+};
 
 // --------------------------------------------------------------------
 // Low-level Telegram helpers
@@ -117,6 +126,54 @@ const mainMenu: Keyboard = {
 
 const backRow = (to = 'nav:main'): Btn[] => [{ text: '⬅️ Back', callback_data: to }];
 
+// Persistent Reply Keyboard shown under the message input — the MAIN MENU.
+// English only. Each button sends a normal text message handled below.
+const mainReplyKeyboard: ReplyKeyboard = {
+  keyboard: [
+    [{ text: '📊 Statistics' }, { text: '📤 Posting' }],
+    [{ text: '📡 Channels' }, { text: '🔄 Scraper' }],
+    [{ text: '📝 Templates' }, { text: '🧹 Cleanup' }],
+    [{ text: '➕ Add Channel' }, { text: '📨 Broadcast' }],
+    [{ text: '⚙️ Settings' }, { text: '📖 Help' }],
+  ],
+  resize_keyboard: true,
+  is_persistent: true,
+};
+
+// Send a message that (re)attaches the persistent reply keyboard to the chat.
+function sendWithReplyKeyboard(chatId: string, text: string) {
+  return tg('sendMessage', {
+    chat_id: chatId,
+    text,
+    parse_mode: 'HTML',
+    disable_web_page_preview: true,
+    reply_markup: mainReplyKeyboard,
+  });
+}
+
+function welcomeText(): string {
+  return (
+    `🎛️ <b>Learn Plus Courses — Admin Control Panel</b>\n\n` +
+    `Use the keyboard below to manage everything. Tap a button to open a section.`
+  );
+}
+
+function helpText(): string {
+  return (
+    `📖 <b>Help</b>\n\n` +
+    `Use the keyboard below the input box:\n\n` +
+    `📊 <b>Statistics</b> — course & posting stats\n` +
+    `📤 <b>Posting</b> — auto-post on/off, post now, delay\n` +
+    `📡 <b>Channels</b> — list, enable/disable, language, remove\n` +
+    `🔄 <b>Scraper</b> — run the scraper now\n` +
+    `📝 <b>Templates</b> — edit EN/AR post templates\n` +
+    `🧹 <b>Cleanup</b> — remove duplicates/invalid, purge\n` +
+    `➕ <b>Add Channel</b> — guided: name → @handle/id → language\n` +
+    `📨 <b>Broadcast</b> — send a message to all active channels\n` +
+    `⚙️ <b>Settings</b> — site name, description, courses per page`
+  );
+}
+
 // --------------------------------------------------------------------
 // Views — each returns { text, keyboard }
 // --------------------------------------------------------------------
@@ -125,7 +182,7 @@ function viewMain(): { text: string; keyboard: Keyboard } {
   return {
     text:
       `🎛️ <b>Learn Plus Courses — Control Panel</b>\n\n` +
-      `Pick a section below. Everything is managed from here — no browser admin.`,
+      `Pick a section below.`,
     keyboard: mainMenu,
   };
 }
@@ -207,7 +264,7 @@ async function viewChannels(): Promise<{ text: string; keyboard: Keyboard }> {
   return {
     text:
       `📡 <b>Channels</b> (${channels.length})\n\n` +
-      (channels.length ? `Tap a channel's buttons to enable/disable, change language, or remove it.` : `No channels yet. Tap “Add channel”.`),
+      (channels.length ? `Tap a channel's buttons to enable/disable, change language, or remove it.` : `No channels yet. Tap the Add Channel button.`),
     keyboard: { inline_keyboard: rows },
   };
 }
@@ -363,7 +420,7 @@ async function handleCallback(chatId: string, messageId: number, data: string, c
   const { getTelegramSettings, saveTelegramSettings, cleanupInvalidCourses, purgeAllCourses } = await import('@/lib/queries');
 
   // Navigation
-  if (data === 'nav:main') { await answerCallback(cbId); const v = viewMain(); return editMessage(chatId, messageId, v.text, v.keyboard); }
+  if (data === 'nav:main') { await answerCallback(cbId); return sendWithReplyKeyboard(chatId, '⌨️ Main menu — use the keyboard below.'); }
   if (data === 'nav:stats') { await answerCallback(cbId); const v = await viewStats(); return editMessage(chatId, messageId, v.text, v.keyboard); }
   if (data === 'nav:scrape') { await answerCallback(cbId); const v = viewScrape(); return editMessage(chatId, messageId, v.text, v.keyboard); }
   if (data === 'nav:clean') { await answerCallback(cbId); const v = viewClean(); return editMessage(chatId, messageId, v.text, v.keyboard); }
@@ -467,6 +524,15 @@ async function handleCallback(chatId: string, messageId: number, data: string, c
   // Prompts that need free-text input
   if (data.startsWith('ask:')) {
     const action = data.slice(4);
+    // Add Channel uses the guided multi-step flow (name -> handle/id -> language).
+    if (action === 'addch') {
+      await setState(chatId, 'addch', JSON.stringify({ step: 'name' }));
+      await answerCallback(cbId);
+      return sendMessage(
+        chatId,
+        '➕ <b>Add Channel</b> (step 1 of 3)\n\nSend the channel <b>name</b>. Any text is fine — spaces or Arabic are OK.',
+      );
+    }
     await setState(chatId, action);
     await answerCallback(cbId);
     return editMessage(chatId, messageId, promptText(action), { inline_keyboard: [[{ text: '✖️ Cancel', callback_data: cancelTarget(action) }]] });
@@ -485,7 +551,6 @@ function cancelTarget(action: string): string {
 
 function promptText(action: string): string {
   switch (action) {
-    case 'addch': return `➕ <b>Add channel</b>\nSend: <code>name @channel lang</code>\nExample: <code>Arabic @mychan ar</code>\nLangs: ${LANGS.join(', ')}`;
     case 'delay': return `⏱️ <b>Set delay</b>\nSend the number of seconds between posts (min 5). Example: <code>60</code>`;
     case 'tplen': return `✏️ <b>Set EN template</b>\nSend the new template text.\nPlaceholders: {title} {instructor} {rating} {students_count} {original_price} {language} {duration} {link}`;
     case 'tplar': return `✏️ <b>Set AR template</b>\nSend the new Arabic template text. Same placeholders as EN.`;
@@ -501,23 +566,58 @@ function promptText(action: string): string {
 // Process a free-text reply for a pending action
 // --------------------------------------------------------------------
 
-async function processInput(chatId: string, action: string, text: string) {
+async function processInput(chatId: string, action: string, extra: string, text: string) {
   const { getTelegramSettings, saveTelegramSettings, setSetting } = await import('@/lib/queries');
-  await clearState(chatId);
 
-  if (action === 'bcast') { await broadcast(chatId, text); return; }
-
+  // Guided Add Channel flow: name -> @handle/chat_id -> language -> save.
+  // State is carried in `extra` (JSON) so names with spaces/Arabic work.
   if (action === 'addch') {
-    const parts = text.split(/\s+/);
-    if (parts.length < 3) return reply(chatId, '❌ Need: name @channel lang', 'nav:chan');
-    const [name, id, langRaw] = parts;
-    const lang = langRaw.toLowerCase();
-    if (!LANGS.includes(lang)) return reply(chatId, `❌ Invalid lang. Use: ${LANGS.join(', ')}`, 'nav:chan');
+    let data: { step?: string; name?: string; id?: string } = {};
+    try { data = JSON.parse(extra || '{}'); } catch { /* ignore */ }
+    const step = data.step || 'name';
+
+    if (step === 'name') {
+      const name = text.trim();
+      if (!name) return sendMessage(chatId, '❌ Please send a non-empty channel name.');
+      await setState(chatId, 'addch', JSON.stringify({ step: 'id', name }));
+      return sendMessage(
+        chatId,
+        `✅ Name saved: <b>${escapeHtml(name)}</b>\n\n➕ <b>Add Channel</b> (step 2 of 3)\n\nSend the channel <b>@handle</b> (e.g. <code>@mychannel</code>) or a numeric <b>chat_id</b>.`,
+      );
+    }
+
+    if (step === 'id') {
+      const id = text.trim();
+      if (!id) return sendMessage(chatId, '❌ Please send a valid @handle or numeric chat_id.');
+      await setState(chatId, 'addch', JSON.stringify({ step: 'lang', name: data.name, id }));
+      return sendMessage(
+        chatId,
+        `✅ ID saved: <code>${escapeHtml(id)}</code>\n\n➕ <b>Add Channel</b> (step 3 of 3)\n\nSend the <b>language code</b>, for example <code>en</code> or <code>ar</code>.\nSupported: ${LANGS.join(', ')}`,
+      );
+    }
+
+    // step === 'lang'
+    const lang = text.trim().toLowerCase();
+    if (!LANGS.includes(lang)) {
+      return sendMessage(chatId, `❌ Invalid language code. Send one of: ${LANGS.join(', ')}`);
+    }
+    const name = data.name || 'Channel';
+    const id = data.id || '';
     const s = await getTelegramSettings();
     s.channels = [...(s.channels || []), { name, id, active: true, language: lang }];
     await saveTelegramSettings(s);
-    return reply(chatId, `✅ Added <b>${escapeHtml(name)}</b> (${id}, ${lang}).`, 'nav:chan');
+    await clearState(chatId);
+    return sendMessage(
+      chatId,
+      `✅ <b>Channel saved</b>\n\n📛 Name: <b>${escapeHtml(name)}</b>\n🔗 ID: <code>${escapeHtml(id)}</code>\n🌐 Language: <b>${lang}</b>`,
+      { inline_keyboard: [[{ text: '📡 View channels', callback_data: 'nav:chan' }]] },
+    );
   }
+
+  // All other inputs are single-step.
+  await clearState(chatId);
+
+  if (action === 'bcast') { await broadcast(chatId, text); return; }
 
   if (action === 'delay') {
     const sec = parseInt(text);
@@ -548,6 +648,78 @@ function reply(chatId: string, text: string, back: string) {
 }
 
 // --------------------------------------------------------------------
+// Main menu — persistent Reply Keyboard label handlers
+// Each label is a normal text message; we open the matching section.
+// Detailed actions inside a section still use inline keyboards.
+// --------------------------------------------------------------------
+
+async function handleMenuLabel(chatId: string, text: string): Promise<boolean> {
+  switch (text) {
+    case '📊 Statistics': {
+      await clearState(chatId);
+      const v = await viewStats();
+      await sendMessage(chatId, v.text, v.keyboard);
+      return true;
+    }
+    case '📤 Posting': {
+      await clearState(chatId);
+      const v = await viewPosting();
+      await sendMessage(chatId, v.text, v.keyboard);
+      return true;
+    }
+    case '📡 Channels': {
+      await clearState(chatId);
+      const v = await viewChannels();
+      await sendMessage(chatId, v.text, v.keyboard);
+      return true;
+    }
+    case '🔄 Scraper': {
+      await clearState(chatId);
+      const v = viewScrape();
+      await sendMessage(chatId, v.text, v.keyboard);
+      return true;
+    }
+    case '📝 Templates': {
+      await clearState(chatId);
+      const v = await viewTemplates();
+      await sendMessage(chatId, v.text, v.keyboard);
+      return true;
+    }
+    case '🧹 Cleanup': {
+      await clearState(chatId);
+      const v = viewClean();
+      await sendMessage(chatId, v.text, v.keyboard);
+      return true;
+    }
+    case '⚙️ Settings': {
+      await clearState(chatId);
+      const v = await viewSettings();
+      await sendMessage(chatId, v.text, v.keyboard);
+      return true;
+    }
+    case '➕ Add Channel': {
+      await setState(chatId, 'addch', JSON.stringify({ step: 'name' }));
+      await sendMessage(
+        chatId,
+        '➕ <b>Add Channel</b> (step 1 of 3)\n\nSend the channel <b>name</b>. Any text is fine — spaces or Arabic are OK.',
+      );
+      return true;
+    }
+    case '📨 Broadcast': {
+      await setState(chatId, 'bcast');
+      await sendMessage(chatId, '📨 <b>Broadcast</b>\n\nSend the message to deliver to all active channels.');
+      return true;
+    }
+    case '📖 Help': {
+      await sendWithReplyKeyboard(chatId, helpText());
+      return true;
+    }
+    default:
+      return false;
+  }
+}
+
+// --------------------------------------------------------------------
 // Webhook entry point
 // --------------------------------------------------------------------
 
@@ -575,26 +747,35 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    // A pending free-text input takes priority over plain text (commands still win).
-    if (!text.startsWith('/')) {
-      const state = await getState(chatId);
-      if (state) { await processInput(chatId, state.action, text); return NextResponse.json({ ok: true }); }
+    // 1) Main-menu reply-keyboard buttons (these arrive as normal text messages).
+    if (await handleMenuLabel(chatId, text)) return NextResponse.json({ ok: true });
+
+    // 2) Slash commands.
+    if (text.startsWith('/')) {
+      const cmd = text.split(' ')[0].toLowerCase();
+      if (cmd === '/start' || cmd === '/menu') {
+        await clearState(chatId);
+        await sendWithReplyKeyboard(chatId, welcomeText());
+      } else if (cmd === '/help') {
+        await sendWithReplyKeyboard(chatId, helpText());
+      } else if (cmd === '/stats') {
+        const v = await viewStats(); await sendMessage(chatId, v.text, v.keyboard);
+      } else if (cmd === '/scrape') {
+        await runScrape(chatId, 3, 'all');
+      } else if (cmd === '/post') {
+        await postNow(chatId);
+      } else {
+        await sendWithReplyKeyboard(chatId, '❓ Unknown command. Use the keyboard below.');
+      }
+      return NextResponse.json({ ok: true });
     }
 
-    const cmd = text.split(' ')[0].toLowerCase();
-    if (cmd === '/start' || cmd === '/menu' || cmd === '/help') {
-      const v = viewMain();
-      await sendMessage(chatId, v.text, v.keyboard);
-    } else if (cmd === '/stats') {
-      const v = await viewStats(); await sendMessage(chatId, v.text, v.keyboard);
-    } else if (cmd === '/scrape') {
-      await runScrape(chatId, 3, 'all');
-    } else if (cmd === '/post') {
-      await postNow(chatId);
-    } else {
-      await sendMessage(chatId, 'Type /start to open the control panel.', mainMenu);
-    }
+    // 3) A pending guided / free-text input (e.g. the Add Channel steps).
+    const state = await getState(chatId);
+    if (state) { await processInput(chatId, state.action, state.extra, text); return NextResponse.json({ ok: true }); }
 
+    // 4) Fallback — re-show the persistent keyboard.
+    await sendWithReplyKeyboard(chatId, '⌨️ Use the keyboard below to control the bot.');
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error('[AdminBot] Error:', e);
