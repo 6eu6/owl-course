@@ -1352,26 +1352,6 @@ export default function Home() {
           </button>
 
           <div className="flex items-center gap-1.5">
-            {total > 0 && view === 'grid' && (
-              <Badge
-                variant="secondary"
-                className="text-[11px] bg-muted text-muted-foreground border-border dark:bg-muted dark:text-muted-foreground dark:border-border"
-              >
-                <Gift className="h-3 w-3 ml-1" />
-                {total} {tx('freeCourses')}
-              </Badge>
-            )}
-            {view === 'grid' && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => fetchCourses(page, search, selectedCategory, sort)}
-                className="h-8 w-8"
-              >
-                <RefreshCw className="h-3.5 w-3.5" />
-              </Button>
-            )}
-            <Separator orientation="vertical" className="h-5 mx-0.5" />
             <Button
               variant="ghost"
               size="icon"
