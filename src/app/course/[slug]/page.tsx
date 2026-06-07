@@ -4,6 +4,8 @@ import { getCourseBySlug, getRelatedCourses } from '@/lib/queries';
 import { CATEGORIES } from '@/lib/translations';
 import { LogoMark } from '@/components/logo';
 import { CourseImage } from '@/components/course-image';
+import { TimedReveal } from '@/components/timed-reveal';
+import { ShareButtons } from '@/components/share-buttons';
 import { notFound } from 'next/navigation';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || '';
@@ -77,34 +79,6 @@ function formatNumber(n: number | null | undefined): string {
 }
 
 // ============================================
-// Helper: Build Udemy URL with coupon
-// ============================================
-
-function buildUdemyUrl(course: {
-  udemyUrl: string;
-  couponUrl: string;
-  couponCode: string;
-}): string {
-  const couponUrl = course.couponUrl;
-  if (couponUrl) return couponUrl;
-
-  const baseUrl = course.udemyUrl;
-  const couponCode = course.couponCode;
-
-  if (couponCode && baseUrl) {
-    try {
-      const urlObj = new URL(baseUrl);
-      urlObj.searchParams.set('couponCode', couponCode);
-      return urlObj.toString();
-    } catch {
-      // ignore
-    }
-  }
-
-  return baseUrl;
-}
-
-// ============================================
 // Course Page Component (Server Component)
 // ============================================
 
@@ -123,7 +97,6 @@ export default async function CoursePage({ params }: PageProps) {
 
   const related = await getRelatedCourses(course.category, slug, 4);
   const catInfo = getCat(course.category);
-  const udemyUrl = buildUdemyUrl(course);
 
   // Structured data (schema.org Course) for rich search results.
   const jsonLd = {
@@ -268,26 +241,21 @@ export default async function CoursePage({ params }: PageProps) {
           </div>
         )}
 
-        {/* CTA - Enroll Free */}
-        <div className="p-4 rounded-lg bg-muted dark:bg-muted border border-border dark:border-border">
-          <div className="flex flex-col sm:flex-row items-center gap-3">
-            <div className="flex-1 text-center sm:text-left">
-              <h2 className="font-bold text-sm text-muted-foreground dark:text-muted-foreground">
-                Get this course for free!
-              </h2>
-              <p className="text-[11px] text-muted-foreground dark:text-muted-foreground mt-0.5">
-                100% free coupon — direct enrollment on Udemy, no payment required
-              </p>
-            </div>
-            <a
-              href={udemyUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 bg-foreground hover:bg-foreground text-background font-bold h-11 px-6 text-xs rounded-lg transition-colors shrink-0"
-            >
-              🚀 Enroll Free →
-            </a>
+        {/* Step 1: prepare access (10s) → continue to the enroll page, then share */}
+        <div className="space-y-3">
+          <div className="p-4 rounded-lg border bg-card text-center space-y-1">
+            <h2 className="font-bold text-sm">Get this course for free</h2>
+            <p className="text-[11px] text-muted-foreground">
+              We are preparing your free access — the button appears in a few seconds.
+            </p>
           </div>
+          <TimedReveal
+            seconds={10}
+            loadingText="Loading your course…"
+            buttonText="Continue to the course →"
+            href={`/course/${course.slug}/enroll`}
+          />
+          <ShareButtons url={`${SITE_URL}/course/${course.slug}`} title={course.title} />
         </div>
 
         {/* Description */}
@@ -346,13 +314,13 @@ export default async function CoursePage({ params }: PageProps) {
           <div className="flex items-start gap-2 text-[11px] text-muted-foreground">
             <span className="text-muted-foreground shrink-0">✓</span>
             <p className="leading-relaxed">
-              Once you enroll for free using a coupon, the course stays in your account forever even after the coupon expires.
+              Once you start the course for free, it stays in your account forever — you keep lifetime access.
             </p>
           </div>
           <div className="flex items-start gap-2 text-[11px] text-muted-foreground">
             <span className="text-muted-foreground shrink-0">⚠</span>
             <p className="leading-relaxed">
-              Coupons are time-limited and may expire at any time. If you find the course is paid, try again after the next scraper run.
+              Free access is time-limited. If a course is no longer free when you reach it, please check back later — the catalogue updates regularly.
             </p>
           </div>
         </div>
@@ -415,9 +383,13 @@ export default async function CoursePage({ params }: PageProps) {
 
       {/* Footer */}
       <footer className="border-t mt-auto">
-        <div className="max-w-5xl mx-auto px-4 py-6 text-center text-xs text-muted-foreground">
+        <div className="max-w-5xl mx-auto px-4 py-6 text-center text-xs text-muted-foreground space-y-2">
           <p>Learn Plus Courses — Free Udemy Courses</p>
-          <p className="mt-1">Fresh free coupons, updated automatically</p>
+          <div className="space-x-3">
+            <Link href="/about" className="hover:text-foreground">About</Link>
+            <Link href="/privacy" className="hover:text-foreground">Privacy</Link>
+            <Link href="/terms" className="hover:text-foreground">Terms</Link>
+          </div>
         </div>
       </footer>
     </div>

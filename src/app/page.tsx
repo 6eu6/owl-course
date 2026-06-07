@@ -1430,6 +1430,11 @@ export default function Home() {
           <p className="text-[11px] text-muted-foreground text-center max-w-sm">
             {tx('footerDesc')}
           </p>
+          <div className="flex items-center gap-3 text-[11px] text-muted-foreground pt-1">
+            <a href="/about" className="hover:text-foreground">About</a>
+            <a href="/privacy" className="hover:text-foreground">Privacy</a>
+            <a href="/terms" className="hover:text-foreground">Terms</a>
+          </div>
         </div>
       </footer>
     </div>
