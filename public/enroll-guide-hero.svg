@@ -1,21 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="746" viewBox="0 0 1600 746" role="img" aria-labelledby="title desc">
   <title id="title">Course access guide illustration</title>
-  <desc id="desc">Clear vector guide showing three steps: scroll down, wait for the link, then continue to the course.</desc>
+  <desc id="desc">High-contrast vector guide showing three simple steps: scroll down, wait for the link, and continue to the course.</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#111827"/>
       <stop offset="1" stop-color="#020617"/>
     </linearGradient>
-    <linearGradient id="panel" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ffffff"/>
-      <stop offset="1" stop-color="#f8fafc"/>
-    </linearGradient>
   </defs>
 
   <rect width="1600" height="746" rx="44" fill="url(#bg)"/>
-  <circle cx="1360" cy="92" r="250" fill="#22c55e" opacity=".12"/>
-  <circle cx="148" cy="660" r="250" fill="#38bdf8" opacity=".12"/>
-  <circle cx="760" cy="86" r="150" fill="#a855f7" opacity=".1"/>
+  <circle cx="1370" cy="100" r="250" fill="#22c55e" opacity=".11"/>
+  <circle cx="160" cy="662" r="250" fill="#38bdf8" opacity=".12"/>
 
   <g transform="translate(104 104)">
     <rect width="202" height="52" rx="26" fill="#ffffff" fill-opacity=".12" stroke="#ffffff" stroke-opacity=".2" stroke-width="2"/>
@@ -47,36 +42,28 @@
     </g>
   </g>
 
-  <g transform="translate(884 66)">
-    <rect width="612" height="614" rx="38" fill="url(#panel)" stroke="#e2e8f0" stroke-width="4"/>
-    <rect x="42" y="38" width="528" height="52" rx="26" fill="#e5e7eb"/>
-    <circle cx="78" cy="64" r="9" fill="#ef4444"/>
-    <circle cx="112" cy="64" r="9" fill="#f59e0b"/>
-    <circle cx="146" cy="64" r="9" fill="#22c55e"/>
-    <text x="214" y="73" font-family="Arial, sans-serif" font-size="22" font-weight="900" fill="#334155">Course access</text>
+  <g transform="translate(814 56)">
+    <rect width="706" height="634" rx="34" fill="#ffffff" stroke="#e5e7eb" stroke-width="4"/>
+    <rect x="34" y="34" width="638" height="566" rx="28" fill="#f8fafc" stroke="#cbd5e1" stroke-width="4"/>
 
-    <g transform="translate(48 122)">
-      <rect width="516" height="120" rx="26" fill="#111827"/>
-      <rect x="28" y="30" width="58" height="58" rx="18" fill="#ffffff"/>
-      <text x="49" y="69" font-family="Arial, sans-serif" font-size="28" font-weight="900" fill="#111827">1</text>
-      <text x="112" y="56" font-family="Arial, sans-serif" font-size="38" font-weight="900" fill="#ffffff">Scroll down</text>
-      <path d="M432 36v42" stroke="#ffffff" stroke-width="8" stroke-linecap="round"/>
-      <path d="M410 60l22 24 22-24" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    <g transform="translate(70 74)">
+      <rect width="566" height="130" rx="26" fill="#111827"/>
+      <text x="38" y="80" font-family="Arial, sans-serif" font-size="46" font-weight="900" fill="#ffffff">1. Scroll down</text>
+      <path d="M500 42v42" stroke="#ffffff" stroke-width="9" stroke-linecap="round"/>
+      <path d="M477 66l23 25 23-25" fill="none" stroke="#ffffff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
     </g>
 
-    <g transform="translate(48 270)">
-      <rect width="516" height="148" rx="26" fill="#ffffff" stroke="#cbd5e1" stroke-width="4"/>
-      <rect x="28" y="32" width="58" height="58" rx="18" fill="#111827"/>
-      <text x="49" y="71" font-family="Arial, sans-serif" font-size="28" font-weight="900" fill="#ffffff">2</text>
-      <text x="112" y="60" font-family="Arial, sans-serif" font-size="34" font-weight="900" fill="#111827">Wait for the link</text>
-      <rect x="112" y="88" width="334" height="24" rx="12" fill="#e5e7eb"/>
-      <rect x="112" y="88" width="230" height="24" rx="12" fill="#16a34a"/>
-      <text x="462" y="109" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="900" fill="#16a34a">70%</text>
+    <g transform="translate(70 238)">
+      <rect width="566" height="166" rx="26" fill="#ffffff" stroke="#94a3b8" stroke-width="4"/>
+      <text x="38" y="67" font-family="Arial, sans-serif" font-size="41" font-weight="900" fill="#0f172a">2. Wait for the link</text>
+      <rect x="38" y="100" width="396" height="30" rx="15" fill="#e2e8f0"/>
+      <rect x="38" y="100" width="286" height="30" rx="15" fill="#16a34a"/>
+      <text x="474" y="125" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="900" fill="#16a34a">70%</text>
     </g>
 
-    <g transform="translate(48 452)">
-      <rect width="516" height="104" rx="28" fill="#16a34a"/>
-      <text x="258" y="66" text-anchor="middle" font-family="Arial, sans-serif" font-size="38" font-weight="900" fill="#ffffff">Continue to the course</text>
+    <g transform="translate(70 450)">
+      <rect width="566" height="110" rx="28" fill="#16a34a"/>
+      <text x="283" y="70" text-anchor="middle" font-family="Arial, sans-serif" font-size="43" font-weight="900" fill="#ffffff">Continue to the course</text>
     </g>
   </g>
 </svg>
