@@ -69,9 +69,9 @@ export function ShareButtons({ url, title }: { url: string; title: string }) {
     'inline-flex h-10 w-10 items-center justify-center rounded-full border bg-card transition-transform hover:scale-110'
 
   return (
-    <div className="rounded-lg border bg-card p-3">
+    <div className="rounded-lg border bg-card p-3 text-center">
       <p className="mb-2.5 text-[11px] font-semibold text-muted-foreground">Share this course</p>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center justify-center gap-2">
         {targets.map((t) => (
           <a key={t.label} href={t.href} target="_blank" rel="noopener noreferrer" title={`Share on ${t.label}`} className={iconBtn}>
             <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill={t.color} aria-hidden="true">
