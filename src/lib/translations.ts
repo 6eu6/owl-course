@@ -1,5 +1,5 @@
 // ============================================
-// Translations — English Only
+// Translations - English Only
 // ============================================
 
 type T = Record<string, string>
@@ -15,8 +15,8 @@ const t: T = {
   autoUpdated: 'Auto updated',
   heroTitle1: 'Learn without',
   heroTitle2: 'limits',
-  heroTitle3: '— Free courses',
-  heroDesc: '100% free coupons for the best Udemy courses — sign up instantly, keep the course forever',
+  heroTitle3: 'Free courses',
+  heroDesc: '100% free coupons for the best Udemy courses. Sign up instantly and keep the course forever',
   searchPlaceholder: 'Search courses... (Python, React, Design...)',
 
   // Categories
@@ -60,24 +60,24 @@ const t: T = {
   requirements: 'Requirements',
   whoFor: 'Who this course is for',
   getCourseFree: 'Get this course for free!',
-  getCourseFreeDesc: '100% free coupon — direct enrollment on Udemy, no payment',
+  getCourseFreeDesc: '100% free coupon. Direct enrollment on Udemy',
   goToCourse: 'Go to Course',
   relatedCourses: 'Related Courses',
 
   // Link page
   aboutCourse: 'About this course',
   importantNotes: 'Important Notes',
-  note1: 'The course is completely free with the coupon — no payment required',
-  note2: 'The coupon may expire at any time — enroll now',
+  note1: 'The course is completely free with the coupon. Direct enrollment on Udemy',
+  note2: 'The coupon may expire at any time. Enroll now',
   note3: 'After free enrollment, you keep the course forever',
   note4: "If the coupon doesn't work, try again later or find another course",
   preparing: 'Preparing course link...',
   getOnUdemy: 'Get this course free on Udemy',
-  udemyRedirect: "You'll be redirected to the course page on Udemy — direct enrollment, no payment",
+  udemyRedirect: "You'll be redirected to the course page on Udemy. Direct enrollment on Udemy",
   backToDetail: 'Back to course details',
 
   // Footer
-  footerDesc: 'Platform collecting the best free Udemy courses with 100% coupons — auto updated',
+  footerDesc: 'Platform collecting the best free Udemy courses with 100% coupons. Auto updated',
   footerFree: 'Completely Free',
   footerUpdated: 'Auto Updated',
   footerVerified: 'Verified Coupons',
@@ -94,8 +94,8 @@ export function tx(key: string): string {
 
 type CatT = Record<string, { name: string; icon: string }>
 
-// Icons intentionally left empty: the minimal black & white design uses clean
-// category names only — no emoji.
+// Icons intentionally left empty: the minimal black and white design uses clean
+// category names only, with no emoji.
 export const CATEGORIES: CatT = {
   'Marketing':                { name: 'Marketing',          icon: '' },
   'IT & Software':            { name: 'IT & Software',      icon: '' },
@@ -107,7 +107,7 @@ export const CATEGORIES: CatT = {
   'Python':                   { name: 'Python',             icon: '' },
   'Cloud & DevOps':           { name: 'Cloud & DevOps',     icon: '' },
   'Cybersecurity':            { name: 'Cybersecurity',      icon: '' },
-  'Photography & Video':      { name: 'Photography',       icon: '' },
+  'Photography & Video':      { name: 'Photography',        icon: '' },
   'Music':                    { name: 'Music',              icon: '' },
   'Languages':                { name: 'Languages',          icon: '' },
   'Finance & Accounting':     { name: 'Finance',            icon: '' },
@@ -118,8 +118,8 @@ export const CATEGORIES: CatT = {
   'Mobile Development':       { name: 'Mobile Development', icon: '' },
   'Data Science & AI':        { name: 'Data Science & AI',  icon: '' },
   'Programming & IT':         { name: 'Programming & IT',   icon: '' },
-  'Digital Marketing':         { name: 'Digital Marketing',  icon: '' },
-  'Other':                   { name: 'Other',              icon: '' },
+  'Digital Marketing':        { name: 'Digital Marketing',  icon: '' },
+  'Other':                    { name: 'Other',              icon: '' },
 }
 
 const FALLBACK_CAT: { name: string; icon: string } = { name: 'Other', icon: '' }
