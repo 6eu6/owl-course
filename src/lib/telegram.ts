@@ -1,15 +1,13 @@
 import { getTelegramSettings, getUnpostedCourses, markCourseTelegramPosted, logTelegramMessage } from './queries';
 import { DEFAULT_TEMPLATES } from './templates';
+import { localizedCoursePath, type Locale } from './i18n';
 
 const TELEGRAM_API = 'https://api.telegram.org';
 
 // Default delay between posting messages (in ms)
 const DEFAULT_POST_DELAY_MS = 60_000; // 1 minute
 
-// ============================================
-// Default post templates (lines with only empty placeholders are dropped)
-// ============================================
-
+type TelegramChannel = { id: string; active: boolean; name: string; language: string };
 
 // ============================================
 // Send Message (with optional reply_markup)
@@ -91,7 +89,8 @@ function formatCourseMessageHtml(
 ): string {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
   const slug = String(course.slug || '');
-  const courseUrl = (siteUrl && slug) ? `${siteUrl}/course/${slug}` : String(course.udemy_url || '');
+  const locale = (String(course.locale || 'en') === 'ar' ? 'ar' : 'en') as Locale;
+  const courseUrl = (siteUrl && slug) ? `${siteUrl}${localizedCoursePath(locale, slug)}` : String(course.udemy_url || '');
 
   const ratingNum = Number(course.rating);
   const studentsNum = Number(course.students_count);
@@ -101,7 +100,7 @@ function formatCourseMessageHtml(
     title: escapeHtml(cleanValue(course.title) || 'Course'),
     instructor: escapeHtml(cleanValue(course.instructor)),
     rating: ratingNum > 0 ? `${ratingNum}/5` : '',
-    students_count: studentsNum > 0 ? studentsNum.toLocaleString() : '',
+    students_count: studentsNum > 0 ? studentsNum.toLocaleString(locale === 'ar' ? 'ar' : 'en') : '',
     original_price: price ? `<s>${escapeHtml(price)}</s>` : '',
     language: escapeHtml(cleanValue(course.language)),
     duration: escapeHtml(cleanValue(course.duration)),
@@ -109,15 +108,15 @@ function formatCourseMessageHtml(
     link: courseUrl,
   };
 
-  const tpl = template && template.trim() ? template : DEFAULT_TEMPLATES.en;
+  const tpl = template && template.trim() ? template : (locale === 'ar' ? DEFAULT_TEMPLATES.ar : DEFAULT_TEMPLATES.en);
   return renderTemplate(tpl, values);
 }
 
 // Build inline keyboard button pointing to site course page
-function buildInlineKeyboard(course: Record<string, unknown>): Record<string, unknown> {
+function buildInlineKeyboard(course: Record<string, unknown>, locale: Locale = 'en'): Record<string, unknown> {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
   const slug = String(course.slug || '');
-  const courseUrl = (siteUrl && slug) ? `${siteUrl}/course/${slug}` : '';
+  const courseUrl = (siteUrl && slug) ? `${siteUrl}${localizedCoursePath(locale, slug)}` : '';
 
   if (!courseUrl) return {};
 
@@ -125,7 +124,7 @@ function buildInlineKeyboard(course: Record<string, unknown>): Record<string, un
     inline_keyboard: [
       [
         {
-          text: '🚀 Enroll Free',
+          text: locale === 'ar' ? '🚀 ابدأ مجانًا' : '🚀 Enroll Free',
           url: courseUrl,
         },
       ],
@@ -143,43 +142,48 @@ export async function postCourseToTelegram(
 ): Promise<{ success: boolean; channels: string[] }> {
   // Prefer env token over DB-stored one
   const botToken = process.env.TELEGRAM_BOT_TOKEN || String(settings.bot_token || '');
-  const channels = (settings.channels as Array<{ id: string; active: boolean; name: string; language: string }>) || [];
+  const channels = (settings.channels as TelegramChannel[]) || [];
 
   if (!botToken) return { success: false, channels: [] };
 
   const activeChannels = channels.filter((c: { active: boolean }) => c.active);
-  const sentChannels: string[] = [];
-  const failedChannels: string[] = [];
+  return postCourseToTelegramChannels(course, settings, activeChannels);
+}
 
+export async function postCourseToTelegramChannels(
+  course: Record<string, unknown>,
+  settings: Record<string, unknown>,
+  channels: TelegramChannel[],
+): Promise<{ success: boolean; channels: string[]; channelIds: string[]; failed: string[] }> {
+  const botToken = process.env.TELEGRAM_BOT_TOKEN || String(settings.bot_token || '');
+  if (!botToken) return { success: false, channels: [], channelIds: [], failed: [] };
+
+  const locale = (String(course.locale || channels[0]?.language || 'en') === 'ar' ? 'ar' : 'en') as Locale;
   const tplEn = String(settings.message_template || '') || DEFAULT_TEMPLATES.en;
   const tplAr = String(settings.message_template_ar || '') || DEFAULT_TEMPLATES.ar;
-  const keyboard = buildInlineKeyboard(course);
+  const template = locale === 'ar' ? tplAr : tplEn;
+  const keyboard = buildInlineKeyboard(course, locale);
+  const sentChannels: string[] = [];
+  const sentChannelIds: string[] = [];
+  const failedChannels: string[] = [];
 
-  for (const channel of activeChannels) {
-    if (!channel.id) continue;
-
-    const lang = channel.language || 'en';
-    const template = lang === 'ar' ? tplAr : tplEn;
+  for (const channel of channels.filter((c) => c.active && c.id)) {
     const channelMessage = formatCourseMessageHtml(course, template);
-
     const ok = await sendMessage(botToken, channel.id, channelMessage, 'HTML', keyboard);
 
     if (ok) {
-      sentChannels.push(channel.name);
+      sentChannels.push(channel.name || channel.id);
+      sentChannelIds.push(channel.id);
     } else {
       failedChannels.push(channel.name || channel.id);
     }
   }
 
-  // A course counts as posted when it reaches at least one active channel.
-  // Requiring every channel to succeed meant one misconfigured channel (e.g. the
-  // bot not being an admin) blocked the course forever and re-posted duplicates
-  // to the channels that do work. Log partial failures but don't fail the course.
   if (failedChannels.length > 0) {
-    console.warn(`[Telegram] post reached ${sentChannels.length} channel(s); failed: ${failedChannels.join(', ')}`);
+    console.warn(`[Telegram] ${locale} post reached ${sentChannels.length} channel(s); failed: ${failedChannels.join(', ')}`);
   }
 
-  return { success: sentChannels.length > 0, channels: sentChannels };
+  return { success: sentChannels.length > 0, channels: sentChannels, channelIds: sentChannelIds, failed: failedChannels };
 }
 
 // ============================================
@@ -205,7 +209,7 @@ export async function autoPostToTelegram(
   for (let i = 0; i < unposted.length; i++) {
     const course = unposted[i];
     const result = await postCourseToTelegram(
-      course as unknown as Record<string, unknown>,
+      { ...(course as unknown as Record<string, unknown>), slug: course.slug, locale: 'en' },
       settings as unknown as Record<string, unknown>
     );
 
