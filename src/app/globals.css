@@ -157,7 +157,7 @@
   display: block;
   width: calc(100% - 2rem);
   max-width: 64rem;
-  aspect-ratio: 1200 / 420;
+  aspect-ratio: 1600 / 560;
   margin: 1.25rem auto 0;
   border-radius: 1rem;
   background-image: url('/learn-plus-hero.svg');
@@ -171,13 +171,42 @@
   .view-enter::before {
     width: calc(100% - 1.5rem);
     max-width: 26.25rem;
-    aspect-ratio: 420 / 560;
+    aspect-ratio: 840 / 1120;
     margin-top: 1rem;
     border-radius: 1rem;
     background-image: url('/learn-plus-hero-mobile.svg');
     background-size: contain;
     background-position: center;
   }
+}
+
+/* Standalone course navigation buttons */
+main > div.text-center.pt-4.pb-8 > a[href="/"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 0.5rem !important;
+  border: 1px solid #000 !important;
+  background: #000 !important;
+  padding: 0.75rem 1.25rem !important;
+  font-size: 0.875rem !important;
+  font-weight: 600 !important;
+  color: #fff !important;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05) !important;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease !important;
+}
+main > div.text-center.pt-4.pb-8 > a[href="/"]:hover {
+  background: #27272a !important;
+  color: #fff !important;
+}
+.dark main > div.text-center.pt-4.pb-8 > a[href="/"] {
+  border-color: #fff !important;
+  background: #fff !important;
+  color: #000 !important;
+}
+.dark main > div.text-center.pt-4.pb-8 > a[href="/"]:hover {
+  background: #e5e7eb !important;
+  color: #000 !important;
 }
 
 @keyframes viewFadeIn {
