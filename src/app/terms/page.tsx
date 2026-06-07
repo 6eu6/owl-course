@@ -16,21 +16,21 @@ export default function TermsPage() {
         <p className="text-xs text-muted-foreground">Last updated: {new Date().getFullYear()}</p>
 
         <p className="text-sm text-muted-foreground leading-relaxed">
-          By using Learn Plus Courses you agree to these terms. The site is provided to help you
-          discover and start online courses for free.
+          By using Learn Plus Courses you agree to these terms. The site helps you discover online
+          courses and open the original course provider page.
         </p>
 
         <h2 className="text-base font-semibold">Use of the site</h2>
         <p className="text-sm text-muted-foreground leading-relaxed">
-          You may browse, search and share courses freely for personal, non-commercial use. Please
-          do not attempt to disrupt, scrape or misuse the service.
+          You may browse, search and share course listings for personal use. Please do not attempt
+          to disrupt, scrape or misuse the service.
         </p>
 
         <h2 className="text-base font-semibold">Course availability</h2>
         <p className="text-sm text-muted-foreground leading-relaxed">
-          Free access to courses is time-limited and provided by third-party learning platforms.
-          Availability can change at any time and is outside our control. If a course is no longer
-          free when you reach it, please check back later — the catalogue updates regularly.
+          Course offers are time-limited and provided by third-party learning platforms.
+          Availability can change at any time and is outside our control. If a course offer changes
+          when you reach it, please check back later. The catalogue updates regularly.
         </p>
 
         <h2 className="text-base font-semibold">No warranty</h2>
