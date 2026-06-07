@@ -149,7 +149,7 @@ export async function postCourseToTelegram(
 
   const activeChannels = channels.filter((c: { active: boolean }) => c.active);
   const sentChannels: string[] = [];
-  let allSuccess = true;
+  const failedChannels: string[] = [];
 
   const tplEn = String(settings.message_template || '') || DEFAULT_TEMPLATES.en;
   const tplAr = String(settings.message_template_ar || '') || DEFAULT_TEMPLATES.ar;
@@ -167,11 +167,19 @@ export async function postCourseToTelegram(
     if (ok) {
       sentChannels.push(channel.name);
     } else {
-      allSuccess = false;
+      failedChannels.push(channel.name || channel.id);
     }
   }
 
-  return { success: allSuccess && sentChannels.length > 0, channels: sentChannels };
+  // A course counts as posted when it reaches at least one active channel.
+  // Requiring every channel to succeed meant one misconfigured channel (e.g. the
+  // bot not being an admin) blocked the course forever and re-posted duplicates
+  // to the channels that do work. Log partial failures but don't fail the course.
+  if (failedChannels.length > 0) {
+    console.warn(`[Telegram] post reached ${sentChannels.length} channel(s); failed: ${failedChannels.join(', ')}`);
+  }
+
+  return { success: sentChannels.length > 0, channels: sentChannels };
 }
 
 // ============================================
