@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import { getCourseBySlug } from '@/lib/queries'
 import { buildUdemyUrl } from '@/lib/course-url'
 import { TimedReveal } from '@/components/timed-reveal'
+import { TelegramChannelButton } from '@/components/telegram-cta'
 import { BulletList } from '@/components/bullet-list'
 import { SiteHeader, SiteFooter } from '@/components/site-chrome'
 import { ReportBrokenLinkButton } from '@/components/report-broken-link-button'
@@ -81,6 +82,7 @@ export default async function EnrollPage({ params }: PageProps) {
             href={udemyUrl}
             external
           />
+          <TelegramChannelButton label="Follow our channel for daily free courses" />
           <ReportBrokenLinkButton slug={course.slug} title={course.title} />
         </div>
 
