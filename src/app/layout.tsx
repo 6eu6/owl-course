@@ -16,9 +16,19 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://www.learn-plus.uk'),
-  title: "Learn Plus Courses — Free Udemy Courses",
-  description: "Discover the best free Udemy courses. Automatically updated from multiple sources.",
-  keywords: ["free courses", "udemy", "online learning", "free udemy courses", "learn plus"],
+  title: {
+    default: "Learn Plus Courses — Free Udemy Courses",
+    template: "%s | Learn Plus Courses",
+  },
+  description: "Discover the best free Udemy courses with active coupons, refreshed automatically. Browse, search, and enroll for free.",
+  keywords: ["free courses", "udemy", "online learning", "free udemy courses", "udemy coupons", "learn plus"],
+  applicationName: "Learn Plus Courses",
+  alternates: { canonical: "/" },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1 },
+  },
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },

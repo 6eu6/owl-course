@@ -30,8 +30,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const courseUrl = `${SITE_URL}/course/${course.slug}`;
 
   return {
-    title: `${course.title} | Learn Plus Courses`,
+    title: course.title,
     description,
+    alternates: { canonical: `/course/${course.slug}` },
     openGraph: {
       title: course.title,
       description,
@@ -124,8 +125,31 @@ export default async function CoursePage({ params }: PageProps) {
   const catInfo = getCat(course.category);
   const udemyUrl = buildUdemyUrl(course);
 
+  // Structured data (schema.org Course) for rich search results.
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Course',
+    name: course.title,
+    description: (course.description || '').slice(0, 400) || `Free Udemy course: ${course.title}`,
+    url: `${SITE_URL}/course/${course.slug}`,
+    ...(course.imageUrl ? { image: course.imageUrl } : {}),
+    ...(course.language ? { inLanguage: course.language } : {}),
+    provider: { '@type': 'Organization', name: 'Udemy', sameAs: 'https://www.udemy.com' },
+    offers: {
+      '@type': 'Offer',
+      price: '0',
+      priceCurrency: 'USD',
+      category: 'Free',
+      availability: 'https://schema.org/InStock',
+    },
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       {/* Header / Nav */}
       <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-sm">
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
