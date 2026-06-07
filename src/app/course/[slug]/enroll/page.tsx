@@ -56,9 +56,7 @@ export default async function EnrollPage({ params }: PageProps) {
         {course.description && (
           <section className="p-4 rounded-lg border bg-card">
             <h3 className="text-xs font-semibold mb-2">About this course</h3>
-            <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">
-              {course.description}
-            </p>
+            <BulletList text={course.description} />
           </section>
         )}
         {course.whatLearn && (
@@ -71,6 +69,12 @@ export default async function EnrollPage({ params }: PageProps) {
           <section className="p-4 rounded-lg border bg-card">
             <h3 className="text-xs font-semibold mb-2">Requirements</h3>
             <BulletList text={course.requirements} />
+          </section>
+        )}
+        {course.whoFor && (
+          <section className="p-4 rounded-lg border bg-card">
+            <h3 className="text-xs font-semibold mb-2">Who this course is for</h3>
+            <BulletList text={course.whoFor} />
           </section>
         )}
 
