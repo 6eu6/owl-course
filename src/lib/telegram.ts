@@ -1,4 +1,5 @@
 import { getTelegramSettings, getUnpostedCourses, markCourseTelegramPosted, logTelegramMessage } from './mongodb';
+import { DEFAULT_TEMPLATES } from './templates';
 
 const TELEGRAM_API = 'https://api.telegram.org';
 
@@ -6,135 +7,9 @@ const TELEGRAM_API = 'https://api.telegram.org';
 const DEFAULT_POST_DELAY_MS = 60_000; // 1 minute
 
 // ============================================
-// Language-specific field label mappings
+// Default post templates (lines with only empty placeholders are dropped)
 // ============================================
 
-const LANGUAGE_LABELS: Record<string, Record<string, string>> = {
-  en: {
-    instructor: 'Instructor',
-    category: 'Category',
-    rating: 'Rating',
-    students_count: 'Students',
-    original_price: 'Price',
-    language: 'Language',
-    duration: 'Duration',
-    link: 'Enroll Free',
-  },
-  ar: {
-    instructor: 'المدرب',
-    category: 'التصنيف',
-    rating: 'التقييم',
-    students_count: 'الطلاب',
-    original_price: 'السعر',
-    language: 'اللغة',
-    duration: 'المدة',
-    link: 'سجل مجاناً',
-  },
-  es: {
-    instructor: 'Instructor',
-    category: 'Categoría',
-    rating: 'Calificación',
-    students_count: 'Estudiantes',
-    original_price: 'Precio',
-    language: 'Idioma',
-    duration: 'Duración',
-    link: 'Inscríbete Gratis',
-  },
-  fr: {
-    instructor: 'Instructeur',
-    category: 'Catégorie',
-    rating: 'Note',
-    students_count: 'Étudiants',
-    original_price: 'Prix',
-    language: 'Langue',
-    duration: 'Durée',
-    link: "S'inscrire Gratuitement",
-  },
-  pt: {
-    instructor: 'Instrutor',
-    category: 'Categoria',
-    rating: 'Avaliação',
-    students_count: 'Estudantes',
-    original_price: 'Preço',
-    language: 'Idioma',
-    duration: 'Duração',
-    link: 'Inscreva-se Grátis',
-  },
-  tr: {
-    instructor: 'Eğitmen',
-    category: 'Kategori',
-    rating: 'Puan',
-    students_count: 'Öğrenci',
-    original_price: 'Fiyat',
-    language: 'Dil',
-    duration: 'Süre',
-    link: 'Ücretsiz Kaydol',
-  },
-  hi: {
-    instructor: 'Instructor',
-    category: 'Category',
-    rating: 'Rating',
-    students_count: 'Students',
-    original_price: 'Price',
-    language: 'Language',
-    duration: 'Duration',
-    link: 'Enroll Free',
-  },
-  zh: {
-    instructor: '讲师',
-    category: '分类',
-    rating: '评分',
-    students_count: '学生',
-    original_price: '价格',
-    language: '语言',
-    duration: '时长',
-    link: '免费注册',
-  },
-  ja: {
-    instructor: '講師',
-    category: 'カテゴリ',
-    rating: '評価',
-    students_count: '受講生',
-    original_price: '価格',
-    language: '言語',
-    duration: '時間',
-    link: '無料で受講',
-  },
-  ko: {
-    instructor: '강사',
-    category: '카테고리',
-    rating: '평점',
-    students_count: '수강생',
-    original_price: '가격',
-    language: '언어',
-    duration: '시간',
-    link: '무료 등록',
-  },
-  de: {
-    instructor: 'Dozent',
-    category: 'Kategorie',
-    rating: 'Bewertung',
-    students_count: 'Schüler',
-    original_price: 'Preis',
-    language: 'Sprache',
-    duration: 'Dauer',
-    link: 'Kostenlos Anmelden',
-  },
-  ru: {
-    instructor: 'Инструктор',
-    category: 'Категория',
-    rating: 'Рейтинг',
-    students_count: 'Студенты',
-    original_price: 'Цена',
-    language: 'Язык',
-    duration: 'Длительность',
-    link: 'Записаться бесплатно',
-  },
-};
-
-function getLabels(lang: string): Record<string, string> {
-  return LANGUAGE_LABELS[lang] || LANGUAGE_LABELS['en'];
-}
 
 // ============================================
 // Send Message (with optional reply_markup)
@@ -173,36 +48,69 @@ async function sendMessage(
 // Format Course Message (Beautiful HTML)
 // ============================================
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/** Normalise a possibly-dirty value into a clean string, or '' if it's a placeholder. */
+function cleanValue(v: unknown): string {
+  const s = String(v ?? '').trim();
+  if (!s) return '';
+  if (/^(unknown|n\/a|none|null|undefined)$/i.test(s)) return '';
+  return s;
+}
+
+/** A real, paid original price like "$64.00" — not "Free"/empty. */
+function realPrice(v: unknown): string {
+  const s = cleanValue(v);
+  if (!s || /free/i.test(s) || !/\d/.test(s)) return '';
+  return s.startsWith('$') ? s : `$${s}`;
+}
+
+/**
+ * Render a template, dropping any line whose placeholders are all empty so we
+ * never print "Instructor: Unknown" or a stray "Price:" with no value.
+ */
+function renderTemplate(tpl: string, values: Record<string, string>): string {
+  return tpl
+    .split('\n')
+    .map((line) => {
+      const keys = [...line.matchAll(/\{(\w+)\}/g)].map((m) => m[1]);
+      if (keys.length > 0 && keys.every((k) => !values[k])) return null; // drop empty line
+      return line.replace(/\{(\w+)\}/g, (_, k) => values[k] ?? '');
+    })
+    .filter((l): l is string => l !== null)
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 function formatCourseMessageHtml(
   course: Record<string, unknown>,
-  channelLanguage: string
+  template: string,
 ): string {
-  const labels = getLabels(channelLanguage);
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
   const slug = String(course.slug || '');
   const courseUrl = (siteUrl && slug) ? `${siteUrl}/course/${slug}` : String(course.udemy_url || '');
 
-  const title = String(course.title || 'Untitled Course');
-  const instructor = String(course.instructor || 'Unknown');
-  const rating = course.rating ? String(course.rating) : 'N/A';
-  const studentsCount = course.students_count
-    ? Number(course.students_count).toLocaleString()
-    : 'N/A';
-  const originalPrice = String(course.original_price || 'Free');
-  const language = String(course.language || 'English');
-  const duration = String(course.duration || 'Self-paced');
+  const ratingNum = Number(course.rating);
+  const studentsNum = Number(course.students_count);
+  const price = realPrice(course.original_price);
 
-  const message =
-    `<b>📚 ${title}</b>\n\n` +
-    `👤 <b>${labels.instructor}:</b> ${instructor}\n` +
-    `⭐ <b>${labels.rating}:</b> ${rating}/5 ⭐\n` +
-    `👥 <b>${labels.students_count}:</b> ${studentsCount}\n` +
-    `🏷️ <b>${labels.original_price}:</b> <s>$${originalPrice}</s> → FREE\n` +
-    `🌍 <b>${labels.language}:</b> ${language}\n` +
-    `⏱️ <b>${labels.duration}:</b> ${duration}\n\n` +
-    `🔗 ${courseUrl}`;
+  const values: Record<string, string> = {
+    title: escapeHtml(cleanValue(course.title) || 'Course'),
+    instructor: escapeHtml(cleanValue(course.instructor)),
+    rating: ratingNum > 0 ? `${ratingNum}/5` : '',
+    students_count: studentsNum > 0 ? studentsNum.toLocaleString() : '',
+    original_price: price ? `<s>${escapeHtml(price)}</s>` : '',
+    language: escapeHtml(cleanValue(course.language)),
+    duration: escapeHtml(cleanValue(course.duration)),
+    category: escapeHtml(cleanValue(course.category)),
+    link: courseUrl,
+  };
 
-  return message;
+  const tpl = template && template.trim() ? template : DEFAULT_TEMPLATES.en;
+  return renderTemplate(tpl, values);
 }
 
 // Build inline keyboard button pointing to site course page
@@ -217,7 +125,7 @@ function buildInlineKeyboard(course: Record<string, unknown>): Record<string, un
     inline_keyboard: [
       [
         {
-          text: `🚀 Enroll Free → ${siteUrl.replace(/^https?:\/\//, '').replace(/\/$/, '')}/course/${slug}`,
+          text: '🚀 Enroll Free',
           url: courseUrl,
         },
       ],
@@ -243,16 +151,16 @@ export async function postCourseToTelegram(
   const sentChannels: string[] = [];
   let allSuccess = true;
 
-  const messageHtml = formatCourseMessageHtml(course, 'en');
+  const tplEn = String(settings.message_template || '') || DEFAULT_TEMPLATES.en;
+  const tplAr = String(settings.message_template_ar || '') || DEFAULT_TEMPLATES.ar;
   const keyboard = buildInlineKeyboard(course);
 
   for (const channel of activeChannels) {
     if (!channel.id) continue;
 
     const lang = channel.language || 'en';
-    const channelMessage = lang === 'en'
-      ? messageHtml
-      : formatCourseMessageHtml(course, lang);
+    const template = lang === 'ar' ? tplAr : tplEn;
+    const channelMessage = formatCourseMessageHtml(course, template);
 
     const ok = await sendMessage(botToken, channel.id, channelMessage, 'HTML', keyboard);
 

@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { Prisma } from '@prisma/client';
+import { DEFAULT_TEMPLATES } from './templates';
 
 // ============================================
 // Course Operations
@@ -256,22 +257,21 @@ export interface TelegramSettingsConfig {
 }
 
 export async function getTelegramSettings(): Promise<TelegramSettingsConfig> {
+  const fallback: TelegramSettingsConfig = {
+    bot_token: '',
+    channels: [{ name: 'Main Channel', id: '', active: true, language: 'en' }],
+    auto_post: false,
+    message_template: DEFAULT_TEMPLATES.en,
+    message_template_ar: DEFAULT_TEMPLATES.ar,
+  };
+
   const raw = await getSetting('telegram');
-  if (!raw) {
-    return {
-      bot_token: '',
-      channels: [{ name: 'Main Channel', id: '', active: true, language: 'en' }],
-      auto_post: false,
-      message_template: '{title}\n\nInstructor: {instructor}\nRating: {rating}\nStudents: {students_count}\n\n{link}',
-      message_template_ar: '{title}\n\nالمدرب: {instructor}\nالتقييم: {rating}\nالطلاب: {students_count}\n\n{link}',
-    };
-  }
+  if (!raw) return fallback;
+
   try {
     const parsed = JSON.parse(raw);
-    // Backfill defaults for older configs that lack new fields
-    if (!parsed.message_template_ar) {
-      parsed.message_template_ar = '{title}\n\nالمدرب: {instructor}\nالتقييم: {rating}\nالطلاب: {students_count}\n\n{link}';
-    }
+    if (!parsed.message_template) parsed.message_template = DEFAULT_TEMPLATES.en;
+    if (!parsed.message_template_ar) parsed.message_template_ar = DEFAULT_TEMPLATES.ar;
     if (Array.isArray(parsed.channels)) {
       parsed.channels = parsed.channels.map((c: { language?: string }) => ({
         ...c,
@@ -280,13 +280,7 @@ export async function getTelegramSettings(): Promise<TelegramSettingsConfig> {
     }
     return parsed;
   } catch {
-    return {
-      bot_token: '',
-      channels: [{ name: 'Main Channel', id: '', active: true, language: 'en' }],
-      auto_post: false,
-      message_template: '{title}\n{link}',
-      message_template_ar: '{title}\n\nالمدرب: {instructor}\nالتقييم: {rating}\nالطلاب: {students_count}\n\n{link}',
-    };
+    return fallback;
   }
 }
 

@@ -3,7 +3,8 @@ import Link from 'next/link';
 import { getCourseBySlug, getRelatedCourses } from '@/lib/mongodb';
 import { CATEGORIES } from '@/lib/translations';
 import { LogoMark } from '@/components/logo';
-import { notFound, redirect } from 'next/navigation';
+import { CourseImage } from '@/components/course-image';
+import { notFound } from 'next/navigation';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || '';
 const PLACEHOLDER_IMG = 'https://img-b.udemycdn.com/course/480x270/placeholder.jpg';
@@ -148,14 +149,10 @@ export default async function CoursePage({ params }: PageProps) {
       <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
         {/* Hero Image */}
         <div className="relative aspect-[16/7] bg-muted rounded-xl overflow-hidden">
-          <img
+          <CourseImage
             src={course.imageUrl || PLACEHOLDER_IMG}
             alt={course.title}
             className="w-full h-full object-cover"
-            onError={(e) => {
-              const target = e.currentTarget as HTMLImageElement;
-              target.src = PLACEHOLDER_IMG;
-            }}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
 
@@ -352,14 +349,10 @@ export default async function CoursePage({ params }: PageProps) {
                     className="block overflow-hidden rounded-lg border bg-card hover:shadow-md hover:border-border dark:hover:border-border transition-all group"
                   >
                     <div className="relative aspect-[16/9] bg-muted">
-                      <img
+                      <CourseImage
                         src={rc.imageUrl || PLACEHOLDER_IMG}
                         alt={rc.title}
                         className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300"
-                        onError={(e) => {
-                          const target = e.currentTarget as HTMLImageElement;
-                          target.src = PLACEHOLDER_IMG;
-                        }}
                         loading="lazy"
                       />
                     </div>
