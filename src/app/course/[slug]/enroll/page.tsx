@@ -38,7 +38,7 @@ export default async function EnrollPage({ params }: PageProps) {
       <main className="max-w-3xl mx-auto w-full px-4 py-6 space-y-5">
         <div className="relative aspect-[1600/746] rounded-xl border bg-card p-1 shadow-sm overflow-hidden">
           <img
-            src="/enroll-guide-hero.svg"
+            src="/enroll-guide-hero.svg?v=20260607-sharp"
             alt="Scroll down, wait for the course link, then press the green button"
             className="h-full w-full rounded-lg object-contain"
           />
