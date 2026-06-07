@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
+import { db } from '@/lib/db';
 import { getAllCourses, getAllCategories, countCourses } from '@/lib/queries';
 import { getSiteSettings } from '@/lib/settings';
+import { normalizeLocale } from '@/lib/i18n';
 
 // GET /api/courses - List courses with pagination, filtering, search
 export async function GET(request: Request) {
@@ -13,6 +15,7 @@ export async function GET(request: Request) {
     const source = searchParams.get('source') || '';
     const sort = searchParams.get('sort') || 'newest';
     const freeForever = searchParams.get('freeForever') || '';
+    const locale = normalizeLocale(searchParams.get('locale') || 'en');
 
     let settings: { site_name: string; site_description: string; courses_per_page: number };
     try {
@@ -25,15 +28,36 @@ export async function GET(request: Request) {
     const categories = await getAllCategories();
     const totalCourses = await countCourses({ isPublished: true });
 
+    // For non-English locales, overlay translated title/slug/category/description
+    // when a translated row exists. English keeps the original course data.
+    // Guarded so the listing keeps working before the i18n tables are created.
+    const trMap = new Map<string, { title: string; slug: string; category: string; description: string }>();
+    if (locale !== 'en' && courses.length > 0) {
+      try {
+        const rows = await (db as any).courseTranslation.findMany({
+          where: { locale, status: 'translated', courseId: { in: courses.map((c) => c.id) } },
+          select: { courseId: true, title: true, slug: true, category: true, description: true },
+        });
+        for (const r of rows as Array<{ courseId: string; title: string; slug: string; category: string; description: string }>) {
+          trMap.set(r.courseId, { title: r.title, slug: r.slug, category: r.category, description: r.description });
+        }
+      } catch {
+        /* i18n table not ready — fall back to original course fields */
+      }
+    }
+
     return NextResponse.json({
       success: true,
-      courses: courses.map(c => ({
+      locale,
+      courses: courses.map(c => {
+        const tr = trMap.get(c.id);
+        return {
         id: c.id,
-        title: c.title,
-        slug: c.slug,
-        description: c.description?.slice(0, 200) || '',
+        title: tr?.title || c.title,
+        slug: tr?.slug || c.slug,
+        description: (tr?.description || c.description)?.slice(0, 200) || '',
         instructor: c.instructor || '',
-        category: c.category,
+        category: tr?.category || c.category,
         imageUrl: c.imageUrl,
         image_url: c.imageUrl,
         rating: c.rating || null,
@@ -45,7 +69,8 @@ export async function GET(request: Request) {
         isFreeForever: c.isFreeForever || false,
         couponVerified: c.couponVerified || false,
         scraped_at: c.scrapedAt,
-      })),
+        };
+      }),
       pagination: {
         page,
         limit,
