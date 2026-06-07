@@ -31,7 +31,7 @@ export function TimedReveal({
       })
     }, 1000)
     return () => clearInterval(t)
-  }, [])
+  }, [seconds])
 
   if (remaining > 0) {
     const pct = Math.round(((seconds - remaining) / seconds) * 100)
@@ -57,7 +57,7 @@ export function TimedReveal({
       href={href}
       target={external ? '_blank' : undefined}
       rel={external ? 'noopener noreferrer' : undefined}
-      className="flex w-full items-center justify-center gap-2 rounded-lg bg-green-600 px-6 py-3.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-green-700"
+      className="flex w-full items-center justify-center rounded-lg bg-green-600 px-6 py-3.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-green-700"
     >
       {buttonText}
     </a>
