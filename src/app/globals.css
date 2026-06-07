@@ -150,6 +150,31 @@
 .view-enter {
   animation: viewFadeIn 0.3s ease-out;
 }
+
+/* Homepage SVG hero */
+.view-enter::before {
+  content: "";
+  display: block;
+  width: calc(100% - 2rem);
+  max-width: 64rem;
+  aspect-ratio: 1200 / 420;
+  margin: 1.25rem auto 0;
+  border-radius: 1rem;
+  background-image: url('/learn-plus-hero.svg');
+  background-size: cover;
+  background-position: center;
+  box-shadow: 0 16px 40px rgb(15 23 42 / 0.14);
+}
+
+@media (max-width: 640px) {
+  .view-enter::before {
+    width: calc(100% - 1.5rem);
+    aspect-ratio: 1.45 / 1;
+    margin-top: 1rem;
+    border-radius: 0.85rem;
+  }
+}
+
 @keyframes viewFadeIn {
   from {
     opacity: 0;
