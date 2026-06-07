@@ -1,9 +1,9 @@
-import Link from 'next/link'
-import { ArrowRight } from 'lucide-react'
-import { LogoMark } from '@/components/logo'
-import { ThemeToggle } from '@/components/theme-toggle'
+import Link from "next/link"
+import { ArrowRight } from "lucide-react"
+import { LogoMark } from "@/components/logo"
+import { ThemeToggle } from "@/components/theme-toggle"
 
-export function SiteHeader({ backHref = '/', backLabel = 'Home' }: { backHref?: string; backLabel?: string }) {
+export function SiteHeader({ backHref = "/", backLabel = "Home" }: { backHref?: string; backLabel?: string }) {
   return (
     <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-sm">
       <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
@@ -12,6 +12,7 @@ export function SiteHeader({ backHref = '/', backLabel = 'Home' }: { backHref?: 
           <span className="truncate">Learn Plus Courses</span>
         </Link>
         <div className="flex shrink-0 items-center gap-2">
+          <ThemeToggle />
           <Link
             href={backHref}
             className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md border px-2 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -20,7 +21,6 @@ export function SiteHeader({ backHref = '/', backLabel = 'Home' }: { backHref?: 
             <span className="hidden sm:inline">{backLabel}</span>
             <span className="sm:hidden">Back</span>
           </Link>
-          <ThemeToggle />
         </div>
       </div>
     </header>
@@ -36,7 +36,7 @@ export function SiteFooter() {
           <Link href="/privacy" className="hover:text-foreground">Privacy</Link>
           <Link href="/terms" className="hover:text-foreground">Terms</Link>
         </div>
-        <p>© {new Date().getFullYear()} Learn Plus Courses. Free Udemy Courses</p>
+        <p>Learn Plus Courses</p>
       </div>
     </footer>
   )
