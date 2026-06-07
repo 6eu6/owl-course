@@ -44,10 +44,40 @@ model Course {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
+  translations   CourseTranslation[]
+  telegramPosts  TelegramPost[]
+
   @@index([slug])
   @@index([source])
   @@index([category])
   @@index([isPublished])
+}
+
+model CourseTranslation {
+  id              String   @id @default(cuid())
+  courseId        String
+  locale          String
+  title           String
+  slug            String
+  description     String   @default("")
+  requirements    String   @default("")
+  whoFor          String   @default("")
+  whatLearn       String   @default("")
+  category        String   @default("Other")
+  metaTitle       String   @default("")
+  metaDescription String   @default("")
+  status          String   @default("pending")
+  error           String?
+  translatedAt    DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  course          Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, locale])
+  @@unique([locale, slug])
+  @@index([locale, status])
+  @@index([courseId])
 }
 
 model ScraperLog {
@@ -75,4 +105,20 @@ model TelegramMessage {
   channels    String   @default("[]")
   status      String   @default("pending")
   sentAt      DateTime @default(now())
+}
+
+model TelegramPost {
+  id        String   @id @default(cuid())
+  courseId  String
+  locale    String
+  channelId String
+  status    String   @default("sent")
+  sentAt    DateTime @default(now())
+  error     String?
+
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, locale, channelId])
+  @@index([locale, status])
+  @@index([courseId])
 }
