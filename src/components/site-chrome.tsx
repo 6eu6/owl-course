@@ -7,19 +7,21 @@ export function SiteHeader({ backHref = '/', backLabel = 'Home' }: { backHref?: 
   return (
     <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-sm">
       <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
-        <ThemeToggle />
         <Link href="/" className="flex min-w-0 items-center gap-2 text-sm font-semibold">
           <LogoMark className="h-5 w-5 shrink-0" />
           <span className="truncate">Learn Plus Courses</span>
         </Link>
-        <Link
-          href={backHref}
-          className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md border px-2 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
-          <ArrowRight className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">{backLabel}</span>
-          <span className="sm:hidden">Back</span>
-        </Link>
+        <div className="flex shrink-0 items-center gap-2">
+          <Link
+            href={backHref}
+            className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md border px-2 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <ArrowRight className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">{backLabel}</span>
+            <span className="sm:hidden">Back</span>
+          </Link>
+          <ThemeToggle />
+        </div>
       </div>
     </header>
   )
