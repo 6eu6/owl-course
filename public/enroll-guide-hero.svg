@@ -1,78 +1,73 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="746" viewBox="0 0 1600 746" role="img" aria-labelledby="title desc">
   <title id="title">Course access guide illustration</title>
-  <desc id="desc">Illustration showing how to scroll down, wait for the course link, and press the green course button.</desc>
+  <desc id="desc">Sharp vector illustration showing how to scroll down, wait for the course link, and press the green button.</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#111827"/>
       <stop offset="1" stop-color="#020617"/>
     </linearGradient>
     <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#ffffff" stop-opacity=".98"/>
-      <stop offset="1" stop-color="#f8fafc" stop-opacity=".94"/>
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f8fafc"/>
     </linearGradient>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
-      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#000000" flood-opacity=".22"/>
-    </filter>
   </defs>
 
-  <rect width="1200" height="560" rx="32" fill="url(#bg)"/>
-  <circle cx="1050" cy="78" r="184" fill="#a855f7" opacity=".18"/>
-  <circle cx="105" cy="505" r="190" fill="#22c55e" opacity=".15"/>
-  <circle cx="650" cy="455" r="120" fill="#38bdf8" opacity=".11"/>
+  <rect width="1600" height="746" rx="44" fill="url(#bg)"/>
+  <circle cx="1400" cy="106" r="250" fill="#a855f7" opacity=".18"/>
+  <circle cx="140" cy="668" r="250" fill="#22c55e" opacity=".15"/>
+  <circle cx="868" cy="606" r="160" fill="#38bdf8" opacity=".1"/>
 
-  <g transform="translate(76 76)">
-    <rect width="152" height="38" rx="19" fill="#ffffff" fill-opacity=".12" stroke="#ffffff" stroke-opacity=".16"/>
-    <text x="22" y="24" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="800" fill="#ffffff">ACCESS GUIDE</text>
+  <g transform="translate(104 104)">
+    <rect width="202" height="52" rx="26" fill="#ffffff" fill-opacity=".12" stroke="#ffffff" stroke-opacity=".18" stroke-width="2"/>
+    <text x="31" y="34" font-family="Arial, sans-serif" font-size="19" font-weight="900" fill="#ffffff">ACCESS GUIDE</text>
 
-    <text x="0" y="100" font-family="Inter, Arial, sans-serif" font-size="52" font-weight="900" fill="#ffffff" letter-spacing="-.8">Your link is</text>
-    <text x="0" y="146" font-family="Inter, Arial, sans-serif" font-size="52" font-weight="900" fill="#ffffff" letter-spacing="-.8">being prepared</text>
-    <text x="0" y="200" font-family="Inter, Arial, sans-serif" font-size="19" fill="#cbd5e1">Scroll down, wait for the countdown, then press the green course button.</text>
+    <text x="0" y="134" font-family="Arial, sans-serif" font-size="72" font-weight="900" fill="#ffffff">Your link is</text>
+    <text x="0" y="198" font-family="Arial, sans-serif" font-size="72" font-weight="900" fill="#ffffff">being prepared</text>
+    <text x="0" y="270" font-family="Arial, sans-serif" font-size="26" fill="#cbd5e1">Scroll down, wait for the countdown, then press the green course button.</text>
 
-    <g transform="translate(0 256)">
-      <circle cx="18" cy="18" r="18" fill="#ffffff"/>
-      <text x="12" y="24" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="900" fill="#111827">1</text>
-      <text x="48" y="24" font-family="Inter, Arial, sans-serif" font-size="17" font-weight="800" fill="#ffffff">Scroll down</text>
-      <text x="48" y="48" font-family="Inter, Arial, sans-serif" font-size="14" fill="#cbd5e1">Move to the link section at the bottom.</text>
+    <g transform="translate(0 348)">
+      <circle cx="26" cy="26" r="26" fill="#ffffff"/>
+      <text x="17" y="35" font-family="Arial, sans-serif" font-size="23" font-weight="900" fill="#111827">1</text>
+      <text x="72" y="34" font-family="Arial, sans-serif" font-size="24" font-weight="900" fill="#ffffff">Scroll down</text>
+      <text x="72" y="70" font-family="Arial, sans-serif" font-size="19" fill="#cbd5e1">Move to the link section at the bottom.</text>
     </g>
 
-    <g transform="translate(0 328)">
-      <circle cx="18" cy="18" r="18" fill="#ffffff"/>
-      <text x="12" y="24" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="900" fill="#111827">2</text>
-      <text x="48" y="24" font-family="Inter, Arial, sans-serif" font-size="17" font-weight="800" fill="#ffffff">Wait a few seconds</text>
-      <text x="48" y="48" font-family="Inter, Arial, sans-serif" font-size="14" fill="#cbd5e1">The course link is prepared automatically.</text>
+    <g transform="translate(0 448)">
+      <circle cx="26" cy="26" r="26" fill="#ffffff"/>
+      <text x="17" y="35" font-family="Arial, sans-serif" font-size="23" font-weight="900" fill="#111827">2</text>
+      <text x="72" y="34" font-family="Arial, sans-serif" font-size="24" font-weight="900" fill="#ffffff">Wait a few seconds</text>
+      <text x="72" y="70" font-family="Arial, sans-serif" font-size="19" fill="#cbd5e1">The course link is prepared automatically.</text>
     </g>
 
-    <g transform="translate(0 400)">
-      <circle cx="18" cy="18" r="18" fill="#ffffff"/>
-      <text x="12" y="24" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="900" fill="#111827">3</text>
-      <text x="48" y="24" font-family="Inter, Arial, sans-serif" font-size="17" font-weight="800" fill="#ffffff">Press the green button</text>
-      <text x="48" y="48" font-family="Inter, Arial, sans-serif" font-size="14" fill="#cbd5e1">Open Udemy after the button appears.</text>
+    <g transform="translate(0 548)">
+      <circle cx="26" cy="26" r="26" fill="#ffffff"/>
+      <text x="17" y="35" font-family="Arial, sans-serif" font-size="23" font-weight="900" fill="#111827">3</text>
+      <text x="72" y="34" font-family="Arial, sans-serif" font-size="24" font-weight="900" fill="#ffffff">Press the green button</text>
+      <text x="72" y="70" font-family="Arial, sans-serif" font-size="19" fill="#cbd5e1">Open Udemy after the button appears.</text>
     </g>
   </g>
 
-  <g transform="translate(704 58)" filter="url(#shadow)">
-    <rect width="410" height="424" rx="28" fill="url(#panel)"/>
-    <rect x="28" y="24" width="354" height="30" rx="15" fill="#e5e7eb"/>
-    <circle cx="50" cy="39" r="5" fill="#ef4444"/>
-    <circle cx="68" cy="39" r="5" fill="#f59e0b"/>
-    <circle cx="86" cy="39" r="5" fill="#22c55e"/>
+  <g transform="translate(936 78)">
+    <rect width="548" height="566" rx="38" fill="url(#panel)" stroke="#e2e8f0" stroke-width="4"/>
+    <rect x="38" y="34" width="472" height="44" rx="22" fill="#e5e7eb"/>
+    <circle cx="70" cy="56" r="8" fill="#ef4444"/>
+    <circle cx="100" cy="56" r="8" fill="#f59e0b"/>
+    <circle cx="130" cy="56" r="8" fill="#22c55e"/>
 
-    <rect x="34" y="76" width="342" height="96" rx="20" fill="#111827"/>
-    <text x="58" y="112" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="900" fill="#ffffff">Scroll down and wait</text>
-    <text x="58" y="140" font-family="Inter, Arial, sans-serif" font-size="14" fill="#cbd5e1">The access button appears after the countdown.</text>
-    <path d="M316 104v30" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
-    <path d="M304 124l12 14 12-14" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="46" y="112" width="456" height="134" rx="26" fill="#111827"/>
+    <text x="80" y="161" font-family="Arial, sans-serif" font-size="26" font-weight="900" fill="#ffffff">Scroll down and wait</text>
+    <text x="80" y="201" font-family="Arial, sans-serif" font-size="19" fill="#cbd5e1">The access button appears after the countdown.</text>
+    <path d="M424 150v44" stroke="#ffffff" stroke-width="7" stroke-linecap="round"/>
+    <path d="M404 178l20 22 20-22" fill="none" stroke="#ffffff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
 
-    <rect x="34" y="190" width="342" height="88" rx="18" fill="#f8fafc"/>
-    <text x="58" y="222" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="800" fill="#111827">Preparing your course link...</text>
-    <rect x="58" y="238" width="250" height="10" rx="5" fill="#e5e7eb"/>
-    <rect x="58" y="238" width="170" height="10" rx="5" fill="#111827"/>
-    <text x="58" y="265" font-family="Inter, Arial, sans-serif" font-size="13" fill="#64748b">Please wait a few seconds</text>
+    <rect x="46" y="278" width="456" height="120" rx="24" fill="#f8fafc" stroke="#e2e8f0" stroke-width="3"/>
+    <text x="80" y="324" font-family="Arial, sans-serif" font-size="22" font-weight="900" fill="#111827">Preparing your course link...</text>
+    <rect x="80" y="350" width="330" height="16" rx="8" fill="#e5e7eb"/>
+    <rect x="80" y="350" width="226" height="16" rx="8" fill="#111827"/>
+    <text x="80" y="386" font-family="Arial, sans-serif" font-size="18" fill="#64748b">Please wait a few seconds</text>
 
-    <rect x="58" y="308" width="294" height="58" rx="16" fill="#16a34a"/>
-    <text x="114" y="344" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="900" fill="#ffffff">Continue to the course</text>
-
-    <rect x="58" y="382" width="294" height="20" rx="10" fill="#111827" fill-opacity=".08"/>
-    <text x="103" y="396" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="700" fill="#0f172a">Press the green button after it appears</text>
+    <rect x="78" y="438" width="392" height="74" rx="20" fill="#16a34a"/>
+    <text x="152" y="484" font-family="Arial, sans-serif" font-size="25" font-weight="900" fill="#ffffff">Continue to the course</text>
+    <rect x="78" y="536" width="392" height="28" rx="14" fill="#111827" fill-opacity=".08"/>
   </g>
 </svg>
