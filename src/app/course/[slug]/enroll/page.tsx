@@ -3,13 +3,10 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getCourseBySlug } from '@/lib/queries'
 import { buildUdemyUrl } from '@/lib/course-url'
-import { CourseImage } from '@/components/course-image'
 import { TimedReveal } from '@/components/timed-reveal'
 import { BulletList } from '@/components/bullet-list'
 import { SiteHeader, SiteFooter } from '@/components/site-chrome'
 import { ReportBrokenLinkButton } from '@/components/report-broken-link-button'
-
-const PLACEHOLDER_IMG = 'https://img-b.udemycdn.com/course/480x270/placeholder.jpg'
 
 interface PageProps {
   params: Promise<{ slug: string }>
@@ -39,18 +36,12 @@ export default async function EnrollPage({ params }: PageProps) {
       <SiteHeader backHref={`/course/${slug}`} backLabel="Course details" />
 
       <main className="max-w-3xl mx-auto w-full px-4 py-6 space-y-5">
-        <div className="relative aspect-[16/7] bg-muted rounded-xl overflow-hidden">
-          <CourseImage
-            src={course.imageUrl || PLACEHOLDER_IMG}
-            alt={course.title}
-            className="w-full h-full object-cover"
+        <div className="relative aspect-[1200/560] rounded-xl border bg-card p-1 shadow-sm overflow-hidden">
+          <img
+            src="/enroll-guide-hero.svg"
+            alt="Scroll down, wait for the course link, then press the green button"
+            className="h-full w-full rounded-lg object-contain"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
-          <div className="absolute bottom-3 left-3 right-3">
-            <h1 className="text-white font-bold text-lg sm:text-2xl leading-tight drop-shadow-md line-clamp-2">
-              {course.title}
-            </h1>
-          </div>
         </div>
 
         <div className="rounded-lg border bg-card p-4 text-center space-y-1">
@@ -94,7 +85,10 @@ export default async function EnrollPage({ params }: PageProps) {
         </div>
 
         <div className="text-center pb-4">
-          <Link href={`/course/${slug}`} className="text-xs text-muted-foreground hover:text-foreground">
+          <Link
+            href={`/course/${slug}`}
+            className="inline-flex items-center justify-center rounded-lg border border-black bg-black px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-zinc-800 dark:border-white/10 dark:bg-black dark:text-white dark:hover:bg-zinc-900"
+          >
             Back to course details
           </Link>
         </div>
