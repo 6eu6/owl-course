@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -1199,6 +1200,8 @@ export default function Home() {
     setMounted(true)
   }, [])
 
+  const router = useRouter()
+
   // Grid view state
   const [courses, setCourses] = useState<Course[]>([])
   const [categories, setCategories] = useState<CategoryInfo[]>([])
@@ -1296,26 +1299,10 @@ export default function Home() {
 
   const hasActiveFilters = !!(search || selectedCategory || sort !== 'newest')
 
-  const openCourseDetail = async (slug: string) => {
-    setDetailLoading(true)
-    setView('detail')
-    setSelectedCourse(null)
-    setRelatedCourses([])
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-    try {
-      const res = await fetch('/api/courses/' + slug)
-      const data = await res.json()
-      if (data.course) {
-        setSelectedCourse(data.course)
-        setRelatedCourses(data.related || [])
-      } else {
-        setView('grid')
-      }
-    } catch {
-      setView('grid')
-    } finally {
-      setDetailLoading(false)
-    }
+  // Navigate to the real, shareable course page (its own URL + working
+  // browser back button + SSR/SEO), instead of an in-page SPA view.
+  const openCourseDetail = (slug: string) => {
+    router.push('/course/' + slug)
   }
 
   const goToLinkPage = () => {
@@ -1426,28 +1413,6 @@ export default function Home() {
               onPageChange={setPage}
               onCardClick={openCourseDetail}
               total={total}
-            />
-          </div>
-        )}
-        {view === 'detail' && (
-          <div className="view-enter">
-            <DetailPage
-              t={tx}
-              course={selectedCourse}
-              relatedCourses={relatedCourses}
-              loading={detailLoading}
-              onGoToLink={goToLinkPage}
-              onBack={goBackToGrid}
-              onCardClick={openCourseDetail}
-            />
-          </div>
-        )}
-        {view === 'link' && (
-          <div className="view-enter">
-            <LinkPage
-              t={tx}
-              course={selectedCourse}
-              onBack={goBackToDetail}
             />
           </div>
         )}
