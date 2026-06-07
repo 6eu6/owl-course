@@ -2,12 +2,24 @@ import Link from "next/link"
 import { ArrowRight } from "lucide-react"
 import { LogoMark } from "@/components/logo"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { makeT } from "@/lib/locale-text"
+import { localeDir, type Locale } from "@/lib/i18n"
 
-export function SiteHeader({ backHref = "/", backLabel = "Home" }: { backHref?: string; backLabel?: string }) {
+export function SiteHeader({
+  backHref = "/",
+  backLabel = "Home",
+  homeHref = "/",
+  backShort = "Back",
+}: {
+  backHref?: string
+  backLabel?: string
+  homeHref?: string
+  backShort?: string
+}) {
   return (
     <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-sm">
       <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
-        <Link href="/" className="flex min-w-0 items-center gap-2 text-sm font-semibold">
+        <Link href={homeHref} className="flex min-w-0 items-center gap-2 text-sm font-semibold">
           <LogoMark className="h-5 w-5 shrink-0" />
           <span className="truncate">Learn Plus Courses</span>
         </Link>
@@ -19,7 +31,7 @@ export function SiteHeader({ backHref = "/", backLabel = "Home" }: { backHref?: 
           >
             <ArrowRight className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">{backLabel}</span>
-            <span className="sm:hidden">Back</span>
+            <span className="sm:hidden">{backShort}</span>
           </Link>
         </div>
       </div>
@@ -50,11 +62,12 @@ function TgIcon() {
   )
 }
 
-export function SiteFooter() {
+export function SiteFooter({ locale = "en" }: { locale?: Locale }) {
+  const t = makeT(locale)
   const iconBtn =
     "inline-flex h-9 w-9 items-center justify-center rounded-full border hover:bg-muted transition-colors"
   return (
-    <footer className="border-t mt-auto">
+    <footer className="border-t mt-auto" dir={localeDir(locale)}>
       <div className="max-w-3xl mx-auto px-4 py-7 text-center text-xs text-muted-foreground space-y-4">
         <a
           href={SOCIAL.community}
@@ -62,7 +75,7 @@ export function SiteFooter() {
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 rounded-md border px-4 py-2 font-medium hover:bg-muted transition-colors"
         >
-          <TgIcon /> Join our community
+          <TgIcon /> {t("joinCommunity")}
         </a>
 
         <div className="flex items-center justify-center gap-2">
@@ -72,12 +85,12 @@ export function SiteFooter() {
         </div>
 
         <div className="space-x-3">
-          <Link href="/about" className="hover:text-foreground">About</Link>
-          <Link href="/privacy" className="hover:text-foreground">Privacy</Link>
-          <Link href="/terms" className="hover:text-foreground">Terms</Link>
-          <a href={SOCIAL.bot} target="_blank" rel="noopener noreferrer" className="hover:text-foreground">Contact</a>
+          <Link href="/about" className="hover:text-foreground">{t("about")}</Link>
+          <Link href="/privacy" className="hover:text-foreground">{t("privacy")}</Link>
+          <Link href="/terms" className="hover:text-foreground">{t("terms")}</Link>
+          <a href={SOCIAL.bot} target="_blank" rel="noopener noreferrer" className="hover:text-foreground">{t("contact")}</a>
         </div>
-        <p>© {new Date().getFullYear()} Learn Plus Courses. Free Udemy Courses</p>
+        <p>© {new Date().getFullYear()} Learn Plus Courses. {t("siteTagline")}</p>
       </div>
     </footer>
   )

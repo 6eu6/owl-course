@@ -220,6 +220,69 @@ export async function processTranslationBatch(locale: Locale, limit: number) {
   return { processed: results.length, results }
 }
 
+// Resolve a course for a localized page. Tries the locale's translation slug
+// first, then falls back to the original Course slug (English fallback during
+// rollout). All translation reads are guarded so pages keep working even before
+// the i18n tables are bootstrapped.
+export async function getLocalizedCourseBySlug(locale: Locale, slug: string) {
+  try {
+    const tr = await (db as any).courseTranslation.findFirst({
+      where: { locale, slug, status: 'translated' },
+      include: { course: true },
+    })
+    if (tr?.course) return { course: tr.course, translation: tr }
+  } catch {
+    /* i18n table missing — fall back to the original course below */
+  }
+
+  const course = await db.course.findUnique({ where: { slug } })
+  if (!course) return null
+
+  let translation: any = null
+  try {
+    translation = await (db as any).courseTranslation.findUnique({
+      where: { courseId_locale: { courseId: course.id, locale } },
+    })
+  } catch {
+    /* ignore */
+  }
+  return { course, translation: translation?.status === 'translated' ? translation : null }
+}
+
+// Per-locale slugs for a course, used for canonical + hreflang alternates.
+// Falls back to the original slug when a locale has no translation yet.
+export async function getCourseLocaleSlugs(courseId: string, fallbackSlug: string) {
+  const out: Record<Locale, string> = { en: fallbackSlug, ar: fallbackSlug }
+  try {
+    const rows = await (db as any).courseTranslation.findMany({
+      where: { courseId, status: 'translated' },
+      select: { locale: true, slug: true },
+    })
+    for (const r of rows as Array<{ locale: Locale; slug: string }>) {
+      if (r.locale === 'en' || r.locale === 'ar') out[r.locale] = r.slug
+    }
+  } catch {
+    /* table missing — keep fallback for both locales */
+  }
+  return out
+}
+
+// Batch-localize a list of courses (used for related courses / grids).
+export async function localizeCourseList(locale: Locale, courses: any[]) {
+  let map = new Map<string, any>()
+  if (locale !== 'en' && courses.length > 0) {
+    try {
+      const rows = await (db as any).courseTranslation.findMany({
+        where: { locale, status: 'translated', courseId: { in: courses.map((c) => c.id) } },
+      })
+      map = new Map((rows as any[]).map((r) => [r.courseId, r]))
+    } catch {
+      /* table missing — fall back to originals */
+    }
+  }
+  return courses.map((c) => localizedCourseData(c, map.get(c.id) || null, locale))
+}
+
 export function localizedCourseData(course: any, translation: any | null, locale: Locale) {
   if (!translation || translation.status !== 'translated') {
     return {

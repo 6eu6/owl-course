@@ -14,6 +14,16 @@ export async function GET(request: Request) {
 
     const locale = normalizeLocale(searchParams.get('locale') || 'ar')
     const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '5'), 1), 10)
+
+    // Arabic needs a translation provider key. Fail fast with a clear message
+    // instead of marking every course as failed in the database.
+    if (locale === 'ar' && !(process.env.TRANSLATION_API_KEY || process.env.OPENAI_API_KEY)) {
+      return NextResponse.json(
+        { success: false, locale, processed: 0, error: 'Missing TRANSLATION_API_KEY or OPENAI_API_KEY' },
+        { status: 400 }
+      )
+    }
+
     const startedAt = Date.now()
     const result = await processTranslationBatch(locale, limit)
 
