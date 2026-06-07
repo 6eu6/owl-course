@@ -36,7 +36,7 @@ export function SiteFooter() {
           <Link href="/privacy" className="hover:text-foreground">Privacy</Link>
           <Link href="/terms" className="hover:text-foreground">Terms</Link>
         </div>
-        <p>Learn Plus Courses</p>
+        <p>© {new Date().getFullYear()} Learn Plus Courses. Free Udemy Courses</p>
       </div>
     </footer>
   )
