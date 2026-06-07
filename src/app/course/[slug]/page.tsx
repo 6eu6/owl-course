@@ -6,6 +6,7 @@ import { SiteHeader, SiteFooter } from '@/components/site-chrome';
 import { CourseImage } from '@/components/course-image';
 import { BulletList } from '@/components/bullet-list';
 import { TimedReveal } from '@/components/timed-reveal';
+import { TelegramChannelButton } from '@/components/telegram-cta';
 import { ShareButtons } from '@/components/share-buttons';
 import { notFound } from 'next/navigation';
 
@@ -65,7 +66,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 // ============================================
 
 function getCat(name: string): { name: string; icon: string } {
-  return CATEGORIES[name] || { name: 'Other', icon: '📚' };
+  return CATEGORIES[name] || { name: 'Other', icon: '\u{1F4DA}' };
 }
 
 // ============================================
@@ -160,7 +161,7 @@ export default async function CoursePage({ params }: PageProps) {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {course.instructor && (
             <div className="flex items-center gap-2 p-2.5 bg-card rounded-lg border text-xs">
-              <span className="shrink-0 text-muted-foreground">👤</span>
+              <span className="shrink-0 text-muted-foreground">\u{1F464}</span>
               <div className="min-w-0">
                 <p className="text-muted-foreground text-[10px]">Instructor</p>
                 <p className="font-medium truncate">{course.instructor}</p>
@@ -178,7 +179,7 @@ export default async function CoursePage({ params }: PageProps) {
           </div>
           {course.studentsCount && course.studentsCount > 0 && (
             <div className="flex items-center gap-2 p-2.5 bg-card rounded-lg border text-xs">
-              <span className="shrink-0 text-muted-foreground">👥</span>
+              <span className="shrink-0 text-muted-foreground">\u{1F465}</span>
               <div className="min-w-0">
                 <p className="text-muted-foreground text-[10px]">Students</p>
                 <p className="font-medium">{formatNumber(course.studentsCount)}</p>
@@ -187,7 +188,7 @@ export default async function CoursePage({ params }: PageProps) {
           )}
           {course.language && (
             <div className="flex items-center gap-2 p-2.5 bg-card rounded-lg border text-xs">
-              <span className="shrink-0 text-muted-foreground">🌍</span>
+              <span className="shrink-0 text-muted-foreground">\u{1F30D}</span>
               <div className="min-w-0">
                 <p className="text-muted-foreground text-[10px]">Language</p>
                 <p className="font-medium">{course.language}</p>
@@ -205,7 +206,7 @@ export default async function CoursePage({ params }: PageProps) {
           )}
           {course.originalPrice && (
             <div className="flex items-center gap-2 p-2.5 bg-card rounded-lg border text-xs">
-              <span className="shrink-0 text-muted-foreground">🏷️</span>
+              <span className="shrink-0 text-muted-foreground">\u{1F3F7}️</span>
               <div className="min-w-0">
                 <p className="text-muted-foreground text-[10px]">Was</p>
                 <p className="font-medium line-through text-muted-foreground">
@@ -230,7 +231,7 @@ export default async function CoursePage({ params }: PageProps) {
         {course.description && (
           <div className="p-4 rounded-lg border bg-card">
             <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
-              <span className="text-muted-foreground">📖</span> Description
+              <span className="text-muted-foreground">\u{1F4D6}</span> Description
             </h3>
             <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">
               {course.description}
@@ -242,7 +243,7 @@ export default async function CoursePage({ params }: PageProps) {
         {course.whatLearn && (
           <div className="p-4 rounded-lg border bg-card">
             <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
-              <span className="text-muted-foreground">🎯</span> What You&apos;ll Learn
+              <span className="text-muted-foreground">\u{1F3AF}</span> What You&apos;ll Learn
             </h3>
             <BulletList text={course.whatLearn} />
           </div>
@@ -262,7 +263,7 @@ export default async function CoursePage({ params }: PageProps) {
         {course.whoFor && (
           <div className="p-4 rounded-lg border bg-card">
             <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
-              <span className="text-muted-foreground">👥</span> Who This Course Is For
+              <span className="text-muted-foreground">\u{1F465}</span> Who This Course Is For
             </h3>
             <BulletList text={course.whoFor} />
           </div>
@@ -271,7 +272,7 @@ export default async function CoursePage({ params }: PageProps) {
         {/* Important Notes */}
         <div className="p-4 rounded-lg border bg-card space-y-2">
           <h3 className="text-xs font-semibold flex items-center gap-1.5">
-            <span className="text-muted-foreground">🛡️</span> Important Notes
+            <span className="text-muted-foreground">\u{1F6E1}️</span> Important Notes
           </h3>
           <div className="flex items-start gap-2 text-[11px] text-muted-foreground">
             <span className="text-muted-foreground shrink-0">✓</span>
@@ -301,6 +302,7 @@ export default async function CoursePage({ params }: PageProps) {
             buttonText="Continue to the course"
             href={`/course/${course.slug}/enroll`}
           />
+          <TelegramChannelButton label="Join our channel for more free courses" />
           <ShareButtons url={`${SITE_URL}/course/${course.slug}`} title={course.title} />
         </div>
 
