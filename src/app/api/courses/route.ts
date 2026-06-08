@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { getAllCourses, getAllCategories, countCourses } from '@/lib/queries';
 import { getSiteSettings } from '@/lib/settings';
 import { normalizeLocale } from '@/lib/i18n';
+import { PUBLISHABLE_STATUSES } from '@/lib/course-translations';
 
 // GET /api/courses - List courses with pagination, filtering, search
 export async function GET(request: Request) {
@@ -35,7 +36,7 @@ export async function GET(request: Request) {
     if (locale !== 'en' && courses.length > 0) {
       try {
         const rows = await (db as any).courseTranslation.findMany({
-          where: { locale, status: 'translated', courseId: { in: courses.map((c) => c.id) } },
+          where: { locale, status: { in: PUBLISHABLE_STATUSES as unknown as string[] }, courseId: { in: courses.map((c) => c.id) } },
           select: { courseId: true, title: true, slug: true, category: true, description: true },
         });
         for (const r of rows as Array<{ courseId: string; title: string; slug: string; category: string; description: string }>) {

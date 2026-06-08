@@ -2,6 +2,19 @@ import { db } from '@/lib/db'
 import { slugifyArabic, slugifyLatin, truncateForMeta, type Locale } from './i18n'
 import { getLocalizedCategory } from './locale-text'
 
+// Translation statuses:
+//   pending    – row created, not translated yet
+//   partial    – core fields (title/description/category/meta) translated; good
+//                enough to PUBLISH and display while the long sections are still
+//                being enriched in the background
+//   translated – fully translated (all fields)
+//   failed     – last attempt errored (will be retried)
+// PUBLISHABLE = statuses whose content we are happy to show on the site and post
+// to Telegram. The translate cron keeps upgrading `partial` rows to `translated`.
+export const PUBLISHABLE_STATUSES = ['translated', 'partial'] as const
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
 type CourseLike = {
   id: string
   title: string
@@ -26,6 +39,13 @@ type TranslationPayload = {
 
 function clean(value: unknown): string {
   return String(value ?? '').replace(/\r/g, '\n').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim()
+}
+
+// Bound a field's length so a single pathologically long description cannot blow
+// the model's token budget. The caps are generous — real course fields are
+// almost always shorter, so this rarely truncates anything meaningful.
+function cap(value: string, max: number): string {
+  return value.length > max ? value.slice(0, max) : value
 }
 
 // Some providers wrap JSON in ```json fences or add stray prose. Pull out the
@@ -106,6 +126,41 @@ export async function ensureEnglishTranslation(course: CourseLike) {
   })
 }
 
+// One chat/completions call. Throws an Error tagged with `.status` so the
+// retry layer can react to 429 (rate limit) and 400 (invalid JSON) distinctly.
+async function chatCompletion(
+  apiUrl: string,
+  apiKey: string,
+  model: string,
+  prompt: string,
+  useJsonFormat: boolean,
+): Promise<any> {
+  const body: Record<string, unknown> = {
+    model,
+    temperature: 0.2,
+    messages: [
+      { role: 'system', content: 'You are a precise English-to-Arabic localization engine. Output only JSON.' },
+      { role: 'user', content: prompt },
+    ],
+  }
+  if (useJsonFormat) body.response_format = { type: 'json_object' }
+
+  const response = await fetch(apiUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(30_000),
+  })
+
+  if (!response.ok) {
+    const err = new Error(`Translation API failed: ${response.status}`) as Error & { status?: number }
+    err.status = response.status
+    throw err
+  }
+  const json = await response.json()
+  return JSON.parse(extractJson(json?.choices?.[0]?.message?.content || '{}'))
+}
+
 async function translateWithModel(course: CourseLike): Promise<TranslationPayload> {
   const apiKey = (process.env.TRANSLATION_API_KEY || process.env.OPENAI_API_KEY || '').trim()
   if (!apiKey) throw new Error('Missing TRANSLATION_API_KEY or OPENAI_API_KEY')
@@ -120,43 +175,55 @@ async function translateWithModel(course: CourseLike): Promise<TranslationPayloa
       .replace(/^[<"']+|[>"']+$/g, '')
       .trim()
   const model = (process.env.TRANSLATION_MODEL || 'gpt-4o-mini').trim()
-  const input = originalPayload(course)
+
+  const raw = originalPayload(course)
+  // Full translation, but bound the long fields to keep token usage sane.
+  const input: TranslationPayload = {
+    ...raw,
+    description: cap(raw.description, 4000),
+    requirements: cap(raw.requirements, 2000),
+    whoFor: cap(raw.whoFor, 2000),
+    whatLearn: cap(raw.whatLearn, 2000),
+  }
 
   const prompt = [
     'Translate this Udemy course metadata from English to Arabic for an Arabic course-discovery website.',
     'Requirements:',
-    '- Return ONLY valid JSON.',
+    '- Return ONLY a valid JSON object with the same keys.',
     '- Keep technical terms clear and natural for Arabic learners.',
     '- Do not translate brand names like Udemy, Python, React, AWS, Excel, GPT unless commonly written in Arabic text.',
     '- Preserve meaning; do not invent new facts.',
     '- Make metaTitle and metaDescription suitable for SEO in Arabic.',
-    '- Keep arrays/paragraphs as readable Arabic text; no markdown.',
+    '- Keep paragraphs as readable Arabic text; no markdown.',
     '',
     JSON.stringify(input),
   ].join('\n')
 
-  const response = await fetch(apiUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      temperature: 0.2,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: 'You are a precise English-to-Arabic localization engine.' },
-        { role: 'user', content: prompt },
-      ],
-    }),
-    signal: AbortSignal.timeout(30_000),
-  })
-
-  if (!response.ok) throw new Error(`Translation API failed: ${response.status}`)
-  const json = await response.json()
-  const content = json?.choices?.[0]?.message?.content || '{}'
-  const parsed = JSON.parse(extractJson(content))
+  // Retry around transient failures so a rate limit (429) or the occasional
+  // invalid-JSON (400) never drops a course. Backoff stays within the cron's
+  // per-request time budget.
+  const backoff = [4000, 9000, 18000]
+  let parsed: any
+  for (let attempt = 0; ; attempt++) {
+    try {
+      parsed = await chatCompletion(apiUrl, apiKey, model, prompt, true)
+      break
+    } catch (e) {
+      const status = (e as { status?: number })?.status
+      if (status === 400) {
+        // Model returned content that failed JSON-mode validation — retry once
+        // without response_format and parse leniently.
+        parsed = await chatCompletion(apiUrl, apiKey, model, prompt, false)
+        break
+      }
+      const transient = status === 429 || status === undefined || (status >= 500)
+      if (transient && attempt < backoff.length) {
+        await sleep(backoff[attempt])
+        continue
+      }
+      throw e
+    }
+  }
 
   return {
     title: clean(parsed.title) || input.title,
@@ -213,6 +280,11 @@ export async function translateCourseToArabic(course: CourseLike) {
   }
 }
 
+// A course "needs translation" when it has no fully `translated` row for the
+// locale. That naturally includes rows still at `partial` (core-only), so the
+// cron keeps upgrading those to full without any extra bookkeeping. Newest
+// courses come first, so freshly scraped courses are always translated before
+// older backlog is enriched.
 export async function getCoursesMissingTranslation(locale: Locale, limit: number) {
   return (db as any).course.findMany({
     where: {
@@ -224,11 +296,15 @@ export async function getCoursesMissingTranslation(locale: Locale, limit: number
   })
 }
 
-export async function processTranslationBatch(locale: Locale, limit: number) {
+export async function processTranslationBatch(locale: Locale, limit: number, deadlineMs = 45_000) {
   const courses = await getCoursesMissingTranslation(locale, limit)
   const results: Array<{ courseId: string; title: string; status: string; error?: string }> = []
+  const startedAt = Date.now()
 
   for (const course of courses) {
+    // Stop starting new courses once we are close to the function time budget;
+    // the rest are picked up on the next cron tick.
+    if (Date.now() - startedAt > deadlineMs) break
     try {
       if (locale === 'en') await ensureEnglishTranslation(course)
       else await translateCourseToArabic(course)
@@ -248,7 +324,7 @@ export async function processTranslationBatch(locale: Locale, limit: number) {
 export async function getLocalizedCourseBySlug(locale: Locale, slug: string) {
   try {
     const tr = await (db as any).courseTranslation.findFirst({
-      where: { locale, slug, status: 'translated' },
+      where: { locale, slug, status: { in: PUBLISHABLE_STATUSES as unknown as string[] } },
       include: { course: true },
     })
     if (tr?.course) return { course: tr.course, translation: tr }
@@ -267,7 +343,8 @@ export async function getLocalizedCourseBySlug(locale: Locale, slug: string) {
   } catch {
     /* ignore */
   }
-  return { course, translation: translation?.status === 'translated' ? translation : null }
+  const usable = translation && (PUBLISHABLE_STATUSES as unknown as string[]).includes(translation.status)
+  return { course, translation: usable ? translation : null }
 }
 
 // Per-locale slugs for a course, used for canonical + hreflang alternates.
@@ -276,7 +353,7 @@ export async function getCourseLocaleSlugs(courseId: string, fallbackSlug: strin
   const out: Record<Locale, string> = { en: fallbackSlug, ar: fallbackSlug }
   try {
     const rows = await (db as any).courseTranslation.findMany({
-      where: { courseId, status: 'translated' },
+      where: { courseId, status: { in: PUBLISHABLE_STATUSES as unknown as string[] } },
       select: { locale: true, slug: true },
     })
     for (const r of rows as Array<{ locale: Locale; slug: string }>) {
@@ -294,7 +371,7 @@ export async function localizeCourseList(locale: Locale, courses: any[]) {
   if (locale !== 'en' && courses.length > 0) {
     try {
       const rows = await (db as any).courseTranslation.findMany({
-        where: { locale, status: 'translated', courseId: { in: courses.map((c) => c.id) } },
+        where: { locale, status: { in: PUBLISHABLE_STATUSES as unknown as string[] }, courseId: { in: courses.map((c) => c.id) } },
       })
       map = new Map((rows as any[]).map((r) => [r.courseId, r]))
     } catch {
@@ -305,7 +382,7 @@ export async function localizeCourseList(locale: Locale, courses: any[]) {
 }
 
 export function localizedCourseData(course: any, translation: any | null, locale: Locale) {
-  if (!translation || translation.status !== 'translated') {
+  if (!translation || !(PUBLISHABLE_STATUSES as unknown as string[]).includes(translation.status)) {
     return {
       ...course,
       locale,
