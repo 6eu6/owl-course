@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { getLocalizedCourseBySlug, localizedCourseData } from '@/lib/course-translations'
 import { buildUdemyUrl } from '@/lib/course-url'
 import { makeT } from '@/lib/locale-text'
@@ -39,6 +39,12 @@ export default async function LocalizedEnrollPage({ params }: PageProps) {
 
   const found = await getLocalizedCourseBySlug(locale, slug)
   if (!found || !found.course.isPublished) notFound()
+
+  // Redirect if the user arrived via the wrong slug (e.g. English slug on /ar/ path).
+  const decodedSlug = decodeURIComponent(slug || '').trim()
+  if (found.translation && found.translation.slug && found.translation.slug !== decodedSlug) {
+    redirect(`/${locale}/course/${found.translation.slug}/enroll`)
+  }
 
   const course = found.course
   const data = localizedCourseData(course, found.translation, locale)

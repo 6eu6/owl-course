@@ -390,34 +390,61 @@ export async function processTranslationBatch(locale: Locale, limit: number, dea
   return { processed: results.length, results }
 }
 
-// Resolve a course for a localized page. Tries the locale's translation slug
-// first, then falls back to the original Course slug (English fallback during
-// rollout). All translation reads are guarded so pages keep working even before
-// the i18n tables are bootstrapped.
+// Resolve a course for a localized page. The slug param from Next.js may be
+// percent-encoded (e.g. Arabic slugs like %D8%AF%D9%88%D8%B1%D8%A9), so we
+// always decode it before the DB lookup.
+//
+// For locale='ar': NEVER returns { course, translation: null } — that would
+// render Arabic headings with English body text. If there is no Arabic
+// translation with status='translated', returns null so the page calls notFound.
+//
+// For locale='en': falls back to the original course with English fields.
 export async function getLocalizedCourseBySlug(locale: Locale, slug: string) {
+  const decodedSlug = decodeURIComponent(slug || '').trim()
+
+  // 1) Try to match by translation slug first (most common path).
   try {
     const tr = await (db as any).courseTranslation.findFirst({
-      where: { locale, slug, status: { in: PUBLISHABLE_STATUSES as unknown as string[] } },
+      where: { locale, slug: decodedSlug, status: 'translated' },
       include: { course: true },
     })
     if (tr?.course) return { course: tr.course, translation: tr }
   } catch {
-    /* i18n table missing — fall back to the original course below */
+    /* i18n table missing — fall through to original slug lookup */
   }
 
-  const course = await db.course.findUnique({ where: { slug } })
+  // 2) Try to match by the original Course slug (covers /en/course/<original-slug>).
+  const course = await db.course.findUnique({ where: { slug: decodedSlug } })
   if (!course) return null
 
-  let translation: any = null
+  // 3) For English: return the course with an English translation if available.
+  if (locale === 'en') {
+    let translation: any = null
+    try {
+      translation = await (db as any).courseTranslation.findUnique({
+        where: { courseId_locale: { courseId: course.id, locale: 'en' } },
+      })
+    } catch {
+      /* ignore */
+    }
+    const usable = translation && (PUBLISHABLE_STATUSES as unknown as string[]).includes(translation.status)
+    return { course, translation: usable ? translation : null }
+  }
+
+  // 4) For Arabic: only return if a translated Arabic row exists.
+  //    NEVER return { course, translation: null } — the page must notFound instead.
   try {
-    translation = await (db as any).courseTranslation.findUnique({
-      where: { courseId_locale: { courseId: course.id, locale } },
+    const tr = await (db as any).courseTranslation.findUnique({
+      where: { courseId_locale: { courseId: course.id, locale: 'ar' } },
     })
+    if (tr && (PUBLISHABLE_STATUSES as unknown as string[]).includes(tr.status)) {
+      return { course, translation: tr }
+    }
   } catch {
     /* ignore */
   }
-  const usable = translation && (PUBLISHABLE_STATUSES as unknown as string[]).includes(translation.status)
-  return { course, translation: usable ? translation : null }
+
+  return null
 }
 
 // Per-locale slugs for a course, used for canonical + hreflang alternates.
@@ -456,6 +483,25 @@ export async function localizeCourseList(locale: Locale, courses: any[]) {
 
 export function localizedCourseData(course: any, translation: any | null, locale: Locale) {
   if (!translation || !(PUBLISHABLE_STATUSES as unknown as string[]).includes(translation.status)) {
+    // For Arabic: return empty localized fields, NOT English fallback.
+    // getLocalizedCourseBySlug should already return null for Arabic without translation,
+    // but this is a safety net so Arabic headings never show English body text.
+    if (locale === 'ar') {
+      return {
+        ...course,
+        locale,
+        localizedSlug: course.slug,
+        localizedTitle: '',
+        localizedDescription: '',
+        localizedRequirements: '',
+        localizedWhoFor: '',
+        localizedWhatLearn: '',
+        localizedCategory: getLocalizedCategory('ar', course.category),
+        metaTitle: '',
+        metaDescription: '',
+      }
+    }
+    // For English: safe to fall back to original English fields.
     return {
       ...course,
       locale,
@@ -465,7 +511,7 @@ export function localizedCourseData(course: any, translation: any | null, locale
       localizedRequirements: course.requirements || '',
       localizedWhoFor: course.whoFor || '',
       localizedWhatLearn: course.whatLearn || '',
-      localizedCategory: locale === 'ar' ? getLocalizedCategory('ar', course.category) : course.category,
+      localizedCategory: course.category,
       metaTitle: course.title,
       metaDescription: truncateForMeta(course.description || `Free Udemy course: ${course.title}`),
     }
