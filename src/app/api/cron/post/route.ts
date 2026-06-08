@@ -21,7 +21,7 @@ function isMissingI18nTable(error: unknown): boolean {
 type Channel = {
   id: string;
   name?: string;
-  active?: boolean;
+  active: boolean;
   language?: string;
 };
 
@@ -106,8 +106,8 @@ export async function GET(request: Request) {
 
     const settings = await getTelegramSettings();
     const token = process.env.TELEGRAM_BOT_TOKEN || settings.bot_token;
-    const activeChannels = (settings.channels || [])
-      .filter((c) => c.active && c.id && normalizeLocale(c.language) === locale);
+    const activeChannels: Channel[] = (settings.channels || [])
+      .filter((c: any) => c.active && c.id && normalizeLocale(c.language) === locale);
 
     if (!token) return NextResponse.json({ success: true, locale, posted: 0, error: 'TELEGRAM_BOT_TOKEN not set' });
     if (activeChannels.length === 0) return NextResponse.json({ success: true, locale, posted: 0, error: `no active ${locale} channels` });
