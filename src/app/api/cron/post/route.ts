@@ -1,11 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { normalizeLocale, type Locale } from '@/lib/i18n';
-import { PUBLISHABLE_STATUSES } from '@/lib/course-translations';
-
-// Arabic posts only need a translated title (the Telegram template has no
-// description), so `partial` translations are publishable too.
-const PUBLISHABLE = PUBLISHABLE_STATUSES as unknown as string[];
 
 // Prisma raises P2021 when a table referenced by a query does not exist yet.
 // During the i18n rollout the CourseTranslation / TelegramPost tables may not
@@ -18,7 +13,74 @@ function isMissingI18nTable(error: unknown): boolean {
   return /does not exist/i.test(msg) && /(CourseTranslation|TelegramPost)/.test(msg);
 }
 
-// GET /api/cron/post?secret=CRON_SECRET&locale=en|ar
+// ---------------------------------------------------------------------------
+// Two-step pending-translation finder (no `every` — avoids the vacuous-truth
+// bug where courses with zero TelegramPost rows were incorrectly excluded).
+// ---------------------------------------------------------------------------
+
+type Channel = {
+  id: string;
+  name?: string;
+  active?: boolean;
+  language?: string;
+};
+
+type PendingTranslation = {
+  translation: any;
+  course: any;
+  pendingChannels: Channel[];
+};
+
+async function findPendingTranslations(
+  locale: Locale,
+  activeChannels: Channel[],
+  limit: number
+): Promise<PendingTranslation[]> {
+  const channelIds = activeChannels.map((c) => c.id);
+
+  const candidates = await (db as any).courseTranslation.findMany({
+    where: {
+      locale,
+      status: 'translated',
+      course: { isPublished: true },
+    },
+    include: { course: true },
+    orderBy: { course: { scrapedAt: 'desc' } },
+    take: Math.max(limit * 30, 30),
+  });
+
+  const selected: PendingTranslation[] = [];
+
+  for (const tr of candidates) {
+    const course = tr.course;
+    if (!course) continue;
+
+    const sentRows = await (db as any).telegramPost.findMany({
+      where: {
+        courseId: course.id,
+        locale,
+        channelId: { in: channelIds },
+        status: 'sent',
+      },
+      select: { channelId: true },
+    });
+
+    const sentIds = new Set(
+      sentRows.map((row: { channelId: string }) => row.channelId)
+    );
+
+    const pendingChannels = activeChannels.filter((channel) => !sentIds.has(channel.id));
+
+    if (pendingChannels.length > 0) {
+      selected.push({ translation: tr, course, pendingChannels });
+      if (selected.length >= limit) break;
+    }
+  }
+
+  return selected;
+}
+
+// GET /api/cron/post?secret=CRON_SECRET&locale=en|ar&limit=1&dryRun=1
 // Post-only drainer (no scraping). Locale-aware: English channels receive /en
 // course links and Arabic channels receive only translated /ar course links.
 export async function GET(request: Request) {
@@ -50,32 +112,12 @@ export async function GET(request: Request) {
     if (!token) return NextResponse.json({ success: true, locale, posted: 0, error: 'TELEGRAM_BOT_TOKEN not set' });
     if (activeChannels.length === 0) return NextResponse.json({ success: true, locale, posted: 0, error: `no active ${locale} channels` });
 
-    const channelIds = activeChannels.map((c) => c.id);
-
-    // Pick courses with ready translation for this locale and at least one active
-    // locale channel that has not received the course yet.
-    let translations: any[];
+    // Two-step selection — no `every` filter.
+    let pending: PendingTranslation[];
     try {
-      translations = await (db as any).courseTranslation.findMany({
-        where: {
-          locale,
-          status: { in: PUBLISHABLE },
-          course: { isPublished: true },
-          NOT: {
-            course: {
-              telegramPosts: {
-                every: { locale, channelId: { in: channelIds }, status: 'sent' },
-              },
-            },
-          },
-        },
-        include: { course: true },
-        orderBy: { course: { scrapedAt: 'desc' } },
-        take: limit,
-      });
-    } catch (e) {
-      if (isMissingI18nTable(e)) {
-        // i18n tables not migrated yet — run /api/cron/i18n-bootstrap first.
+      pending = await findPendingTranslations(locale, activeChannels, limit);
+    } catch (error) {
+      if (isMissingI18nTable(error)) {
         return NextResponse.json({
           success: true,
           locale,
@@ -84,36 +126,39 @@ export async function GET(request: Request) {
           message: 'i18n tables not ready — run /api/cron/i18n-bootstrap then /api/cron/translate first',
         });
       }
-      throw e;
+      throw error;
     }
 
-    if (translations.length === 0) {
+    if (pending.length === 0) {
       return NextResponse.json({ success: true, locale, posted: 0, remaining: 0, message: 'all caught up' });
     }
 
+    // ---- dryRun: return wouldPost without touching Telegram or DB ----
+    if (dryRun) {
+      return NextResponse.json({
+        success: true,
+        locale,
+        dryRun: true,
+        posted: 0,
+        wouldPost: pending.map((item) => ({
+          courseId: item.course.id,
+          title: item.translation.title,
+          slug: item.translation.slug,
+          channels: item.pendingChannels.map((channel) => channel.name || channel.id),
+        })),
+        channels: activeChannels.map((channel) => channel.name || channel.id),
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    // ---- Real posting loop ----
     let posted = 0;
     const failed: string[] = [];
-    const wouldPost: Array<{ courseId: string; title: string; slug: string; channels: string[] }> = [];
 
-    for (const tr of translations) {
-      const c = tr.course;
-      const alreadySentRows = await (db as any).telegramPost.findMany({
-        where: { courseId: c.id, locale, channelId: { in: channelIds }, status: 'sent' },
-        select: { channelId: true },
-      });
-      const sentIds = new Set(alreadySentRows.map((r: { channelId: string }) => r.channelId));
-      const pendingChannels = activeChannels.filter((ch) => !sentIds.has(ch.id));
-      if (pendingChannels.length === 0) continue;
-
-      if (dryRun) {
-        wouldPost.push({
-          courseId: c.id,
-          title: tr.title,
-          slug: tr.slug,
-          channels: pendingChannels.map((ch) => ch.name || ch.id),
-        });
-        continue;
-      }
+    for (const item of pending) {
+      const tr = item.translation;
+      const c = item.course;
+      const pendingChannels = item.pendingChannels;
 
       const data = {
         title: tr.title,
@@ -129,55 +174,59 @@ export async function GET(request: Request) {
         locale,
       };
 
-      const res = await postCourseToTelegramChannels(data, settings as unknown as Record<string, unknown>, pendingChannels);
-      if (res.success) {
+      const result = await postCourseToTelegramChannels(
+        data,
+        settings as unknown as Record<string, unknown>,
+        pendingChannels
+      );
+
+      if (result.success) {
         posted++;
-        for (const channelId of res.channelIds) {
+        for (const channelId of result.channelIds) {
           await (db as any).telegramPost.upsert({
             where: { courseId_locale_channelId: { courseId: c.id, locale, channelId } },
             update: { status: 'sent', error: null, sentAt: new Date() },
             create: { courseId: c.id, locale, channelId, status: 'sent' },
           });
         }
-        await logTelegramMessage({ courseId: c.id, courseTitle: tr.title, channels: res.channels, status: `sent:${locale}` });
+
+        await logTelegramMessage({
+          courseId: c.id,
+          courseTitle: tr.title,
+          channels: result.channels,
+          status: `sent:${locale}`,
+        });
       } else {
         failed.push(tr.title);
         for (const channel of pendingChannels) {
           await (db as any).telegramPost.upsert({
-            where: { courseId_locale_channelId: { courseId: c.id, locale, channelId: channel.id } },
-            update: { status: 'failed', error: 'sendMessage failed', sentAt: new Date() },
-            create: { courseId: c.id, locale, channelId: channel.id, status: 'failed', error: 'sendMessage failed' },
+            where: {
+              courseId_locale_channelId: {
+                courseId: c.id,
+                locale,
+                channelId: channel.id,
+              },
+            },
+            update: {
+              status: 'failed',
+              error: 'sendMessage failed',
+              sentAt: new Date(),
+            },
+            create: {
+              courseId: c.id,
+              locale,
+              channelId: channel.id,
+              status: 'failed',
+              error: 'sendMessage failed',
+            },
           });
         }
       }
     }
 
-    if (dryRun) {
-      return NextResponse.json({
-        success: true,
-        locale,
-        dryRun: true,
-        posted: 0,
-        wouldPost,
-        channels: activeChannels.map((c) => c.name || c.id),
-        timestamp: new Date().toISOString(),
-      });
-    }
-
-    const remaining = await (db as any).courseTranslation.count({
-      where: {
-        locale,
-        status: { in: PUBLISHABLE },
-        course: { isPublished: true },
-        NOT: {
-          course: {
-            telegramPosts: {
-              every: { locale, channelId: { in: channelIds }, status: 'sent' },
-            },
-          },
-        },
-      },
-    });
+    // Count remaining using the same two-step approach — no `every`.
+    const remainingPreview = await findPendingTranslations(locale, activeChannels, 1);
+    const remaining = remainingPreview.length;
 
     return NextResponse.json({
       success: true,
@@ -185,7 +234,7 @@ export async function GET(request: Request) {
       posted,
       failed: failed.length,
       remaining,
-      channels: activeChannels.map((c) => c.name || c.id),
+      channels: activeChannels.map((channel) => channel.name || channel.id),
       timestamp: new Date().toISOString(),
     });
   } catch (e) {

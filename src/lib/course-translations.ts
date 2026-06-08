@@ -4,14 +4,12 @@ import { getLocalizedCategory } from './locale-text'
 
 // Translation statuses:
 //   pending    – row created, not translated yet
-//   partial    – core fields (title/description/category/meta) translated; good
-//                enough to PUBLISH and display while the long sections are still
-//                being enriched in the background
-//   translated – fully translated (all fields)
-//   failed     – last attempt errored (will be retried)
-// PUBLISHABLE = statuses whose content we are happy to show on the site and post
-// to Telegram. The translate cron keeps upgrading `partial` rows to `translated`.
-export const PUBLISHABLE_STATUSES = ['translated', 'partial'] as const
+//   translated – fully translated and publishable
+//   failed     – last attempt errored and can be retried
+//
+// Only fully translated rows are publishable.
+// No partial translations should be shown on the Arabic site or posted to Telegram.
+export const PUBLISHABLE_STATUSES = ['translated'] as const
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
@@ -281,10 +279,8 @@ export async function translateCourseToArabic(course: CourseLike) {
 }
 
 // A course "needs translation" when it has no fully `translated` row for the
-// locale. That naturally includes rows still at `partial` (core-only), so the
-// cron keeps upgrading those to full without any extra bookkeeping. Newest
-// courses come first, so freshly scraped courses are always translated before
-// older backlog is enriched.
+// locale. Newest courses come first, so freshly scraped courses are always
+// translated before older backlog is enriched.
 export async function getCoursesMissingTranslation(locale: Locale, limit: number) {
   return (db as any).course.findMany({
     where: {
