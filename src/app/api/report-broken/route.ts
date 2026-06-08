@@ -77,7 +77,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Course not found' }, { status: 404 })
     }
 
-    const enrollUrl = `${SITE_URL}/course/${course.slug}/enroll`
+    const enrollUrl = `${SITE_URL}/en/course/${course.slug}/enroll`
     const deleteUrl = `${SITE_URL}/api/report-broken/delete?slug=${encodeURIComponent(course.slug)}&token=${signSlug(course.slug)}`
 
     const message =

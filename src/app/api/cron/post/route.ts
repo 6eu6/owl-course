@@ -123,7 +123,7 @@ export async function GET(request: Request) {
           locale,
           posted: 0,
           remaining: 0,
-          message: 'i18n tables not ready — run /api/cron/i18n-bootstrap then /api/cron/translate first',
+          message: 'i18n tables not ready — apply the Prisma schema (npm run db:push) then run /api/cron/translate',
         });
       }
       throw error;

@@ -7,6 +7,7 @@ import {
   getCourseLocaleSlugs,
   localizedCourseData,
   localizeCourseList,
+  resolveArabicFallbackRedirect,
 } from '@/lib/course-translations'
 import { makeT, getLocalizedCategory } from '@/lib/locale-text'
 import { isSupportedLocale, localeDir, type Locale } from '@/lib/i18n'
@@ -75,7 +76,15 @@ export default async function LocalizedCoursePage({ params }: PageProps) {
   const base = `/${locale}`
 
   const found = await getLocalizedCourseBySlug(locale, slug)
-  if (!found || !found.course.isPublished) notFound()
+  if (!found || !found.course.isPublished) {
+    // Under /ar, a valid English course slug (e.g. an old/external link) should
+    // not 404: send it to the Arabic page if translated, otherwise to /en.
+    if (locale === 'ar') {
+      const target = await resolveArabicFallbackRedirect(slug)
+      if (target) redirect(target)
+    }
+    notFound()
+  }
 
   // Redirect if the user arrived via the wrong slug (e.g. English slug on /ar/ path).
   const decodedSlug = decodeURIComponent(slug || '').trim()

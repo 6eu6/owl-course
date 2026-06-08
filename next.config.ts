@@ -24,6 +24,15 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "10mb",
     },
   },
+  // The site is fully localized under /[locale]. The old English-only routes
+  // (/ and /course/...) are permanently redirected to their /en equivalents so
+  // existing links and indexed URLs keep working without duplicate content.
+  async redirects() {
+    return [
+      { source: "/", destination: "/en", permanent: true },
+      { source: "/course/:path*", destination: "/en/course/:path*", permanent: true },
+    ];
+  },
 };
 
 export default nextConfig;

@@ -669,6 +669,36 @@ export async function getLocalizedCourseBySlug(locale: Locale, slug: string) {
   return null
 }
 
+// For an Arabic course page whose slug did not resolve to a translated Arabic
+// row: decide where to send the user so a valid English course link under /ar
+// never 404s. Returns a redirect path, or null when no such course exists (the
+// caller then renders notFound()).
+//
+//   - course has a translated Arabic row  -> /ar/course/<arabicSlug>
+//   - course exists but no Arabic yet     -> /en/course/<originalSlug>
+//   - no such course                      -> null (404)
+export async function resolveArabicFallbackRedirect(slug: string): Promise<string | null> {
+  const decodedSlug = decodeURIComponent(slug || '').trim()
+  if (!decodedSlug) return null
+
+  const course = await db.course.findUnique({ where: { slug: decodedSlug } })
+  if (!course || !course.isPublished) return null
+
+  try {
+    const tr = await (db as any).courseTranslation.findUnique({
+      where: { courseId_locale: { courseId: course.id, locale: 'ar' } },
+      select: { slug: true, status: true },
+    })
+    if (tr && (PUBLISHABLE_STATUSES as unknown as string[]).includes(tr.status)) {
+      return `/ar/course/${tr.slug}`
+    }
+  } catch {
+    /* i18n table missing — fall through to the English page */
+  }
+
+  return `/en/course/${course.slug}`
+}
+
 // Per-locale slugs for a course, used for canonical + hreflang alternates.
 // Falls back to the original slug when a locale has no translation yet.
 export async function getCourseLocaleSlugs(courseId: string, fallbackSlug: string) {

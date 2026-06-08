@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
-import { getLocalizedCourseBySlug, localizedCourseData } from '@/lib/course-translations'
+import { getLocalizedCourseBySlug, localizedCourseData, resolveArabicFallbackRedirect } from '@/lib/course-translations'
 import { buildUdemyUrl } from '@/lib/course-url'
 import { makeT } from '@/lib/locale-text'
 import { isSupportedLocale, localeDir, type Locale } from '@/lib/i18n'
@@ -38,7 +38,15 @@ export default async function LocalizedEnrollPage({ params }: PageProps) {
   const base = `/${locale}`
 
   const found = await getLocalizedCourseBySlug(locale, slug)
-  if (!found || !found.course.isPublished) notFound()
+  if (!found || !found.course.isPublished) {
+    // Under /ar, an English course slug should redirect (to the Arabic enroll
+    // page if translated, otherwise to the English enroll page) instead of 404.
+    if (locale === 'ar') {
+      const target = await resolveArabicFallbackRedirect(slug)
+      if (target) redirect(`${target}/enroll`)
+    }
+    notFound()
+  }
 
   // Redirect if the user arrived via the wrong slug (e.g. English slug on /ar/ path).
   const decodedSlug = decodeURIComponent(slug || '').trim()

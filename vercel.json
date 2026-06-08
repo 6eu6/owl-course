@@ -17,9 +17,6 @@
     "src/app/api/cron/cleanup/route.ts": {
       "maxDuration": 60
     },
-    "src/app/api/cron/i18n-bootstrap/route.ts": {
-      "maxDuration": 60
-    },
     "src/app/api/admin-bot/route.ts": {
       "maxDuration": 60
     }
