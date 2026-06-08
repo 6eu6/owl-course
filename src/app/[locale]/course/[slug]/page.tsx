@@ -10,7 +10,7 @@ import {
   resolveArabicFallbackRedirect,
 } from '@/lib/course-translations'
 import { makeT, getLocalizedCategory } from '@/lib/locale-text'
-import { isSupportedLocale, localeDir, type Locale } from '@/lib/i18n'
+import { isSupportedLocale, localeDir, localizeDuration, type Locale } from '@/lib/i18n'
 import { SiteHeader, SiteFooter } from '@/components/site-chrome'
 import { CourseImage } from '@/components/course-image'
 import { BulletList } from '@/components/bullet-list'
@@ -168,7 +168,7 @@ export default async function LocalizedCoursePage({ params }: PageProps) {
             <div className="flex items-center gap-2 p-2.5 bg-card rounded-lg border text-xs">
               <div className="min-w-0">
                 <p className="text-muted-foreground text-[10px]">{t('duration')}</p>
-                <p className="font-medium">{course.duration}</p>
+                <p className="font-medium">{localizeDuration(course.duration, locale)}</p>
               </div>
             </div>
           )}

@@ -1,6 +1,6 @@
 import { getTelegramSettings, getUnpostedCourses, markCourseTelegramPosted, logTelegramMessage } from './queries';
 import { DEFAULT_TEMPLATES } from './templates';
-import { localizedCoursePath, type Locale } from './i18n';
+import { localizedCoursePath, localizeDuration, type Locale } from './i18n';
 
 const TELEGRAM_API = 'https://api.telegram.org';
 
@@ -103,7 +103,7 @@ function formatCourseMessageHtml(
     students_count: studentsNum > 0 ? studentsNum.toLocaleString(locale === 'ar' ? 'ar' : 'en') : '',
     original_price: price ? `<s>${escapeHtml(price)}</s>` : '',
     language: escapeHtml(cleanValue(course.language)),
-    duration: escapeHtml(cleanValue(course.duration)),
+    duration: escapeHtml(localizeDuration(cleanValue(course.duration), locale)),
     category: escapeHtml(cleanValue(course.category)),
     link: courseUrl,
   };

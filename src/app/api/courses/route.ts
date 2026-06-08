@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getAllCourses, getAllCategories, countCourses } from '@/lib/queries';
 import { getSiteSettings } from '@/lib/settings';
-import { normalizeLocale } from '@/lib/i18n';
+import { normalizeLocale, localizeDuration } from '@/lib/i18n';
 
 // GET /api/courses - List courses with pagination, filtering, search
 export async function GET(request: Request) {
@@ -186,7 +186,7 @@ async function arabicCourses(opts: {
         students_count: c.studentsCount || null,
         original_price: c.originalPrice || null,
         language: c.language || null,
-        duration: c.duration || null,
+        duration: c.duration ? localizeDuration(c.duration, 'ar') : null,
         couponExpiresAt: c.couponExpiresAt?.toISOString() || null,
         isFreeForever: c.isFreeForever || false,
         couponVerified: c.couponVerified || false,
