@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next'
 import { db } from '@/lib/db'
+import { PUBLISHABLE_STATUSES } from '@/lib/course-translations'
 
 const BASE = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.learn-plus.uk'
 
@@ -25,7 +26,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const arSlug = new Map<string, string>()
   try {
     const rows = await (db as any).courseTranslation.findMany({
-      where: { status: 'translated', courseId: { in: courses.map((c) => c.id) } },
+      where: { status: { in: PUBLISHABLE_STATUSES as unknown as string[] }, courseId: { in: courses.map((c) => c.id) } },
       select: { courseId: true, locale: true, slug: true },
     })
     for (const r of rows as Array<{ courseId: string; locale: string; slug: string }>) {

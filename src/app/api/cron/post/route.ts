@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { normalizeLocale, type Locale } from '@/lib/i18n';
+import { PUBLISHABLE_STATUSES } from '@/lib/course-translations';
+
+// Arabic posts only need a translated title (the Telegram template has no
+// description), so `partial` translations are publishable too.
+const PUBLISHABLE = PUBLISHABLE_STATUSES as unknown as string[];
 
 // Prisma raises P2021 when a table referenced by a query does not exist yet.
 // During the i18n rollout the CourseTranslation / TelegramPost tables may not
@@ -54,7 +59,7 @@ export async function GET(request: Request) {
       translations = await (db as any).courseTranslation.findMany({
         where: {
           locale,
-          status: 'translated',
+          status: { in: PUBLISHABLE },
           course: { isPublished: true },
           NOT: {
             course: {
@@ -162,7 +167,7 @@ export async function GET(request: Request) {
     const remaining = await (db as any).courseTranslation.count({
       where: {
         locale,
-        status: 'translated',
+        status: { in: PUBLISHABLE },
         course: { isPublished: true },
         NOT: {
           course: {
