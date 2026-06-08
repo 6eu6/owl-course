@@ -17,6 +17,9 @@
     "src/app/api/cron/cleanup/route.ts": {
       "maxDuration": 60
     },
+    "src/app/api/cron/purge/route.ts": {
+      "maxDuration": 60
+    },
     "src/app/api/admin-bot/route.ts": {
       "maxDuration": 60
     }

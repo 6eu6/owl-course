@@ -690,13 +690,14 @@ export async function resolveArabicFallbackRedirect(slug: string): Promise<strin
       select: { slug: true, status: true },
     })
     if (tr && (PUBLISHABLE_STATUSES as unknown as string[]).includes(tr.status)) {
-      return `/ar/course/${tr.slug}`
+      // Encode: Arabic slugs are non-ASCII and must be URL-safe in a Location header.
+      return `/ar/course/${encodeURIComponent(tr.slug)}`
     }
   } catch {
     /* i18n table missing — fall through to the English page */
   }
 
-  return `/en/course/${course.slug}`
+  return `/en/course/${encodeURIComponent(course.slug)}`
 }
 
 // Per-locale slugs for a course, used for canonical + hreflang alternates.

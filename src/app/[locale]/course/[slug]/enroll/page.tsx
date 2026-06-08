@@ -51,7 +51,8 @@ export default async function LocalizedEnrollPage({ params }: PageProps) {
   // Redirect if the user arrived via the wrong slug (e.g. English slug on /ar/ path).
   const decodedSlug = decodeURIComponent(slug || '').trim()
   if (found.translation && found.translation.slug && found.translation.slug !== decodedSlug) {
-    redirect(`/${locale}/course/${found.translation.slug}/enroll`)
+    // Encode: an Arabic slug placed raw in the Location header would 500 (headers are Latin-1).
+    redirect(`/${locale}/course/${encodeURIComponent(found.translation.slug)}/enroll`)
   }
 
   const course = found.course
