@@ -3,14 +3,13 @@ import { db } from '@/lib/db';
 import { getAllCourses, getAllCategories, countCourses } from '@/lib/queries';
 import { getSiteSettings } from '@/lib/settings';
 import { normalizeLocale } from '@/lib/i18n';
-import { PUBLISHABLE_STATUSES } from '@/lib/course-translations';
 
 // GET /api/courses - List courses with pagination, filtering, search
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '12');
+    const page = Math.max(parseInt(searchParams.get('page') || '1'), 1);
+    const limit = Math.max(parseInt(searchParams.get('limit') || '12'), 1);
     const search = searchParams.get('search') || '';
     const category = searchParams.get('category') || '';
     const source = searchParams.get('source') || '';
@@ -25,40 +24,44 @@ export async function GET(request: Request) {
       settings = { site_name: 'Learn Plus Courses', site_description: '', courses_per_page: 12 };
     }
 
-    const { courses, total } = await getAllCourses({ page, limit, search, category, source, sort });
     const categories = await getAllCategories();
-    const totalCourses = await countCourses({ isPublished: true });
 
-    // For non-English locales, overlay translated title/slug/category/description
-    // when a translated row exists. English keeps the original course data.
-    // Guarded so the listing keeps working before the i18n tables are created.
-    const trMap = new Map<string, { title: string; slug: string; category: string; description: string }>();
-    if (locale !== 'en' && courses.length > 0) {
-      try {
-        const rows = await (db as any).courseTranslation.findMany({
-          where: { locale, status: { in: PUBLISHABLE_STATUSES as unknown as string[] }, courseId: { in: courses.map((c) => c.id) } },
-          select: { courseId: true, title: true, slug: true, category: true, description: true },
-        });
-        for (const r of rows as Array<{ courseId: string; title: string; slug: string; category: string; description: string }>) {
-          trMap.set(r.courseId, { title: r.title, slug: r.slug, category: r.category, description: r.description });
-        }
-      } catch {
-        /* i18n table not ready — fall back to original course fields */
-      }
+    // -------------------------------------------------------------------------
+    // Arabic listing: CourseTranslation is the BASE query, not an overlay.
+    // Only rows with status='translated' on a published course are returned, so
+    // every Arabic card carries a real Arabic slug + title and opens 200 — never
+    // an English slug that would 404 on /ar/course/<slug>.
+    // -------------------------------------------------------------------------
+    if (locale === 'ar') {
+      return await arabicCourses({
+        page,
+        limit,
+        search,
+        category,
+        source,
+        sort,
+        freeForever,
+        categories,
+        settings,
+      });
     }
+
+    // -------------------------------------------------------------------------
+    // English listing: original Course rows (unchanged behavior).
+    // -------------------------------------------------------------------------
+    const { courses, total } = await getAllCourses({ page, limit, search, category, source, sort });
+    const totalCourses = await countCourses({ isPublished: true });
 
     return NextResponse.json({
       success: true,
       locale,
-      courses: courses.map(c => {
-        const tr = trMap.get(c.id);
-        return {
+      courses: courses.map((c) => ({
         id: c.id,
-        title: tr?.title || c.title,
-        slug: tr?.slug || c.slug,
-        description: (tr?.description || c.description)?.slice(0, 200) || '',
+        title: c.title,
+        slug: c.slug,
+        description: c.description?.slice(0, 200) || '',
         instructor: c.instructor || '',
-        category: tr?.category || c.category,
+        category: c.category,
         imageUrl: c.imageUrl,
         image_url: c.imageUrl,
         rating: c.rating || null,
@@ -70,14 +73,8 @@ export async function GET(request: Request) {
         isFreeForever: c.isFreeForever || false,
         couponVerified: c.couponVerified || false,
         scraped_at: c.scrapedAt,
-        };
-      }),
-      pagination: {
-        page,
-        limit,
-        total,
-        total_pages: Math.ceil(total / limit),
-      },
+      })),
+      pagination: { page, limit, total, total_pages: Math.ceil(total / limit) },
       filters: {
         categories,
         current_category: category,
@@ -86,24 +83,145 @@ export async function GET(request: Request) {
         current_sort: sort,
         current_freeForever: freeForever,
       },
-      stats: {
-        total_courses: totalCourses,
-      },
+      stats: { total_courses: totalCourses },
       settings,
     });
   } catch (e) {
     console.error('Courses API error:', e);
-    return NextResponse.json(
-      {
-        success: false,
-        courses: [],
-        pagination: { page: 1, limit: 12, total: 0, total_pages: 0 },
-        filters: { categories: [], current_category: '', current_search: '', current_source: '', current_sort: 'newest', current_freeForever: '' },
-        stats: { total_courses: 0 },
-        settings: { site_name: 'Learn Plus Courses', site_description: '', courses_per_page: 12 },
-        error: String(e),
-      },
-      { status: 500 }
-    );
+    return NextResponse.json(emptyResponse(String(e)), { status: 500 });
   }
+}
+
+// ---------------------------------------------------------------------------
+// Arabic-only listing driven by CourseTranslation.
+// ---------------------------------------------------------------------------
+async function arabicCourses(opts: {
+  page: number;
+  limit: number;
+  search: string;
+  category: string;
+  source: string;
+  sort: string;
+  freeForever: string;
+  categories: unknown;
+  settings: { site_name: string; site_description: string; courses_per_page: number };
+}) {
+  const { page, limit, search, category, source, sort, freeForever, categories, settings } = opts;
+  const skip = (page - 1) * limit;
+
+  // Course-side constraints live under the `course` relation.
+  const courseFilter: Record<string, unknown> = { isPublished: true };
+  if (source) courseFilter.source = source;
+  if (freeForever === 'true') courseFilter.isFreeForever = true;
+
+  const and: Array<Record<string, unknown>> = [];
+  if (category) {
+    // Match either the translated (Arabic) category or the original course category,
+    // since the category filter chips are keyed on the original category name.
+    and.push({ OR: [{ category }, { course: { category } }] });
+  }
+  if (search) {
+    // Search the Arabic translation fields first; original course title is a
+    // secondary match, but the row still must be an Arabic translated row.
+    and.push({
+      OR: [
+        { title: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+        { category: { contains: search, mode: 'insensitive' } },
+        { metaTitle: { contains: search, mode: 'insensitive' } },
+        { metaDescription: { contains: search, mode: 'insensitive' } },
+        { course: { title: { contains: search, mode: 'insensitive' } } },
+      ],
+    });
+  }
+
+  const where: Record<string, unknown> = {
+    locale: 'ar',
+    status: 'translated',
+    course: courseFilter,
+  };
+  if (and.length > 0) where.AND = and;
+
+  // Sort on the related course for numeric/date sorts; on the translation title
+  // for alphabetical sort so /ar is ordered by the Arabic title.
+  let orderBy: Record<string, unknown> = { course: { scrapedAt: 'desc' } };
+  if (sort === 'oldest') orderBy = { course: { scrapedAt: 'asc' } };
+  else if (sort === 'rating') orderBy = { course: { rating: 'desc' } };
+  else if (sort === 'students') orderBy = { course: { studentsCount: 'desc' } };
+  else if (sort === 'title') orderBy = { title: 'asc' };
+
+  let rows: any[] = [];
+  let total = 0;
+  let totalCourses = 0;
+  try {
+    [rows, total, totalCourses] = await Promise.all([
+      (db as any).courseTranslation.findMany({ where, include: { course: true }, orderBy, skip, take: limit }),
+      (db as any).courseTranslation.count({ where }),
+      (db as any).courseTranslation.count({
+        where: { locale: 'ar', status: 'translated', course: { isPublished: true } },
+      }),
+    ]);
+  } catch {
+    // i18n table not ready — return an empty Arabic listing rather than 500.
+    rows = [];
+    total = 0;
+    totalCourses = 0;
+  }
+
+  return NextResponse.json({
+    success: true,
+    locale: 'ar',
+    courses: rows.map((r) => {
+      const c = r.course;
+      return {
+        id: c.id,
+        title: r.title,
+        slug: r.slug,
+        description: (r.description || '').slice(0, 200),
+        instructor: c.instructor || '',
+        category: r.category || c.category,
+        imageUrl: c.imageUrl,
+        image_url: c.imageUrl,
+        rating: c.rating || null,
+        students_count: c.studentsCount || null,
+        original_price: c.originalPrice || null,
+        language: c.language || null,
+        duration: c.duration || null,
+        couponExpiresAt: c.couponExpiresAt?.toISOString() || null,
+        isFreeForever: c.isFreeForever || false,
+        couponVerified: c.couponVerified || false,
+        scraped_at: c.scrapedAt,
+      };
+    }),
+    pagination: { page, limit, total, total_pages: Math.ceil(total / limit) },
+    filters: {
+      categories,
+      current_category: category,
+      current_search: search,
+      current_source: source,
+      current_sort: sort,
+      current_freeForever: freeForever,
+    },
+    stats: { total_courses: totalCourses },
+    settings,
+  });
+}
+
+function emptyResponse(error: string) {
+  return {
+    success: false,
+    courses: [],
+    pagination: { page: 1, limit: 12, total: 0, total_pages: 0 },
+    filters: {
+      categories: [],
+      current_category: '',
+      current_search: '',
+      current_source: '',
+      current_sort: 'newest',
+      current_freeForever: '',
+    },
+    stats: { total_courses: 0 },
+    settings: { site_name: 'Learn Plus Courses', site_description: '', courses_per_page: 12 },
+    error,
+  };
 }

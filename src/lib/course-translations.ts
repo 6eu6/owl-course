@@ -99,6 +99,110 @@ export function validateArabicPayload(payload: TranslationPayload): string[] {
   return errors
 }
 
+// ---------------------------------------------------------------------------
+// Arabic style normalization + validation.
+//
+// The model sometimes returns Arabic that is grammatically fine but reads like
+// a machine translation ("دبلومة محترفة", "اختبارات ممارسة", "ماستر كلاس").
+// normalizeArabicPayload rewrites those well-known awkward phrases into the
+// natural form; validateArabicStyle flags anything still wrong so the repair
+// pass (or a later retry) can fix it. Neither touches English brand names or
+// technical acronyms — every rule below only matches Arabic letter sequences.
+// ---------------------------------------------------------------------------
+
+// Order matters: more specific phrases first so they win over the generic rule.
+const AR_NORMALIZE: Array<[RegExp, string]> = [
+  [/دبلومة\s+محترفة/g, 'دبلوم مهني'],
+  [/دبلومة\s+مهنية/g, 'دبلوم مهني'],
+  [/دبلومة/g, 'دبلوم'],
+  [/اختبارات\s+ممارسة/g, 'اختبارات تدريبية'],
+  [/امتحانات\s+ممارسة/g, 'اختبارات تدريبية'],
+  [/اختبارات\s+الممارسة/g, 'اختبارات تدريبية'],
+  [/ماستر\s+كلاس/g, 'دورة متقدمة'],
+  [/الماستر\s+كلاس/g, 'الدورة المتقدمة'],
+  [/صنع\s+بسيط/g, 'تبسيط'],
+  [/إدارة\s+المكتب\b/g, 'إدارة المكاتب'],
+]
+
+function normalizeArabicText(value: string): string {
+  let out = String(value || '')
+  for (const [re, rep] of AR_NORMALIZE) out = out.replace(re, rep)
+  return out.replace(/[ \t]+/g, ' ').trim()
+}
+
+/** Rewrite known awkward Arabic phrasings into natural form across all fields. */
+export function normalizeArabicPayload(payload: TranslationPayload): TranslationPayload {
+  return {
+    title: normalizeArabicText(payload.title),
+    description: normalizeArabicText(payload.description),
+    requirements: normalizeArabicText(payload.requirements),
+    whoFor: normalizeArabicText(payload.whoFor),
+    whatLearn: normalizeArabicText(payload.whatLearn),
+    category: normalizeArabicText(payload.category),
+    metaTitle: normalizeArabicText(payload.metaTitle),
+    metaDescription: normalizeArabicText(payload.metaDescription),
+  }
+}
+
+// Phrases that read as machine translation. If any survive normalization the
+// output is rejected as low quality.
+const AR_BANNED: Array<{ re: RegExp; msg: string }> = [
+  { re: /دبلومة/, msg: 'awkward phrase "دبلومة" (use دبلوم)' },
+  { re: /اختبارات\s+ممارسة|امتحانات\s+ممارسة|اختبارات\s+الممارسة/, msg: 'awkward phrase "اختبارات ممارسة" (use اختبارات تدريبية)' },
+  { re: /ماستر\s+كلاس/, msg: 'awkward phrase "ماستر كلاس" (use دورة متقدمة)' },
+  { re: /صنع\s+بسيط/, msg: 'awkward phrase "صنع بسيط" (use تبسيط)' },
+]
+
+/**
+ * Style gate for Arabic copy. Rejects literal/awkward phrasing, raw English
+ * titles, and non-Arabic scripts — but tolerates English brand names and
+ * technical acronyms (AWS, Cisco, Python, …) embedded in Arabic sentences.
+ */
+export function validateArabicStyle(payload: TranslationPayload): string[] {
+  const errors: string[] = []
+  const allText = [
+    payload.title,
+    payload.description,
+    payload.requirements,
+    payload.whoFor,
+    payload.whatLearn,
+    payload.category,
+    payload.metaTitle,
+    payload.metaDescription,
+  ].join('\n')
+
+  for (const b of AR_BANNED) {
+    if (b.re.test(allText)) errors.push(b.msg)
+  }
+
+  // Unexpected scripts (e.g. leftover Cyrillic) signal a broken translation.
+  if (/[Ѐ-ӿ]/.test(allText)) errors.push('contains non-Arabic (Cyrillic) characters')
+
+  // The title must be a real Arabic title, not the raw English string.
+  if (!hasArabic(payload.title)) errors.push('title is raw English, not Arabic')
+  else if (countArabicChars(payload.title) < 3) errors.push('title has too little Arabic')
+
+  // A genuine Arabic description is Arabic-dominant; an English paragraph that
+  // slipped through has more Latin letters than Arabic ones. Acronyms cannot
+  // trip this because real Arabic copy is overwhelmingly Arabic.
+  if (clean(payload.description) && countLatinLetters(payload.description) > countArabicChars(payload.description)) {
+    errors.push('description reads as English, not Arabic')
+  }
+
+  return errors
+}
+
+/** Full Arabic gate: required fields + Arabic language + natural style. */
+function collectArabicErrors(input: TranslationPayload, payload: TranslationPayload): string[] {
+  const errors: string[] = []
+  for (const field of ['title', 'description', 'requirements', 'whoFor', 'whatLearn', 'category', 'metaTitle', 'metaDescription'] as const) {
+    requireTranslatedField(field, input[field], payload[field], errors)
+  }
+  errors.push(...validateArabicPayload(payload))
+  errors.push(...validateArabicStyle(payload))
+  return errors
+}
+
 /** Ensure non-empty source fields are not returned empty in translation. */
 function requireTranslatedField(
   fieldName: keyof TranslationPayload,
@@ -179,6 +283,12 @@ export async function ensureEnglishTranslation(course: CourseLike) {
 
 // One chat/completions call. Throws an Error tagged with `.status` so the
 // retry layer can react to 429 (rate limit) and 400 (invalid JSON) distinctly.
+const AR_SYSTEM_PROMPT =
+  'You are an expert Arabic localization editor for an online course-discovery website. ' +
+  'You rewrite English course metadata into fluent, natural Modern Standard Arabic that reads ' +
+  'like copy written by a native Arabic editor — never a literal, word-for-word translation. ' +
+  'You preserve meaning and never invent facts. You output only a JSON object.'
+
 async function chatCompletion(
   apiUrl: string,
   apiKey: string,
@@ -188,9 +298,9 @@ async function chatCompletion(
 ): Promise<any> {
   const body: Record<string, unknown> = {
     model,
-    temperature: 0.2,
+    temperature: 0.35,
     messages: [
-      { role: 'system', content: 'You are a precise English-to-Arabic localization engine. Output only JSON.' },
+      { role: 'system', content: AR_SYSTEM_PROMPT },
       { role: 'user', content: prompt },
     ],
   }
@@ -212,7 +322,7 @@ async function chatCompletion(
   return JSON.parse(extractJson(json?.choices?.[0]?.message?.content || '{}'))
 }
 
-async function translateWithModel(course: CourseLike): Promise<TranslationPayload> {
+function translationConfig() {
   const apiKey = (process.env.TRANSLATION_API_KEY || process.env.OPENAI_API_KEY || '').trim()
   if (!apiKey) throw new Error('Missing TRANSLATION_API_KEY or OPENAI_API_KEY')
 
@@ -226,50 +336,21 @@ async function translateWithModel(course: CourseLike): Promise<TranslationPayloa
       .replace(/^[<"']+|[>"']+$/g, '')
       .trim()
   const model = (process.env.TRANSLATION_MODEL || 'gpt-4o-mini').trim()
+  return { apiKey, apiUrl, model }
+}
 
-  const raw = originalPayload(course)
-  // Full translation, but bound the long fields to keep token usage sane.
-  const input: TranslationPayload = {
-    ...raw,
-    description: cap(raw.description, 4000),
-    requirements: cap(raw.requirements, 2000),
-    whoFor: cap(raw.whoFor, 2000),
-    whatLearn: cap(raw.whatLearn, 2000),
-  }
-
-  const prompt = [
-    'Translate this Udemy course metadata from English to Arabic for an Arabic course-discovery website.',
-    '',
-    'STRICT RULES:',
-    '- Return ONLY a valid JSON object.',
-    '- Use exactly these keys: title, description, requirements, whoFor, whatLearn, category, metaTitle, metaDescription.',
-    '- Translate every non-empty value into Arabic.',
-    '- Do NOT leave English paragraphs in description, requirements, whoFor, or whatLearn.',
-    '- Keep brand names and technical acronyms in English only when natural, such as AWS, CISA, Python, React, Excel, SQL, API, Udemy.',
-    '- Preserve meaning. Do not invent facts.',
-    '- If a source field is empty, return an empty string for that field.',
-    '- No markdown. No commentary. No extra keys.',
-    '',
-    'Input JSON:',
-    JSON.stringify(input),
-  ].join('\n')
-
-  // Retry around transient failures so a rate limit (429) or the occasional
-  // invalid-JSON (400) never drops a course. Backoff stays within the cron's
-  // per-request time budget.
+// One model round-trip with backoff. A rate limit (429) or transient 5xx is
+// retried; a 400 (JSON-mode rejected) falls back to lenient parsing once.
+// Backoff stays within the cron's per-request time budget.
+async function callModel(apiUrl: string, apiKey: string, model: string, prompt: string): Promise<any> {
   const backoff = [4000, 9000, 18000]
-  let parsed: any
   for (let attempt = 0; ; attempt++) {
     try {
-      parsed = await chatCompletion(apiUrl, apiKey, model, prompt, true)
-      break
+      return await chatCompletion(apiUrl, apiKey, model, prompt, true)
     } catch (e) {
       const status = (e as { status?: number })?.status
       if (status === 400) {
-        // Model returned content that failed JSON-mode validation — retry once
-        // without response_format and parse leniently.
-        parsed = await chatCompletion(apiUrl, apiKey, model, prompt, false)
-        break
+        return await chatCompletion(apiUrl, apiKey, model, prompt, false)
       }
       const transient = status === 429 || status === undefined || (status >= 500)
       if (transient && attempt < backoff.length) {
@@ -279,37 +360,123 @@ async function translateWithModel(course: CourseLike): Promise<TranslationPayloa
       throw e
     }
   }
+}
 
-  // Build payload without English fallback — the model's Arabic output must
-  // stand on its own. Empty model output is acceptable for optional fields;
-  // non-empty source fields that come back empty will fail the requireTranslatedField check.
-  const payload: TranslationPayload = {
-    title: clean(parsed.title),
-    description: clean(parsed.description),
-    requirements: clean(parsed.requirements),
-    whoFor: clean(parsed.whoFor),
-    whatLearn: clean(parsed.whatLearn),
-    category: clean(parsed.category),
-    metaTitle: clean(parsed.metaTitle),
-    metaDescription: truncateForMeta(clean(parsed.metaDescription)),
+// Build the Arabic payload from raw model output. No English fallback — the
+// model's Arabic must stand on its own. Empty optional fields are allowed; a
+// non-empty source field that returns empty is caught by collectArabicErrors.
+function buildPayloadFromModel(parsed: any): TranslationPayload {
+  return {
+    title: clean(parsed?.title),
+    description: clean(parsed?.description),
+    requirements: clean(parsed?.requirements),
+    whoFor: clean(parsed?.whoFor),
+    whatLearn: clean(parsed?.whatLearn),
+    category: clean(parsed?.category),
+    metaTitle: clean(parsed?.metaTitle),
+    metaDescription: truncateForMeta(clean(parsed?.metaDescription)),
+  }
+}
+
+// Acronyms / brand names that must stay in English (wrapped in Arabic context).
+const KEEP_ENGLISH = 'AWS, Cisco, CCNP, CCNA, CISA, CompTIA, Python, React, Vue.js, SQL, API, Adobe, Photoshop, Excel, PowerPoint, AI, ChatGPT, PMP, Udemy'
+
+function buildArabicPrompt(input: TranslationPayload): string {
+  return [
+    'Rewrite the following Udemy course metadata as fluent, natural Arabic for Arabic users browsing FREE online courses.',
+    'This is localization/copywriting, NOT literal translation.',
+    '',
+    'STYLE:',
+    '- Produce natural Arabic that sounds like a real Arabic course title and clear Arabic educational copy.',
+    '- Rewrite for meaning, not word-for-word. Preserve facts; never invent new ones.',
+    `- Keep certification names, product names and technical acronyms in English when that is natural: ${KEEP_ENGLISH}.`,
+    '- Add light Arabic context around English acronyms/certifications (e.g. "شهادة Cisco CCNP في أمن الشبكات").',
+    '- Keep descriptions concise and useful: roughly 2–4 sentences. Do not pad or repeat.',
+    '',
+    'AVOID these literal / machine-translation phrasings:',
+    '- دبلومة، دبلومة محترفة  → use: دبلوم، دبلوم مهني',
+    '- اختبارات ممارسة / امتحانات ممارسة → use: اختبارات تدريبية',
+    '- ماستر كلاس → use: دورة متقدمة',
+    '- صنع بسيط → use: تبسيط',
+    '- إدارة المكتب (for Office Management) → use: إدارة المكاتب',
+    '- Never output the raw English title as if it were Arabic.',
+    '',
+    'GOOD EXAMPLES (English → natural Arabic):',
+    '- "Professional Diploma in Office Management" → "دبلوم مهني في إدارة المكاتب"',
+    '- "Cisco CCNP 350-701 Practice Tests | 700 Qs | SCOR Security" → "اختبارات تدريبية لشهادة Cisco CCNP 350-701 في أمن الشبكات"',
+    '- "AI Made Simple for Kids: Fun Learning with Technology" → "تبسيط الذكاء الاصطناعي للأطفال بأسلوب ممتع"',
+    '- "PowerPoint Business Presentations with ChatGPT Generative AI" → "إنشاء عروض PowerPoint للأعمال باستخدام ChatGPT والذكاء الاصطناعي التوليدي"',
+    '- "Adobe Photoshop CC Mastery Class: Basic to Pro + AI" → "احتراف Adobe Photoshop CC من الأساسيات إلى المستوى المتقدم مع أدوات الذكاء الاصطناعي"',
+    '',
+    'OUTPUT:',
+    '- Return ONLY a JSON object with EXACTLY these keys: title, description, requirements, whoFor, whatLearn, category, metaTitle, metaDescription.',
+    '- Every non-empty source field must come back as natural Arabic. If a source field is empty, return an empty string.',
+    '- No markdown, no commentary, no extra keys.',
+    '',
+    'Input JSON:',
+    JSON.stringify(input),
+  ].join('\n')
+}
+
+// Repair pass: re-ask the model to rewrite the whole JSON naturally in Arabic,
+// given the original course, the rejected attempt, and the specific errors.
+async function repairArabicPayload(
+  cfg: { apiUrl: string; apiKey: string; model: string },
+  input: TranslationPayload,
+  bad: TranslationPayload,
+  errors: string[],
+): Promise<TranslationPayload> {
+  const prompt = [
+    'Your previous Arabic localization of this course was REJECTED by a quality gate.',
+    'Rewrite the ENTIRE JSON again as fluent, natural Arabic — fix the problems and keep the same keys.',
+    '',
+    'Problems to fix:',
+    ...errors.map((e) => `- ${e}`),
+    '',
+    'Rules (same as before):',
+    `- Localization, not literal translation. Keep these in English when natural: ${KEEP_ENGLISH}.`,
+    '- Natural Arabic course title + clear concise Arabic copy (2–4 sentences for description).',
+    '- Avoid: دبلومة، اختبارات ممارسة، ماستر كلاس، صنع بسيط. Use: دبلوم/دبلوم مهني، اختبارات تدريبية، دورة متقدمة، تبسيط.',
+    '- Return ONLY a JSON object with exactly: title, description, requirements, whoFor, whatLearn, category, metaTitle, metaDescription.',
+    '',
+    'Original English course (source of truth):',
+    JSON.stringify(input),
+    '',
+    'Previous Arabic attempt (rejected — improve it, do not repeat its mistakes):',
+    JSON.stringify(bad),
+  ].join('\n')
+
+  const parsed = await callModel(cfg.apiUrl, cfg.apiKey, cfg.model, prompt)
+  return normalizeArabicPayload(buildPayloadFromModel(parsed))
+}
+
+async function translateWithModel(course: CourseLike): Promise<TranslationPayload> {
+  const cfg = translationConfig()
+
+  const raw = originalPayload(course)
+  // Full translation, but bound the long fields to keep token usage (and
+  // latency) sane. Descriptions are also asked to stay concise in the prompt.
+  const input: TranslationPayload = {
+    ...raw,
+    description: cap(raw.description, 4000),
+    requirements: cap(raw.requirements, 2000),
+    whoFor: cap(raw.whoFor, 2000),
+    whatLearn: cap(raw.whatLearn, 2000),
   }
 
-  // 1) Reject if non-empty source fields came back empty.
-  const missing: string[] = []
-  for (const field of ['title', 'description', 'requirements', 'whoFor', 'whatLearn', 'category', 'metaTitle', 'metaDescription'] as const) {
-    requireTranslatedField(field, input[field], payload[field], missing)
-  }
-  if (missing.length > 0) {
-    throw new Error(`Arabic translation missing fields: ${missing.join(', ')}`)
-  }
+  // 1) First pass.
+  const firstParsed = await callModel(cfg.apiUrl, cfg.apiKey, cfg.model, buildArabicPrompt(input))
+  let payload = normalizeArabicPayload(buildPayloadFromModel(firstParsed))
+  let errors = collectArabicErrors(input, payload)
+  if (errors.length === 0) return payload
 
-  // 2) Reject if the output is not actually Arabic.
-  const qualityErrors = validateArabicPayload(payload)
-  if (qualityErrors.length > 0) {
-    throw new Error(`Arabic translation quality check failed: ${qualityErrors.join(', ')}`)
-  }
+  // 2) Repair pass — re-ask the model with the failure reasons instead of
+  //    dropping the course because the first output was literal/partial English.
+  payload = await repairArabicPayload(cfg, input, payload, errors)
+  errors = collectArabicErrors(input, payload)
+  if (errors.length === 0) return payload
 
-  return payload
+  throw new Error(`Arabic translation failed quality gate after repair: ${errors.join(', ')}`)
 }
 
 export async function translateCourseToArabic(course: CourseLike) {
@@ -358,15 +525,70 @@ export async function translateCourseToArabic(course: CourseLike) {
 // A course "needs translation" when it has no fully `translated` row for the
 // locale. Newest courses come first, so freshly scraped courses are always
 // translated before older backlog is enriched.
+//
+// For Arabic we add backoff so a single course that keeps failing the quality
+// gate cannot block the queue (especially with limit=1): a failed row only
+// becomes eligible again after FAILED_BACKOFF, a recently-touched pending row
+// is skipped for PENDING_BACKOFF, and the cron moves on to other courses
+// meanwhile. No course is skipped forever — failures simply retry later.
+const FAILED_BACKOFF_MS = 30 * 60 * 1000
+const PENDING_BACKOFF_MS = 10 * 60 * 1000
+
 export async function getCoursesMissingTranslation(locale: Locale, limit: number) {
-  return (db as any).course.findMany({
-    where: {
-      isPublished: true,
-      translations: { none: { locale, status: 'translated' } },
-    },
+  const take = Math.min(Math.max(limit, 1), 20)
+
+  // English keeps the simple, fast selection — there is no model call to fail.
+  if (locale !== 'ar') {
+    return (db as any).course.findMany({
+      where: {
+        isPublished: true,
+        translations: { none: { locale, status: 'translated' } },
+      },
+      orderBy: { scrapedAt: 'desc' },
+      take,
+    })
+  }
+
+  // Arabic: pull a generous window of the newest courses with their `ar` row,
+  // then apply backoff eligibility in memory and collect up to `take`.
+  const now = Date.now()
+  const candidates = await (db as any).course.findMany({
+    where: { isPublished: true },
     orderBy: { scrapedAt: 'desc' },
-    take: Math.min(Math.max(limit, 1), 20),
+    take: Math.max(take * 20, 60),
+    include: {
+      translations: {
+        where: { locale: 'ar' },
+        select: { status: true, updatedAt: true },
+      },
+    },
   })
+
+  const ageMs = (d: unknown) => now - new Date(d as string).getTime()
+  const selected: any[] = []
+
+  for (const course of candidates as any[]) {
+    const tr = course.translations?.[0]
+
+    let eligible = false
+    if (!tr) {
+      eligible = true // no Arabic row yet — always translate
+    } else if (tr.status === 'translated') {
+      eligible = false // already done — skip
+    } else if (tr.status === 'failed') {
+      eligible = ageMs(tr.updatedAt) >= FAILED_BACKOFF_MS
+    } else {
+      // pending (or any other transient state) — avoid immediate re-pick loop
+      eligible = ageMs(tr.updatedAt) >= PENDING_BACKOFF_MS
+    }
+
+    if (eligible) {
+      selected.push(course)
+      if (selected.length >= take) break
+    }
+  }
+
+  return selected
 }
 
 export async function processTranslationBatch(locale: Locale, limit: number, deadlineMs = 45_000) {
