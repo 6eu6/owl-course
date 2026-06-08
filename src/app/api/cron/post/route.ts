@@ -20,9 +20,9 @@ function isMissingI18nTable(error: unknown): boolean {
 
 type Channel = {
   id: string;
-  name?: string;
+  name: string;
   active: boolean;
-  language?: string;
+  language: string;
 };
 
 type PendingTranslation = {
