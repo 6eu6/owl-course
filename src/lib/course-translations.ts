@@ -175,9 +175,6 @@ export function validateArabicStyle(payload: TranslationPayload): string[] {
     if (b.re.test(allText)) errors.push(b.msg)
   }
 
-  // Unexpected scripts (e.g. leftover Cyrillic) signal a broken translation.
-  if (/[Ѐ-ӿ]/.test(allText)) errors.push('contains non-Arabic (Cyrillic) characters')
-
   // The title must be a real Arabic title, not the raw English string.
   if (!hasArabic(payload.title)) errors.push('title is raw English, not Arabic')
   else if (countArabicChars(payload.title) < 3) errors.push('title has too little Arabic')
@@ -192,7 +189,92 @@ export function validateArabicStyle(payload: TranslationPayload): string[] {
   return errors
 }
 
-/** Full Arabic gate: required fields + Arabic language + natural style. */
+// ---------------------------------------------------------------------------
+// Arabic editorial quality gate v2 — script + malformed + robotic checks.
+//
+// Arabic localized fields may contain: Arabic script, Latin letters (technical
+// terms / brand names), digits, whitespace and common punctuation. ANY other
+// script — Chinese/CJK, Japanese, Korean, Cyrillic — plus the Unicode
+// replacement char or private-use characters is treated as broken output. This
+// is what produced the stray glyph after "إعدادات", and "has Arabic somewhere"
+// was not enough to catch it.
+// ---------------------------------------------------------------------------
+
+// Scripts/characters that must never appear in Arabic copy.
+const DISALLOWED_SCRIPT =
+  /[　-〿぀-ヿㇰ-ㇿ㐀-䶿一-鿿豈-﫿가-힯ᄀ-ᇿ㄰-㆏Ѐ-ԯ�-]/
+
+/** True if the text contains CJK / Japanese / Korean / Cyrillic / garbled chars. */
+export function containsUnexpectedScript(text: string): boolean {
+  return DISALLOWED_SCRIPT.test(String(text || ''))
+}
+
+// Obvious malformed Arabic: stacked diacritics, tatweel runs, or an Arabic
+// letter glued directly to a Latin letter inside one token (e.g. "الذكاءGPT").
+// Brand tokens like ChatGPT / Vue.js / Node.js are pure-Latin and space-
+// separated, and "الـAPI" uses tatweel (excluded), so they are not flagged.
+function hasMalformedArabic(text: string): boolean {
+  const t = String(text || '')
+  if (/[ً-ٰٟ]{2,}/.test(t)) return true                     // 2+ stacked tashkeel marks
+  if (/ـ{2,}/.test(t)) return true                                     // tatweel run ـــ
+  if (/[\u0621-\u063F\u0641-\u064A][A-Za-z]|[A-Za-z][\u0621-\u063F\u0641-\u064A]/.test(t)) return true // Arabic letter glued to Latin
+  return false
+}
+
+// Patterns that read like machine translation.
+const ROBOTIC_PHRASES: RegExp[] = [
+  /إعدادات\s+تقلب/,
+  /اختبارات\s+ممارسة/,
+  /امتحانات\s+ممارسة/,
+  /ماستر\s+كلاس/,
+  /صنع\s+بسيط/,
+  /دبلومة/,
+]
+
+function hasRoboticArabicStyle(text: string): boolean {
+  const t = String(text || '')
+  if (ROBOTIC_PHRASES.some((re) => re.test(t))) return true
+  // "من خلال" leaned on too many times signals literal translation.
+  if ((t.match(/من\s+خلال/g) || []).length > 3) return true
+  return false
+}
+
+/**
+ * Editorial quality gate: rejects unexpected scripts, malformed Arabic tokens,
+ * and robotic/literal phrasing across every localized field. Tolerates English
+ * technical terms and brand names embedded in Arabic sentences.
+ */
+export function validateArabicEditorialQuality(payload: TranslationPayload): string[] {
+  const errors: string[] = []
+  const fields: Array<[string, string]> = [
+    ['title', payload.title],
+    ['description', payload.description],
+    ['requirements', payload.requirements],
+    ['whoFor', payload.whoFor],
+    ['whatLearn', payload.whatLearn],
+    ['category', payload.category],
+    ['metaTitle', payload.metaTitle],
+    ['metaDescription', payload.metaDescription],
+  ]
+
+  for (const [name, value] of fields) {
+    if (!clean(value)) continue
+    if (containsUnexpectedScript(value)) {
+      errors.push(`${name} contains unexpected script (CJK/Cyrillic/Japanese/Korean/garbled characters)`)
+    }
+    if (hasMalformedArabic(value)) {
+      errors.push(`${name} contains malformed Arabic (stacked marks, tatweel run, or Arabic glued to Latin)`)
+    }
+  }
+
+  const allText = fields.map(([, v]) => v).join('\n')
+  if (hasRoboticArabicStyle(allText)) errors.push('contains robotic/machine-translated phrasing')
+  if (clean(payload.description).length > 800) errors.push('description is too long (should be 2–3 concise Arabic sentences)')
+
+  return errors
+}
+
+/** Full Arabic gate: required fields + Arabic language + natural style + editorial quality. */
 function collectArabicErrors(input: TranslationPayload, payload: TranslationPayload): string[] {
   const errors: string[] = []
   for (const field of ['title', 'description', 'requirements', 'whoFor', 'whatLearn', 'category', 'metaTitle', 'metaDescription'] as const) {
@@ -200,6 +282,7 @@ function collectArabicErrors(input: TranslationPayload, payload: TranslationPayl
   }
   errors.push(...validateArabicPayload(payload))
   errors.push(...validateArabicStyle(payload))
+  errors.push(...validateArabicEditorialQuality(payload))
   return errors
 }
 
@@ -433,9 +516,14 @@ async function repairArabicPayload(
     'Problems to fix:',
     ...errors.map((e) => `- ${e}`),
     '',
-    'Rules (same as before):',
+    'Rules:',
+    '- Rewrite the ENTIRE JSON as a professional Arabic course listing.',
+    '- Remove ANY Chinese, Japanese, Korean, Cyrillic, malformed, or strange Unicode characters. Use ONLY Arabic text plus necessary English technical names/acronyms.',
+    '- Fix malformed Arabic words and any token where Arabic letters are glued to Latin letters.',
+    '- Fix machine-translated sentences; write natural Arabic, not literal structure copied from English.',
     `- Localization, not literal translation. Keep these in English when natural: ${KEEP_ENGLISH}.`,
-    '- Natural Arabic course title + clear concise Arabic copy (2–4 sentences for description).',
+    '- Make requirements / whoFor / whatLearn clear and natural (short Arabic phrases).',
+    '- description: 2–3 concise Arabic sentences. Do not pad.',
     '- Avoid: دبلومة، اختبارات ممارسة، ماستر كلاس، صنع بسيط. Use: دبلوم/دبلوم مهني، اختبارات تدريبية، دورة متقدمة، تبسيط.',
     '- Return ONLY a JSON object with exactly: title, description, requirements, whoFor, whatLearn, category, metaTitle, metaDescription.',
     '',
@@ -514,6 +602,10 @@ export async function translateCourseToArabic(course: CourseLike) {
       },
     })
   } catch (err) {
+    // Any failure (including a provider 429 that survived callModel's backoff)
+    // marks the row 'failed' and stamps updatedAt=now. getCoursesMissingTranslation
+    // then skips it for FAILED_BACKOFF_MS (30m), so a rate-limited course retries
+    // later and never blocks the queue — other courses keep flowing.
     await (db as any).courseTranslation.update({
       where: { courseId_locale: { courseId: course.id, locale: 'ar' } },
       data: { status: 'failed', error: String(err).slice(0, 500) },
