@@ -58,6 +58,59 @@ function extractJson(content: string): string {
   return body || '{}'
 }
 
+// ---------------------------------------------------------------------------
+// Arabic quality gate — reject translations that are still English.
+// ---------------------------------------------------------------------------
+
+function hasArabic(value: string): boolean {
+  return /[\u0600-\u06FF]/.test(String(value || ''))
+}
+
+function countArabicChars(value: string): number {
+  return (String(value || '').match(/[\u0600-\u06FF]/g) || []).length
+}
+
+function countLatinLetters(value: string): number {
+  return (String(value || '').match(/[A-Za-z]/g) || []).length
+}
+
+function isMostlyArabic(value: string): boolean {
+  const text = clean(value)
+  if (!text) return true // empty optional field is acceptable
+  const arabic = countArabicChars(text)
+  const latin = countLatinLetters(text)
+  // Must contain a meaningful amount of Arabic.
+  if (arabic < 8) return false
+  // Allow technical terms and brand names, but reject mostly-English fields.
+  return arabic >= latin * 0.35
+}
+
+/** Check that a translation payload is sufficiently Arabic. */
+export function validateArabicPayload(payload: TranslationPayload): string[] {
+  const errors: string[] = []
+  if (!hasArabic(payload.title)) errors.push('title is not Arabic')
+  if (!isMostlyArabic(payload.description)) errors.push('description is not Arabic enough')
+  if (!isMostlyArabic(payload.requirements)) errors.push('requirements is not Arabic enough')
+  if (!isMostlyArabic(payload.whoFor)) errors.push('whoFor is not Arabic enough')
+  if (!isMostlyArabic(payload.whatLearn)) errors.push('whatLearn is not Arabic enough')
+  if (!hasArabic(payload.category)) errors.push('category is not Arabic')
+  if (!hasArabic(payload.metaTitle)) errors.push('metaTitle is not Arabic')
+  if (!isMostlyArabic(payload.metaDescription)) errors.push('metaDescription is not Arabic enough')
+  return errors
+}
+
+/** Ensure non-empty source fields are not returned empty in translation. */
+function requireTranslatedField(
+  fieldName: keyof TranslationPayload,
+  original: string,
+  translated: string,
+  errors: string[],
+) {
+  if (clean(original) && !clean(translated)) {
+    errors.push(`${fieldName} missing translation`)
+  }
+}
+
 function originalPayload(course: CourseLike): TranslationPayload {
   return {
     title: clean(course.title),
@@ -186,14 +239,18 @@ async function translateWithModel(course: CourseLike): Promise<TranslationPayloa
 
   const prompt = [
     'Translate this Udemy course metadata from English to Arabic for an Arabic course-discovery website.',
-    'Requirements:',
-    '- Return ONLY a valid JSON object with the same keys.',
-    '- Keep technical terms clear and natural for Arabic learners.',
-    '- Do not translate brand names like Udemy, Python, React, AWS, Excel, GPT unless commonly written in Arabic text.',
-    '- Preserve meaning; do not invent new facts.',
-    '- Make metaTitle and metaDescription suitable for SEO in Arabic.',
-    '- Keep paragraphs as readable Arabic text; no markdown.',
     '',
+    'STRICT RULES:',
+    '- Return ONLY a valid JSON object.',
+    '- Use exactly these keys: title, description, requirements, whoFor, whatLearn, category, metaTitle, metaDescription.',
+    '- Translate every non-empty value into Arabic.',
+    '- Do NOT leave English paragraphs in description, requirements, whoFor, or whatLearn.',
+    '- Keep brand names and technical acronyms in English only when natural, such as AWS, CISA, Python, React, Excel, SQL, API, Udemy.',
+    '- Preserve meaning. Do not invent facts.',
+    '- If a source field is empty, return an empty string for that field.',
+    '- No markdown. No commentary. No extra keys.',
+    '',
+    'Input JSON:',
     JSON.stringify(input),
   ].join('\n')
 
@@ -223,16 +280,36 @@ async function translateWithModel(course: CourseLike): Promise<TranslationPayloa
     }
   }
 
-  return {
-    title: clean(parsed.title) || input.title,
-    description: clean(parsed.description) || input.description,
-    requirements: clean(parsed.requirements) || input.requirements,
-    whoFor: clean(parsed.whoFor) || input.whoFor,
-    whatLearn: clean(parsed.whatLearn) || input.whatLearn,
-    category: clean(parsed.category) || getLocalizedCategory('ar', input.category),
-    metaTitle: clean(parsed.metaTitle) || clean(parsed.title) || input.title,
-    metaDescription: truncateForMeta(clean(parsed.metaDescription) || clean(parsed.description) || input.description),
+  // Build payload without English fallback — the model's Arabic output must
+  // stand on its own. Empty model output is acceptable for optional fields;
+  // non-empty source fields that come back empty will fail the requireTranslatedField check.
+  const payload: TranslationPayload = {
+    title: clean(parsed.title),
+    description: clean(parsed.description),
+    requirements: clean(parsed.requirements),
+    whoFor: clean(parsed.whoFor),
+    whatLearn: clean(parsed.whatLearn),
+    category: clean(parsed.category),
+    metaTitle: clean(parsed.metaTitle),
+    metaDescription: truncateForMeta(clean(parsed.metaDescription)),
   }
+
+  // 1) Reject if non-empty source fields came back empty.
+  const missing: string[] = []
+  for (const field of ['title', 'description', 'requirements', 'whoFor', 'whatLearn', 'category', 'metaTitle', 'metaDescription'] as const) {
+    requireTranslatedField(field, input[field], payload[field], missing)
+  }
+  if (missing.length > 0) {
+    throw new Error(`Arabic translation missing fields: ${missing.join(', ')}`)
+  }
+
+  // 2) Reject if the output is not actually Arabic.
+  const qualityErrors = validateArabicPayload(payload)
+  if (qualityErrors.length > 0) {
+    throw new Error(`Arabic translation quality check failed: ${qualityErrors.join(', ')}`)
+  }
+
+  return payload
 }
 
 export async function translateCourseToArabic(course: CourseLike) {
