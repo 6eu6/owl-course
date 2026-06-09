@@ -15,6 +15,20 @@ export async function GET(request: Request) {
     const locale = normalizeLocale(searchParams.get('locale') || 'ar')
     const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '5'), 1), 10)
 
+    // English needs no translation step: /en and English Telegram read the
+    // scraped Course rows directly. Keep the route for backward compatibility
+    // but make it a no-op so the scheduler can drop the translate-en call.
+    if (locale === 'en') {
+      return NextResponse.json({
+        success: true,
+        locale: 'en',
+        processed: 0,
+        results: [],
+        message: 'English uses source Course rows — no translation needed',
+        timestamp: new Date().toISOString(),
+      })
+    }
+
     // Arabic needs a translation provider key. Fail fast with a clear message
     // instead of marking every course as failed in the database.
     if (locale === 'ar' && !(process.env.TRANSLATION_API_KEY || process.env.OPENAI_API_KEY)) {

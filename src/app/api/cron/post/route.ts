@@ -14,8 +14,13 @@ function isMissingI18nTable(error: unknown): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Two-step pending-translation finder (no `every` — avoids the vacuous-truth
-// bug where courses with zero TelegramPost rows were incorrectly excluded).
+// Source of each locale's posting content:
+//   - English (en): the scraped Course rows directly. No CourseTranslation(en)
+//     is required — a course is postable to /en the moment it is scraped.
+//   - Arabic  (ar): CourseTranslation(ar, status='translated') only.
+//
+// Both share TelegramPost(courseId, locale, channelId) for per-channel dedup,
+// and a uniform PendingPost shape so the posting loop stays identical.
 // ---------------------------------------------------------------------------
 
 type Channel = {
@@ -25,64 +30,81 @@ type Channel = {
   language: string;
 };
 
-type PendingTranslation = {
-  translation: any;
+type PendingPost = {
   course: any;
+  title: string;
+  slug: string;
+  category: string;
   pendingChannels: Channel[];
 };
 
-async function findPendingTranslations(
+// Channels that have NOT yet received this course for this locale.
+async function channelsNotYetSent(
+  courseId: string,
   locale: Locale,
   activeChannels: Channel[],
-  limit: number
-): Promise<PendingTranslation[]> {
-  const channelIds = activeChannels.map((c) => c.id);
+  channelIds: string[],
+): Promise<Channel[]> {
+  const sentRows = await (db as any).telegramPost.findMany({
+    where: { courseId, locale, channelId: { in: channelIds }, status: 'sent' },
+    select: { channelId: true },
+  });
+  const sentIds = new Set(sentRows.map((row: { channelId: string }) => row.channelId));
+  return activeChannels.filter((channel) => !sentIds.has(channel.id));
+}
 
+// English: select straight from published Course rows (newest first).
+async function findPendingEnglish(activeChannels: Channel[], limit: number): Promise<PendingPost[]> {
+  const channelIds = activeChannels.map((c) => c.id);
+  const candidates = await db.course.findMany({
+    where: { isPublished: true },
+    orderBy: { scrapedAt: 'desc' },
+    take: Math.max(limit * 30, 30),
+  });
+
+  const selected: PendingPost[] = [];
+  for (const course of candidates) {
+    const pendingChannels = await channelsNotYetSent(course.id, 'en', activeChannels, channelIds);
+    if (pendingChannels.length > 0) {
+      selected.push({ course, title: course.title, slug: course.slug, category: course.category, pendingChannels });
+      if (selected.length >= limit) break;
+    }
+  }
+  return selected;
+}
+
+// Arabic: select from translated Arabic rows only (two-step, no `every` filter).
+async function findPendingArabic(activeChannels: Channel[], limit: number): Promise<PendingPost[]> {
+  const channelIds = activeChannels.map((c) => c.id);
   const candidates = await (db as any).courseTranslation.findMany({
-    where: {
-      locale,
-      status: 'translated',
-      course: { isPublished: true },
-    },
+    where: { locale: 'ar', status: 'translated', course: { isPublished: true } },
     include: { course: true },
     orderBy: { course: { scrapedAt: 'desc' } },
     take: Math.max(limit * 30, 30),
   });
 
-  const selected: PendingTranslation[] = [];
-
+  const selected: PendingPost[] = [];
   for (const tr of candidates) {
     const course = tr.course;
     if (!course) continue;
-
-    const sentRows = await (db as any).telegramPost.findMany({
-      where: {
-        courseId: course.id,
-        locale,
-        channelId: { in: channelIds },
-        status: 'sent',
-      },
-      select: { channelId: true },
-    });
-
-    const sentIds = new Set(
-      sentRows.map((row: { channelId: string }) => row.channelId)
-    );
-
-    const pendingChannels = activeChannels.filter((channel) => !sentIds.has(channel.id));
-
+    const pendingChannels = await channelsNotYetSent(course.id, 'ar', activeChannels, channelIds);
     if (pendingChannels.length > 0) {
-      selected.push({ translation: tr, course, pendingChannels });
+      selected.push({ course, title: tr.title, slug: tr.slug, category: tr.category || course.category, pendingChannels });
       if (selected.length >= limit) break;
     }
   }
-
   return selected;
 }
 
+function findPending(locale: Locale, activeChannels: Channel[], limit: number): Promise<PendingPost[]> {
+  return locale === 'ar'
+    ? findPendingArabic(activeChannels, limit)
+    : findPendingEnglish(activeChannels, limit);
+}
+
 // GET /api/cron/post?secret=CRON_SECRET&locale=en|ar&limit=1&dryRun=1
-// Post-only drainer (no scraping). Locale-aware: English channels receive /en
-// course links and Arabic channels receive only translated /ar course links.
+// Post-only drainer (no scraping). Locale-aware: English channels post /en links
+// from Course rows; Arabic channels post only translated /ar course links.
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -112,10 +134,10 @@ export async function GET(request: Request) {
     if (!token) return NextResponse.json({ success: true, locale, posted: 0, error: 'TELEGRAM_BOT_TOKEN not set' });
     if (activeChannels.length === 0) return NextResponse.json({ success: true, locale, posted: 0, error: `no active ${locale} channels` });
 
-    // Two-step selection — no `every` filter.
-    let pending: PendingTranslation[];
+    // Per-locale source selection — no `every` filter.
+    let pending: PendingPost[];
     try {
-      pending = await findPendingTranslations(locale, activeChannels, limit);
+      pending = await findPending(locale, activeChannels, limit);
     } catch (error) {
       if (isMissingI18nTable(error)) {
         return NextResponse.json({
@@ -123,7 +145,7 @@ export async function GET(request: Request) {
           locale,
           posted: 0,
           remaining: 0,
-          message: 'i18n tables not ready — apply the Prisma schema (npm run db:push) then run /api/cron/translate',
+          message: 'TelegramPost/CourseTranslation table not ready — apply the Prisma schema (npm run db:push) first',
         });
       }
       throw error;
@@ -142,8 +164,8 @@ export async function GET(request: Request) {
         posted: 0,
         wouldPost: pending.map((item) => ({
           courseId: item.course.id,
-          title: item.translation.title,
-          slug: item.translation.slug,
+          title: item.title,
+          slug: item.slug,
           channels: item.pendingChannels.map((channel) => channel.name || channel.id),
         })),
         channels: activeChannels.map((channel) => channel.name || channel.id),
@@ -156,21 +178,20 @@ export async function GET(request: Request) {
     const failed: string[] = [];
 
     for (const item of pending) {
-      const tr = item.translation;
       const c = item.course;
       const pendingChannels = item.pendingChannels;
 
       const data = {
-        title: tr.title,
+        title: item.title,
         instructor: c.instructor,
-        category: tr.category || c.category,
+        category: item.category,
         rating: c.rating,
         students_count: c.studentsCount,
         original_price: c.originalPrice,
         language: c.language,
         duration: c.duration,
         udemy_url: c.couponUrl || c.udemyUrl || '',
-        slug: tr.slug,
+        slug: item.slug,
         locale,
       };
 
@@ -192,12 +213,12 @@ export async function GET(request: Request) {
 
         await logTelegramMessage({
           courseId: c.id,
-          courseTitle: tr.title,
+          courseTitle: item.title,
           channels: result.channels,
           status: `sent:${locale}`,
         });
       } else {
-        failed.push(tr.title);
+        failed.push(item.title);
         for (const channel of pendingChannels) {
           await (db as any).telegramPost.upsert({
             where: {
@@ -224,8 +245,8 @@ export async function GET(request: Request) {
       }
     }
 
-    // Count remaining using the same two-step approach — no `every`.
-    const remainingPreview = await findPendingTranslations(locale, activeChannels, 1);
+    // Count remaining using the same selection.
+    const remainingPreview = await findPending(locale, activeChannels, 1);
     const remaining = remainingPreview.length;
 
     return NextResponse.json({

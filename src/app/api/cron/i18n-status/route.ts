@@ -22,7 +22,6 @@ export async function GET(request: Request) {
 
     const [
       totalCourses,
-      enTranslated,
       arTranslated,
       arFailed,
       arPending,
@@ -30,7 +29,6 @@ export async function GET(request: Request) {
       lastArFailures,
     ] = await Promise.all([
       db.course.count({ where: publishedCourse }),
-      (db as any).courseTranslation.count({ where: { locale: 'en', status: 'translated', course: publishedCourse } }),
       (db as any).courseTranslation.count({ where: { locale: 'ar', status: 'translated', course: publishedCourse } }),
       (db as any).courseTranslation.count({ where: { locale: 'ar', status: 'failed', course: publishedCourse } }),
       (db as any).courseTranslation.count({ where: { locale: 'ar', status: 'pending', course: publishedCourse } }),
@@ -43,6 +41,10 @@ export async function GET(request: Request) {
       }),
     ]);
 
+    // English is ready the moment it is scraped — it posts from Course rows and
+    // needs no CourseTranslation(en). So enReady is simply the published count.
+    const enReady = totalCourses;
+
     // arReadyForPost: Arabic translated rows on published courses are exactly
     // the set the post cron can publish to /ar channels.
     const arReadyForPost = arTranslated;
@@ -50,7 +52,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       success: true,
       totalCourses,
-      enTranslated,
+      enReady,
       arTranslated,
       arFailed,
       arPending,
