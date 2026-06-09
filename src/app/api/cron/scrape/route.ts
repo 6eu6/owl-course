@@ -1,55 +1,20 @@
 import { NextResponse } from 'next/server';
-import { runFullScrape, type ScrapeResult } from '@/lib/scraper';
+import { scrapeSourcePage, type ScrapeSource } from '@/lib/scraper';
 
-const PAGES = 5;
-// Keep a safety margin under Vercel's 60s function limit. This endpoint is now
-// scrape-only; Telegram posting is handled by /api/cron/post.
-const TIME_BUDGET_MS = 52_000;
-const MIN_TIME_FOR_NEXT_SOURCE_MS = 12_000;
+// This endpoint used to run a 5-page, multi-source scrape in a single request,
+// which risked Vercel's 60s function timeout. Scraping is now batched per
+// source/page via /api/cron/scrape-batch, driven by Oracle.
+//
+// To stay backward compatible and never time out, this route now scrapes only
+// page 1 of each source (bounded work) and tells callers to use scrape-batch
+// for full, head-aware paging.
 
-type SourceKey = 'udemyfreebies' | 'studybullet';
+const SOURCES: ScrapeSource[] = ['udemyfreebies', 'studybullet'];
 
-function elapsedMs(startedAt: number): number {
-  return Date.now() - startedAt;
-}
-
-function hasEnoughTimeForNextSource(startedAt: number): boolean {
-  return TIME_BUDGET_MS - elapsedMs(startedAt) >= MIN_TIME_FOR_NEXT_SOURCE_MS;
-}
-
-function emptySource(source: SourceKey): ScrapeResult[SourceKey] {
-  return {
-    source,
-    status: 'partial',
-    newCount: 0,
-    dupCount: 0,
-    errCount: 0,
-    expiredCount: 0,
-    updatedCount: 0,
-    message: 'Skipped by scrape cron time budget before this source started',
-    duration: 0,
-    courses: [],
-  };
-}
-
-function sourceStats(source: ScrapeResult[SourceKey]) {
-  return {
-    status: source.status,
-    newCount: source.newCount,
-    dupCount: source.dupCount,
-    errCount: source.errCount,
-    updatedCount: source.updatedCount,
-    expiredCount: source.expiredCount,
-    duration: Math.round(source.duration / 1000),
-    message: source.message,
-  };
-}
-
-// GET /api/cron/scrape - scheduled scrape endpoint triggered by Oracle VM or cron
-// Protected by CRON_SECRET or ADMIN_PASSWORD env variable
+// GET /api/cron/scrape - safe, bounded page-1 scrape. Protected by CRON_SECRET
+// or ADMIN_PASSWORD. For full 5-page paging use /api/cron/scrape-batch.
 export async function GET(request: Request) {
   try {
-    // Verify cron secret for security
     const { searchParams } = new URL(request.url);
     const cronSecret = searchParams.get('secret') || '';
     const expectedSecret = process.env.CRON_SECRET || process.env.ADMIN_PASSWORD || '';
@@ -57,72 +22,53 @@ export async function GET(request: Request) {
     if (expectedSecret && cronSecret !== expectedSecret) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized: invalid or missing cron secret' },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
     const startedAt = Date.now();
-    console.log(`[Cron/Scrape] Starting scheduled scrape at ${new Date().toISOString()}`);
+    console.log(`[Cron/Scrape] Starting bounded page-1 scrape at ${new Date().toISOString()}`);
 
-    // Scrape-only path. Do NOT post to Telegram here: /api/cron/post drains
-    // Telegram separately, so a slow Telegram batch cannot kill the scraper.
-    // Pages stay at 5 for now; the route-level budget only prevents starting a
-    // second source when the request is already close to Vercel's 60s limit.
-    const udemyRun = await runFullScrape({
-      pages: PAGES,
-      sources: ['udemyfreebies'],
-      skipVerification: true,
-      skipCleanup: true,
-    });
+    // Page 1 only, one source at a time. New courses almost always show up on
+    // page 1, so this remains useful while being far under the timeout.
+    const sources: Record<string, unknown> = {};
+    let totalNew = 0;
+    let totalErr = 0;
 
-    let studybullet = emptySource('studybullet');
-    let timeBudgetHit = false;
-
-    if (hasEnoughTimeForNextSource(startedAt)) {
-      const studyRun = await runFullScrape({
-        pages: PAGES,
-        sources: ['studybullet'],
+    for (const source of SOURCES) {
+      const result = await scrapeSourcePage(source, 1, {
         skipVerification: true,
         skipCleanup: true,
       });
-      studybullet = studyRun.studybullet;
-    } else {
-      timeBudgetHit = true;
-      console.warn(`[Cron/Scrape] Time budget hit after udemyfreebies (${Math.round(elapsedMs(startedAt) / 1000)}s). Skipping studybullet this run.`);
+      totalNew += result.stats.newCount;
+      totalErr += result.stats.errCount;
+      sources[source] = {
+        success: result.success,
+        parsedCount: result.parsedCount,
+        ...result.stats,
+      };
     }
 
-    const udemyfreebies = udemyRun.udemyfreebies;
-    const totalDuration = elapsedMs(startedAt);
-    const totalNew = udemyfreebies.newCount + studybullet.newCount;
-    const totalDup = udemyfreebies.dupCount + studybullet.dupCount;
-    const totalErr = udemyfreebies.errCount + studybullet.errCount;
-
-    const scrapeStats = {
-      totalNew,
-      totalDup,
-      totalErr,
-      totalDuration: Math.round(totalDuration / 1000),
-      pages: PAGES,
-      timeBudgetMs: TIME_BUDGET_MS,
-      timeBudgetHit,
-      telegramPosting: 'disabled_here_use_/api/cron/post',
-      sources: {
-        udemyfreebies: sourceStats(udemyfreebies),
-        studybullet: sourceStats(studybullet),
-      },
-    };
+    const totalDuration = Date.now() - startedAt;
 
     return NextResponse.json({
       success: true,
-      message: `Cron scrape complete: ${totalNew} new courses in ${scrapeStats.totalDuration}s`,
-      scraped: scrapeStats,
+      message: `Bounded page-1 scrape complete: ${totalNew} new in ${Math.round(totalDuration / 1000)}s`,
+      note: 'This endpoint only scrapes page 1 to avoid timeouts. Use /api/cron/scrape-batch?source=SRC&page=N for full head-aware 5-page paging.',
+      scraped: {
+        totalNew,
+        totalErr,
+        totalDuration: Math.round(totalDuration / 1000),
+        pages: 1,
+        sources,
+      },
       timestamp: new Date().toISOString(),
     });
   } catch (e) {
     console.error('[Cron/Scrape] Error:', e);
     return NextResponse.json(
       { success: false, error: `Cron scrape failed: ${String(e)}` },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

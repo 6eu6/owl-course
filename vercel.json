@@ -8,6 +8,9 @@
     "src/app/api/cron/scrape/route.ts": {
       "maxDuration": 60
     },
+    "src/app/api/cron/scrape-batch/route.ts": {
+      "maxDuration": 60
+    },
     "src/app/api/cron/post/route.ts": {
       "maxDuration": 60
     },

@@ -2700,3 +2700,161 @@ export async function runFullScrape(
     studybullet: studybulletResult,
   };
 }
+
+// ============================================
+// Single source/page scrape (batched scraping)
+// ============================================
+
+export type ScrapeSource = 'udemyfreebies' | 'studybullet';
+
+export interface SourcePageItem {
+  /** Stable canonical identity of the listing item (source detail URL). */
+  canonicalUrl: string;
+  title: string;
+}
+
+export interface SourcePageResult {
+  source: ScrapeSource;
+  page: number;
+  success: boolean;
+  parsedCount: number;
+  /** Parsed listing items in page order (used to compute head fingerprints). */
+  items: SourcePageItem[];
+  stats: {
+    newCount: number;
+    dupCount: number;
+    updatedCount: number;
+    reactivatedCount: number;
+    expiredCount: number;
+    errCount: number;
+    durationMs: number;
+  };
+}
+
+/**
+ * Scrape exactly ONE source and ONE page (pages: 1). This is the bounded
+ * building block behind /api/cron/scrape-batch: it fetches a single listing
+ * page, parses its items, then processes them with the existing per-course
+ * pipeline. Verification and post-scrape cleanup are skipped by default so a
+ * single request stays well under the serverless timeout.
+ *
+ * Note: reactivatedCount is always 0 — the per-course pipeline does not
+ * distinguish reactivation from update. It is reported (and treated by the
+ * early-stop logic) for forward compatibility and to stay conservative.
+ */
+export async function scrapeSourcePage(
+  source: ScrapeSource,
+  page: number,
+  options: { skipVerification?: boolean; skipCleanup?: boolean } = {},
+): Promise<SourcePageResult> {
+  const start = Date.now();
+  const skipVerification = options.skipVerification ?? true;
+
+  let newCount = 0;
+  let dupCount = 0;
+  let updatedCount = 0;
+  const reactivatedCount = 0;
+  let expiredCount = 0;
+  let errCount = 0;
+  let success = true;
+  const items: SourcePageItem[] = [];
+
+  // Fresh Cloudflare circuit state per request.
+  resetUdemyCircuit();
+
+  const tally = (result: { saved: boolean; updated?: boolean; skipped?: string }) => {
+    if (result.saved) {
+      newCount++;
+    } else if (result.updated) {
+      updatedCount++;
+    } else if (
+      result.skipped === 'duplicate-title' ||
+      result.skipped === 'duplicate-url' ||
+      result.skipped === 'db-duplicate'
+    ) {
+      dupCount++;
+    } else if (result.skipped === 'no-valid-coupon' || result.skipped === 'expired-coupon') {
+      expiredCount++;
+    } else {
+      errCount++;
+    }
+  };
+
+  try {
+    const existingCourses = await db.course.findMany({
+      select: { udemyUrl: true, title: true },
+    });
+    const existingUrls = new Set(existingCourses.map((c) => normalizeUdemyUrl(c.udemyUrl)));
+    const existingTitles = new Set(existingCourses.map((c) => normalizeTitle(c.title)));
+
+    if (source === 'udemyfreebies') {
+      const { courses } = await fetchUdemyFreebiesListingPage(page);
+      for (const course of courses) {
+        items.push({ canonicalUrl: course.detailUrl, title: course.title });
+      }
+      for (const course of courses) {
+        try {
+          const result = await processUdemyFreebiesCourse(
+            course,
+            existingUrls,
+            existingTitles,
+            skipVerification,
+          );
+          tally(result);
+        } catch (err) {
+          errCount++;
+          console.error(`[Scraper/Batch] udemyfreebies p${page} error:`, err);
+        }
+      }
+    } else {
+      const { listings } = await fetchStudyBulletListingPage(page);
+      for (const listing of listings) {
+        items.push({ canonicalUrl: listing.detailUrl || listing.slug, title: listing.title });
+      }
+      for (const listing of listings) {
+        try {
+          const result = await processStudyBulletCourse(
+            listing,
+            existingUrls,
+            existingTitles,
+            0,
+            skipVerification,
+          );
+          tally(result);
+          // Light rate limit between detail fetches (matches full scraper).
+          await new Promise((r) => setTimeout(r, 200 + Math.random() * 100));
+        } catch (err) {
+          errCount++;
+          console.error(`[Scraper/Batch] studybullet p${page} error:`, err);
+        }
+      }
+    }
+  } catch (err) {
+    // Listing fetch failed entirely — uncertain, never an early-stop candidate.
+    success = false;
+    errCount++;
+    console.error(`[Scraper/Batch] ${source} p${page} listing fetch failed:`, err);
+  }
+
+  const durationMs = Date.now() - start;
+  console.log(
+    `[Scraper/Batch] ${source} p${page}: parsed=${items.length} new=${newCount} dup=${dupCount} updated=${updatedCount} expired=${expiredCount} err=${errCount} in ${(durationMs / 1000).toFixed(1)}s`,
+  );
+
+  return {
+    source,
+    page,
+    success,
+    parsedCount: items.length,
+    items,
+    stats: {
+      newCount,
+      dupCount,
+      updatedCount,
+      reactivatedCount,
+      expiredCount,
+      errCount,
+      durationMs,
+    },
+  };
+}
