@@ -52,10 +52,12 @@ export function computeHeadFingerprints(source: string, items: HeadItem[], limit
 
 /**
  * Decide whether the current head matches the previously stored head.
- * Returns true only when we are confident page 1 is unchanged:
- *   - the first 5 fingerprints match exactly (same order), OR
- *   - at least 8 of the first 10 fingerprints overlap.
- * A missing/empty previous checkpoint always returns false (uncertain).
+ *
+ * Conservative by design: we prefer extra scraping over missing new courses, so
+ * this returns true ONLY on a strict, ordered match of the first 5 fingerprints
+ * (the first 10 if both heads have >= 10). Any inserted/reordered item at the
+ * top — even if 9 of 10 still overlap — counts as changed and returns false.
+ * A missing/empty previous checkpoint, or empty current head, also returns false.
  */
 export function headMatchesPrevious(
   previous: string[] | null | undefined,
@@ -64,25 +66,16 @@ export function headMatchesPrevious(
   if (!previous || previous.length === 0) return false;
   if (!current || current.length === 0) return false;
 
-  // Exact, ordered match of the first 5 fingerprints.
-  if (previous.length >= 5 && current.length >= 5) {
-    let exact = true;
-    for (let i = 0; i < 5; i++) {
-      if (previous[i] !== current[i]) {
-        exact = false;
-        break;
-      }
-    }
-    if (exact) return true;
-  }
+  // Require at least 5 fingerprints on both sides to be confident.
+  if (previous.length < 5 || current.length < 5) return false;
 
-  // Overlap of >= 8 of the first 10 fingerprints (order-independent).
-  const prevSet = new Set(previous.slice(0, 10));
-  let overlap = 0;
-  for (const fp of current.slice(0, 10)) {
-    if (prevSet.has(fp)) overlap++;
+  // Compare as many leading fingerprints as both heads share, capped at 10,
+  // but never fewer than 5. Every compared position must match in order.
+  const depth = Math.min(10, previous.length, current.length);
+  for (let i = 0; i < depth; i++) {
+    if (previous[i] !== current[i]) return false;
   }
-  return overlap >= 8;
+  return true;
 }
 
 export interface StopDecisionInput {

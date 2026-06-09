@@ -37,22 +37,12 @@ function computeHeadFingerprints(source, items, limit = 10) {
 function headMatchesPrevious(previous, current) {
   if (!previous || previous.length === 0) return false;
   if (!current || current.length === 0) return false;
-  if (previous.length >= 5 && current.length >= 5) {
-    let exact = true;
-    for (let i = 0; i < 5; i++) {
-      if (previous[i] !== current[i]) {
-        exact = false;
-        break;
-      }
-    }
-    if (exact) return true;
+  if (previous.length < 5 || current.length < 5) return false;
+  const depth = Math.min(10, previous.length, current.length);
+  for (let i = 0; i < depth; i++) {
+    if (previous[i] !== current[i]) return false;
   }
-  const prevSet = new Set(previous.slice(0, 10));
-  let overlap = 0;
-  for (const fp of current.slice(0, 10)) {
-    if (prevSet.has(fp)) overlap++;
-  }
-  return overlap >= 8;
+  return true;
 }
 
 function decideShouldStopSource(input) {
@@ -118,21 +108,36 @@ test('identical heads match', () => {
   assert.equal(headMatchesPrevious(cur, cur), true);
 });
 
-test('exact first-5 match wins even if tail differs', () => {
+test('tail change is conservative: full-depth ordered match required when both heads have >= 10', () => {
   const prev = computeHeadFingerprints('udemyfreebies', urls(10));
-  // Keep first 5, replace last 5 entirely.
+  // Keep first 5, replace last 5 entirely. Both heads are length 10, so all 10
+  // leading fingerprints must match in order -> a tail change is NOT a match.
   const changedTail = urls(5).concat(urls(5, 'https://www.udemyfreebies.com/free-udemy-course/x'));
   const cur = computeHeadFingerprints('udemyfreebies', changedTail);
+  assert.equal(headMatchesPrevious(prev, cur), false);
+});
+
+test('exact ordered first-5 match (short heads) matches', () => {
+  // When both heads are exactly 5 long, an ordered first-5 match is sufficient.
+  const prev = computeHeadFingerprints('udemyfreebies', urls(5));
+  const cur = computeHeadFingerprints('udemyfreebies', urls(5));
   assert.equal(headMatchesPrevious(prev, cur), true);
 });
 
-test('overlap >= 8 of 10 matches even when order shifts', () => {
+test('one new item at top breaks the ordered match (NEW,c0..c8 vs c0..c9)', () => {
+  // previous first 10 = c0..c9 ; current first 10 = NEW,c0..c8
   const prev = computeHeadFingerprints('udemyfreebies', urls(10));
-  // Insert one brand-new item at the top -> order shifts, 9 of 10 still overlap.
   const shifted = [{ canonicalUrl: 'https://www.udemyfreebies.com/free-udemy-course/NEW', title: 'New' }]
     .concat(urls(9));
   const cur = computeHeadFingerprints('udemyfreebies', shifted);
-  assert.equal(headMatchesPrevious(prev, cur), true);
+  // 9 of 10 overlap, but order shifted -> must be false (conservative).
+  assert.equal(headMatchesPrevious(prev, cur), false);
+});
+
+test('heads shorter than 5 fingerprints never match', () => {
+  const prev = computeHeadFingerprints('udemyfreebies', urls(4));
+  const cur = computeHeadFingerprints('udemyfreebies', urls(4));
+  assert.equal(headMatchesPrevious(prev, cur), false);
 });
 
 test('head changed (3 new at top) does not match', () => {
