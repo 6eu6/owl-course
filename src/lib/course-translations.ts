@@ -124,9 +124,25 @@ const AR_NORMALIZE: Array<[RegExp, string]> = [
   [/إدارة\s+المكتب\b/g, 'إدارة المكاتب'],
 ]
 
+// Insert a separating space where the model glued an Arabic letter directly to
+// a Latin technical term ("استخدمChatGPT" -> "استخدم ChatGPT", "Pythonللمبتدئين"
+// -> "Python للمبتدئين"). Only the Arabic⇄Latin LETTER boundary is touched:
+//   - pure English tokens (ChatGPT, API, CySA+) are left unchanged,
+//   - tatweel (الـAPI) is excluded, so it is preserved,
+//   - CJK/Cyrillic/etc. are NOT modified here — they still fail validation.
+export function normalizeArabicLatinSpacing(text: string): string {
+  return String(text || '')
+    .replace(/([ء-ؿف-ي])([A-Za-z])/g, '$1 $2')
+    .replace(/([A-Za-z])([ء-ؿف-ي])/g, '$1 $2')
+    .replace(/[ \t]{2,}/g, ' ')
+}
+
 function normalizeArabicText(value: string): string {
   let out = String(value || '')
   for (const [re, rep] of AR_NORMALIZE) out = out.replace(re, rep)
+  // Auto-fix Arabic/Latin glued tokens BEFORE validation so well-meaning
+  // translations are not failed just for a missing space around a brand name.
+  out = normalizeArabicLatinSpacing(out)
   return out.replace(/[ \t]+/g, ' ').trim()
 }
 
@@ -525,6 +541,11 @@ async function repairArabicPayload(
     '- Make requirements / whoFor / whatLearn clear and natural (short Arabic phrases).',
     '- description: 2–3 concise Arabic sentences. Do not pad.',
     '- Avoid: دبلومة، اختبارات ممارسة، ماستر كلاس، صنع بسيط. Use: دبلوم/دبلوم مهني، اختبارات تدريبية، دورة متقدمة، تبسيط.',
+    '- Always put a space between Arabic words and English technical terms. Examples:',
+    '    Write "استخدم ChatGPT", not "استخدمChatGPT".',
+    '    Write "تعلم Python", not "تعلمPython".',
+    '    Write "واجهة API", not "واجهةAPI".',
+    '  Never attach Arabic letters directly to an English technical term.',
     '- Return ONLY a JSON object with exactly: title, description, requirements, whoFor, whatLearn, category, metaTitle, metaDescription.',
     '',
     'Original English course (source of truth):',
@@ -618,11 +639,11 @@ export async function translateCourseToArabic(course: CourseLike) {
 // locale. Newest courses come first, so freshly scraped courses are always
 // translated before older backlog is enriched.
 //
-// For Arabic we add backoff so a single course that keeps failing the quality
-// gate cannot block the queue (especially with limit=1): a failed row only
-// becomes eligible again after FAILED_BACKOFF, a recently-touched pending row
-// is skipped for PENDING_BACKOFF, and the cron moves on to other courses
-// meanwhile. No course is skipped forever — failures simply retry later.
+// For Arabic the selection is tiered (missing → stale pending → old failed) and
+// each tier is queried directly from the DB, so older missing rows are never
+// starved by a window full of newer translated/failed rows. Failed rows only
+// re-enter after FAILED_BACKOFF and only once no untranslated course remains,
+// so one repeatedly-failing course can never block the queue.
 const FAILED_BACKOFF_MS = 30 * 60 * 1000
 const PENDING_BACKOFF_MS = 10 * 60 * 1000
 
@@ -641,43 +662,57 @@ export async function getCoursesMissingTranslation(locale: Locale, limit: number
     })
   }
 
-  // Arabic: pull a generous window of the newest courses with their `ar` row,
-  // then apply backoff eligibility in memory and collect up to `take`.
+  // Arabic: prioritized tiers, each queried directly so older missing rows are
+  // never starved by a window full of newer translated/failed rows (which caused
+  // processed:0 while arMissing>0). Failed rows are LAST, so they cannot consume
+  // the queue while fresh untranslated courses still exist.
+  //   1) courses with no Arabic row at all  (newest first)
+  //   2) stale pending rows  (updatedAt older than PENDING_BACKOFF_MS)
+  //   3) failed rows past the failure backoff (updatedAt older than FAILED_BACKOFF_MS)
   const now = Date.now()
-  const candidates = await (db as any).course.findMany({
-    where: { isPublished: true },
-    orderBy: { scrapedAt: 'desc' },
-    take: Math.max(take * 20, 60),
-    include: {
-      translations: {
-        where: { locale: 'ar' },
-        select: { status: true, updatedAt: true },
-      },
-    },
-  })
+  const pendingCutoff = new Date(now - PENDING_BACKOFF_MS)
+  const failedCutoff = new Date(now - FAILED_BACKOFF_MS)
 
-  const ageMs = (d: unknown) => now - new Date(d as string).getTime()
   const selected: any[] = []
-
-  for (const course of candidates as any[]) {
-    const tr = course.translations?.[0]
-
-    let eligible = false
-    if (!tr) {
-      eligible = true // no Arabic row yet — always translate
-    } else if (tr.status === 'translated') {
-      eligible = false // already done — skip
-    } else if (tr.status === 'failed') {
-      eligible = ageMs(tr.updatedAt) >= FAILED_BACKOFF_MS
-    } else {
-      // pending (or any other transient state) — avoid immediate re-pick loop
-      eligible = ageMs(tr.updatedAt) >= PENDING_BACKOFF_MS
-    }
-
-    if (eligible) {
-      selected.push(course)
+  const seen = new Set<string>()
+  const addRows = (rows: any[]) => {
+    for (const c of rows) {
+      if (seen.has(c.id)) continue
+      seen.add(c.id)
+      selected.push(c)
       if (selected.length >= take) break
     }
+  }
+
+  // Tier 1 — no Arabic translation yet.
+  addRows(await (db as any).course.findMany({
+    where: { isPublished: true, translations: { none: { locale: 'ar' } } },
+    orderBy: { scrapedAt: 'desc' },
+    take,
+  }))
+
+  // Tier 2 — stale pending rows.
+  if (selected.length < take) {
+    addRows(await (db as any).course.findMany({
+      where: {
+        isPublished: true,
+        translations: { some: { locale: 'ar', status: 'pending', updatedAt: { lt: pendingCutoff } } },
+      },
+      orderBy: { scrapedAt: 'desc' },
+      take: take - selected.length,
+    }))
+  }
+
+  // Tier 3 — failed rows past the 30-minute backoff.
+  if (selected.length < take) {
+    addRows(await (db as any).course.findMany({
+      where: {
+        isPublished: true,
+        translations: { some: { locale: 'ar', status: 'failed', updatedAt: { lt: failedCutoff } } },
+      },
+      orderBy: { scrapedAt: 'desc' },
+      take: take - selected.length,
+    }))
   }
 
   return selected
