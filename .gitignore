@@ -1,0 +1,12 @@
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.sqlite
+*.db
+node_modules/
+.next/
+dist/
+build/
+.DS_Store

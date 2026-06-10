@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="560" viewBox="0 0 1600 560" role="img" aria-labelledby="title desc">
+  <title id="title">Learn Plus Courses hero illustration</title>
+  <desc id="desc">Sharp vector e-learning illustration with learners, laptop, course cards, and Udemy coupon elements.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#111827"/>
+      <stop offset="1" stop-color="#020617"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f8fafc"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1600" height="560" rx="44" fill="url(#bg)"/>
+  <circle cx="1450" cy="92" r="250" fill="#a855f7" opacity=".2"/>
+  <circle cx="128" cy="474" r="225" fill="#22c55e" opacity=".16"/>
+  <circle cx="940" cy="470" r="156" fill="#38bdf8" opacity=".1"/>
+  <path d="M92 112h400" stroke="#fff" stroke-opacity=".12" stroke-width="2"/>
+  <path d="M1148 462h360" stroke="#fff" stroke-opacity=".12" stroke-width="2"/>
+
+  <g transform="translate(104 92)">
+    <rect width="160" height="48" rx="24" fill="#ffffff" fill-opacity=".12" stroke="#ffffff" stroke-opacity=".18" stroke-width="2"/>
+    <text x="24" y="31" font-family="Arial, sans-serif" font-size="18" font-weight="800" fill="#ffffff">LEARN PLUS</text>
+
+    <text x="0" y="128" font-family="Arial, sans-serif" font-size="72" font-weight="900" fill="#ffffff">Free Udemy courses</text>
+    <text x="0" y="190" font-family="Arial, sans-serif" font-size="72" font-weight="900" fill="#ffffff">for online learners</text>
+    <text x="2" y="252" font-family="Arial, sans-serif" font-size="25" fill="#cbd5e1">Discover useful courses, fresh coupons, and learning opportunities before they expire.</text>
+
+    <g transform="translate(0 314)">
+      <rect width="172" height="54" rx="27" fill="#ffffff" fill-opacity=".12" stroke="#ffffff" stroke-opacity=".18" stroke-width="2"/>
+      <text x="31" y="35" font-family="Arial, sans-serif" font-size="18" font-weight="800" fill="#ffffff">Daily updates</text>
+      <rect x="196" width="180" height="54" rx="27" fill="#ffffff" fill-opacity=".12" stroke="#ffffff" stroke-opacity=".18" stroke-width="2"/>
+      <text x="226" y="35" font-family="Arial, sans-serif" font-size="18" font-weight="800" fill="#ffffff">100% coupons</text>
+      <rect x="400" width="168" height="54" rx="27" fill="#ffffff" fill-opacity=".12" stroke="#ffffff" stroke-opacity=".18" stroke-width="2"/>
+      <text x="431" y="35" font-family="Arial, sans-serif" font-size="18" font-weight="800" fill="#ffffff">Learn online</text>
+    </g>
+  </g>
+
+  <g transform="translate(920 82)">
+    <rect x="46" y="44" width="448" height="320" rx="34" fill="url(#card)" stroke="#e2e8f0" stroke-width="3"/>
+    <rect x="84" y="86" width="372" height="152" rx="24" fill="#111827"/>
+    <rect x="120" y="124" width="144" height="18" rx="9" fill="#ffffff"/>
+    <rect x="120" y="164" width="244" height="14" rx="7" fill="#94a3b8"/>
+    <rect x="120" y="196" width="196" height="14" rx="7" fill="#64748b"/>
+    <circle cx="394" cy="158" r="40" fill="#a855f7"/>
+    <path d="M380 158l12 13 24-30" fill="none" stroke="#ffffff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <rect x="84" y="264" width="164" height="64" rx="18" fill="#f1f5f9" stroke="#e2e8f0" stroke-width="2"/>
+    <text x="112" y="303" font-family="Arial, sans-serif" font-size="18" font-weight="900" fill="#0f172a">Python</text>
+    <rect x="274" y="264" width="182" height="64" rx="18" fill="#ecfdf5" stroke="#bbf7d0" stroke-width="2"/>
+    <text x="306" y="303" font-family="Arial, sans-serif" font-size="18" font-weight="900" fill="#166534">Free today</text>
+
+    <g transform="translate(0 244)">
+      <circle cx="58" cy="42" r="34" fill="#fbbf24"/>
+      <path d="M24 124c4-42 66-42 72 0" fill="#22c55e"/>
+      <rect x="42" y="72" width="36" height="58" rx="16" fill="#0f172a"/>
+      <circle cx="46" cy="39" r="5" fill="#0f172a"/>
+      <circle cx="70" cy="39" r="5" fill="#0f172a"/>
+      <path d="M47 54c8 7 19 7 27 0" fill="none" stroke="#0f172a" stroke-width="4" stroke-linecap="round"/>
+    </g>
+
+    <g transform="translate(426 232)">
+      <circle cx="46" cy="54" r="34" fill="#f59e0b"/>
+      <path d="M10 140c4-44 72-44 78 0" fill="#38bdf8"/>
+      <rect x="28" y="86" width="38" height="62" rx="16" fill="#312e81"/>
+      <path d="M22 48c9-26 48-24 58 0" fill="#111827"/>
+      <path d="M34 64c8 7 19 7 27 0" fill="none" stroke="#111827" stroke-width="4" stroke-linecap="round"/>
+    </g>
+  </g>
+
+  <g transform="translate(866 78)">
+    <rect width="150" height="54" rx="27" fill="#a435f0"/>
+    <text x="38" y="35" font-family="Arial, sans-serif" font-size="21" font-weight="900" fill="#ffffff">Udemy</text>
+  </g>
+</svg>

@@ -1,0 +1,33 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "buildCommand": "npx prisma generate && next build",
+  "installCommand": "npm install",
+  "outputDirectory": ".next",
+  "functions": {
+    "src/app/api/cron/scrape/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron/scrape-batch/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron/post/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron/translate/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron/cleanup/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron/purge/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron/retranslate/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/admin-bot/route.ts": {
+      "maxDuration": 60
+    }
+  }
+}

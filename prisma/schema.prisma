@@ -1,0 +1,124 @@
+// Learn Plus Courses - Udemy Free Course Scraper
+// Prisma Schema (PostgreSQL via DATABASE_URL)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Course {
+  id             String    @id @default(cuid())
+  title          String
+  slug           String    @unique
+  description    String    @default("")
+  instructor     String    @default("")
+  category       String    @default("Other")
+  imageUrl       String    @default("")
+  udemyUrl       String    @unique
+  source         String    @default("manual")
+  rating         Float?
+  studentsCount  Int?
+  originalPrice  String?
+  language       String?
+  duration       String?
+  requirements   String    @default("")
+  whoFor         String    @default("")
+  whatLearn      String    @default("")
+  lastUpdated    String?
+  couponCode     String    @default("")
+  couponUrl      String    @default("")
+  couponExpiresAt DateTime?
+  isFreeForever  Boolean   @default(false)
+  couponVerified Boolean   @default(false)
+  sourceDetail   String?
+  scrapeRunId    String?
+  isPublished    Boolean   @default(true)
+  telegramPosted Boolean   @default(false)
+  telegramPostedAt DateTime?
+  scrapedAt      DateTime  @default(now())
+  expiresAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  translations   CourseTranslation[]
+  telegramPosts  TelegramPost[]
+
+  @@index([slug])
+  @@index([source])
+  @@index([category])
+  @@index([isPublished])
+}
+
+model CourseTranslation {
+  id              String   @id @default(cuid())
+  courseId        String
+  locale          String
+  title           String
+  slug            String
+  description     String   @default("")
+  requirements    String   @default("")
+  whoFor          String   @default("")
+  whatLearn       String   @default("")
+  category        String   @default("Other")
+  metaTitle       String   @default("")
+  metaDescription String   @default("")
+  status          String   @default("pending")
+  error           String?
+  translatedAt    DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  course          Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, locale])
+  @@unique([locale, slug])
+  @@index([locale, status])
+  @@index([courseId])
+}
+
+model ScraperLog {
+  id        String   @id @default(cuid())
+  source    String
+  status    String   @default("success")
+  newCount  Int      @default(0)
+  dupCount  Int      @default(0)
+  errCount  Int      @default(0)
+  message   String   @default("")
+  duration  Int      @default(0)
+  timestamp DateTime @default(now())
+}
+
+model Setting {
+  id        String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+model TelegramMessage {
+  id          String   @id @default(cuid())
+  courseId    String?
+  courseTitle String
+  channels    String   @default("[]")
+  status      String   @default("pending")
+  sentAt      DateTime @default(now())
+}
+
+model TelegramPost {
+  id        String   @id @default(cuid())
+  courseId  String
+  locale    String
+  channelId String
+  status    String   @default("sent")
+  sentAt    DateTime @default(now())
+  error     String?
+
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, locale, channelId])
+  @@index([locale, status])
+  @@index([courseId])
+}
