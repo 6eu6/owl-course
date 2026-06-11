@@ -13,6 +13,12 @@ export const PUBLISHABLE_STATUSES = ['translated'] as const
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
+// A provider 429 is a temporary rate limit, not a real translation failure —
+// it must never count toward arFailed or trip the failed backoff.
+function isRateLimitError(err: unknown): boolean {
+  return (err as { status?: number })?.status === 429 || String(err).includes('429')
+}
+
 type CourseLike = {
   id: string
   title: string
@@ -623,10 +629,19 @@ export async function translateCourseToArabic(course: CourseLike) {
       },
     })
   } catch (err) {
-    // Any failure (including a provider 429 that survived callModel's backoff)
-    // marks the row 'failed' and stamps updatedAt=now. getCoursesMissingTranslation
-    // then skips it for FAILED_BACKOFF_MS (30m), so a rate-limited course retries
-    // later and never blocks the queue — other courses keep flowing.
+    // A provider 429 that survived callModel's backoff is only a temporary rate
+    // limit: keep the row 'pending' (retryable, never counted in arFailed) and
+    // rethrow so the caller can stop the batch and let the cooldown clear.
+    if (isRateLimitError(err)) {
+      await (db as any).courseTranslation.update({
+        where: { courseId_locale: { courseId: course.id, locale: 'ar' } },
+        data: { status: 'pending', error: 'rate_limited_429' },
+      })
+      throw err
+    }
+    // Any other failure marks the row 'failed' and stamps updatedAt=now.
+    // getCoursesMissingTranslation then skips it for FAILED_BACKOFF_MS (30m), so
+    // a failing course retries later and never blocks the queue.
     await (db as any).courseTranslation.update({
       where: { courseId_locale: { courseId: course.id, locale: 'ar' } },
       data: { status: 'failed', error: String(err).slice(0, 500) },
@@ -732,6 +747,12 @@ export async function processTranslationBatch(locale: Locale, limit: number, dea
       else await translateCourseToArabic(course)
       results.push({ courseId: course.id, title: course.title, status: 'translated' })
     } catch (err) {
+      if (isRateLimitError(err)) {
+        // Provider rate limit: report it so the Oracle catchup cooldown can see
+        // the 429, and stop starting more courses — they would all hit it too.
+        results.push({ courseId: course.id, title: course.title, status: 'rate_limited', error: 'Translation API failed: 429' })
+        break
+      }
       results.push({ courseId: course.id, title: course.title, status: 'failed', error: String(err).slice(0, 220) })
     }
   }
