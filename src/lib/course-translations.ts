@@ -149,6 +149,11 @@ function normalizeArabicText(value: string): string {
   // Auto-fix Arabic/Latin glued tokens BEFORE validation so well-meaning
   // translations are not failed just for a missing space around a brand name.
   out = normalizeArabicLatinSpacing(out)
+  // Strip isolated unexpected-script noise (a stray CJK/Cyrillic/garbled char
+  // the model sometimes emits) so an otherwise-good Arabic field is not failed
+  // just for it. Badly corrupted fields keep enough disallowed characters to
+  // still trip validateArabicEditorialQuality.
+  out = stripUnexpectedScripts(out)
   return out.replace(/[ \t]+/g, ' ').trim()
 }
 
@@ -229,6 +234,19 @@ const DISALLOWED_SCRIPT =
 /** True if the text contains CJK / Japanese / Korean / Cyrillic / garbled chars. */
 export function containsUnexpectedScript(text: string): boolean {
   return DISALLOWED_SCRIPT.test(String(text || ''))
+}
+
+// Deterministically remove isolated unexpected-script characters (CJK / Cyrillic
+// / garbled) that the model occasionally emits inside otherwise-valid Arabic.
+// Runs inside normalizeArabicText — so via normalizeArabicPayload it cleans every
+// field before each quality gate and after the repair pass. A single stray glyph
+// is removed instead of failing the whole translation; truly corrupted output
+// retains enough disallowed characters to still fail the editorial quality gate.
+function stripUnexpectedScripts(text: string): string {
+  return String(text || '')
+    .replace(DISALLOWED_SCRIPT, '')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim()
 }
 
 // Obvious malformed Arabic: stacked diacritics, tatweel runs, or an Arabic
