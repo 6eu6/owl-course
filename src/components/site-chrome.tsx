@@ -31,15 +31,14 @@ export function SiteHeader({
           <ThemeToggle />
           <Link
             href={backHref}
+            dir="ltr"
             className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md border px-2 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
-            {/* Always render as "label →" (label first, arrow on the trailing
-                edge). In RTL the icon is placed first in the DOM so the flex flip
-                puts it on the right, after the label — consistent in both languages. */}
-            {locale === "ar" && <ArrowRight className="h-3.5 w-3.5" />}
+            {/* dir="ltr" forces a consistent "label →" layout (arrow on the
+                trailing edge) in both languages, regardless of page direction. */}
             <span className="hidden sm:inline">{backLabel}</span>
             <span className="sm:hidden">{backShort}</span>
-            {locale !== "ar" && <ArrowRight className="h-3.5 w-3.5" />}
+            <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>
       </div>
@@ -123,7 +122,7 @@ export function SiteFooter({ locale = "en" }: { locale?: Locale }) {
             className="inline-flex items-center gap-2 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
           >
             <span>{t("builtBy")}</span>
-            <span className="text-sm font-extrabold tracking-tight text-foreground">Ahmed<span className="text-emerald-500">.</span></span>
+            <span dir="ltr" className="text-sm font-extrabold tracking-tight text-foreground">Ahmed<span className="text-emerald-500">.</span></span>
           </a>
         </div>
       </div>
