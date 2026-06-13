@@ -195,8 +195,11 @@ export async function GET(request: Request) {
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
     let posted = 0;
     const failed: string[] = [];
+    // Stay safely under Vercel's 60s function limit: stop starting work past 50s.
+    const deadlineMs = Date.now() + 50_000;
 
     for (const item of pending) {
+      if (Date.now() > deadlineMs) break;
       const c = withCourseDefaults(item.course);
       const pendingChannels = item.pendingChannels;
 
@@ -223,7 +226,8 @@ export async function GET(request: Request) {
       const result = await postCourseToTelegramChannels(
         data,
         settings as unknown as Record<string, unknown>,
-        pendingChannels
+        pendingChannels,
+        deadlineMs,
       );
 
       if (result.success) {

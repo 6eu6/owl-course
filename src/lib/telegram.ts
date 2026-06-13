@@ -4,6 +4,10 @@ import { localizedCoursePath, localizeDuration, type Locale } from './i18n';
 
 const TELEGRAM_API = 'https://api.telegram.org';
 
+// Contact bot — used in the post CTA ("add the auto-courses service to your
+// channel/group"). Override with NEXT_PUBLIC_CONTACT_BOT if the handle changes.
+const CONTACT_BOT_URL = process.env.NEXT_PUBLIC_CONTACT_BOT || 'https://t.me/FreeLearningHub_P_bot';
+
 // Default delay between posting messages (in ms)
 const DEFAULT_POST_DELAY_MS = 60_000; // 1 minute
 
@@ -106,11 +110,19 @@ function formatCourseMessageHtml(
     language: escapeHtml(cleanValue(course.language)),
     duration: escapeHtml(localizeDuration(cleanValue(course.duration), locale)),
     category: escapeHtml(cleanValue(course.category)),
-    link: courseUrl,
+    // {link} and {cta} are blue, tappable anchors — never the raw URL as text.
+    link: courseUrl ? `<a href="${escapeHtml(courseUrl)}">${locale === 'ar' ? 'انقر هنا للحصول على الكورس' : 'Click here to get the course'}</a>` : '',
+    cta: `<a href="${escapeHtml(CONTACT_BOT_URL)}">${locale === 'ar' ? 'أضف خدمة الدورات التلقائية لقناتك أو قروبك — انقر هنا' : 'Add the auto-courses service to your channel/group — click here'}</a>`,
   };
 
   const tpl = template && template.trim() ? template : (locale === 'ar' ? DEFAULT_TEMPLATES.ar : DEFAULT_TEMPLATES.en);
-  return renderTemplate(tpl, values);
+  let out = renderTemplate(tpl, values);
+  // Ensure the "add to your channel" CTA always appears, even on older custom
+  // templates that don't include the {cta} placeholder.
+  if (!out.includes(CONTACT_BOT_URL)) {
+    out += `\n➕ ${values.cta}`;
+  }
+  return out;
 }
 
 // Build inline keyboard button pointing to site course page
@@ -155,6 +167,7 @@ export async function postCourseToTelegramChannels(
   course: Record<string, unknown>,
   settings: Record<string, unknown>,
   channels: TelegramChannel[],
+  deadlineMs?: number,
 ): Promise<{ success: boolean; channels: string[]; channelIds: string[]; failed: string[] }> {
   const botToken = process.env.TELEGRAM_BOT_TOKEN || String(settings.bot_token || '');
   if (!botToken) return { success: false, channels: [], channelIds: [], failed: [] };
@@ -179,6 +192,12 @@ export async function postCourseToTelegramChannels(
   const PACE_MS = 1100;
 
   for (let i = 0; i < active.length; i += CHUNK) {
+    // Respect the serverless time budget: stop starting new batches near the
+    // deadline and leave the rest unsent (they retry on the next cron run).
+    if (deadlineMs && Date.now() > deadlineMs) {
+      for (let k = i; k < active.length; k++) failedChannels.push(active[k].name || active[k].id);
+      break;
+    }
     const batch = active.slice(i, i + CHUNK);
     const results = await Promise.allSettled(
       batch.map((channel) => sendMessage(botToken, channel.id, channelMessage, 'HTML', keyboard)),
