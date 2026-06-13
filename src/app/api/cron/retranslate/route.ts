@@ -27,11 +27,9 @@ export async function GET(request: Request) {
   if (locale !== 'ar') {
     return NextResponse.json({ success: false, error: 'retranslate only supports locale=ar' }, { status: 400 });
   }
-  if (!(process.env.TRANSLATION_API_KEY || process.env.OPENAI_API_KEY)) {
-    return NextResponse.json({ success: false, error: 'Missing TRANSLATION_API_KEY or OPENAI_API_KEY' }, { status: 400 });
-  }
-
-  const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '5'), 1), 10);
+  // No translation provider key needed: rows are regenerated locally from the
+  // Arabic bank. The window is larger since regeneration is instant and cannot fail.
+  const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '5'), 1), 50);
 
   try {
     // Pull a window of existing Arabic rows, oldest-touched first.

@@ -613,60 +613,40 @@ async function translateWithModel(course: CourseLike): Promise<TranslationPayloa
   throw new Error(`Arabic translation failed quality gate after repair: ${errors.join(', ')}`)
 }
 
+// Build the Arabic course row WITHOUT any AI/translation provider. The written
+// body is generated from the category-aware Arabic bank (stable, on-topic, never
+// fails, instant), and the title is kept as the course's real name so it stays
+// accurate. This replaced an LLM pipeline that was slow, hit rate limits
+// (429/409), required sleeps to dodge timeouts, and left many courses untranslated.
 export async function translateCourseToArabic(course: CourseLike) {
-  await (db as any).courseTranslation.upsert({
-    where: { courseId_locale: { courseId: course.id, locale: 'ar' } },
-    update: { status: 'pending', error: null },
-    create: {
-      courseId: course.id,
-      locale: 'ar',
-      title: course.title,
-      slug: await uniqueTranslationSlug('ar', slugifyArabic(course.title, course.slug), course.id),
-      status: 'pending',
-    },
-  })
+  const category = course.category || 'Other'
+  const gen = generateCourseContent(
+    { id: course.id, title: course.title, category },
+    'ar',
+  )
+  const slug = await uniqueTranslationSlug('ar', slugifyArabic(course.title, course.slug || course.id), course.id)
+  const arCategory = getLocalizedCategory('ar', category)
 
-  try {
-    const payload = await translateWithModel(course)
-    const slug = await uniqueTranslationSlug('ar', slugifyArabic(payload.title, course.slug), course.id)
-
-    return await (db as any).courseTranslation.update({
-      where: { courseId_locale: { courseId: course.id, locale: 'ar' } },
-      data: {
-        title: payload.title,
-        slug,
-        description: payload.description,
-        requirements: payload.requirements,
-        whoFor: payload.whoFor,
-        whatLearn: payload.whatLearn,
-        category: payload.category,
-        metaTitle: payload.metaTitle,
-        metaDescription: payload.metaDescription,
-        status: 'translated',
-        error: null,
-        translatedAt: new Date(),
-      },
-    })
-  } catch (err) {
-    // A provider 429 that survived callModel's backoff is only a temporary rate
-    // limit: keep the row 'pending' (retryable, never counted in arFailed) and
-    // rethrow so the caller can stop the batch and let the cooldown clear.
-    if (isRateLimitError(err)) {
-      await (db as any).courseTranslation.update({
-        where: { courseId_locale: { courseId: course.id, locale: 'ar' } },
-        data: { status: 'pending', error: 'rate_limited_429' },
-      })
-      throw err
-    }
-    // Any other failure marks the row 'failed' and stamps updatedAt=now.
-    // getCoursesMissingTranslation then skips it for FAILED_BACKOFF_MS (30m), so
-    // a failing course retries later and never blocks the queue.
-    await (db as any).courseTranslation.update({
-      where: { courseId_locale: { courseId: course.id, locale: 'ar' } },
-      data: { status: 'failed', error: String(err).slice(0, 500) },
-    })
-    throw err
+  const data = {
+    title: course.title,
+    slug,
+    description: gen.description,
+    requirements: gen.requirements,
+    whoFor: gen.whoFor,
+    whatLearn: gen.whatLearn,
+    category: arCategory,
+    metaTitle: course.title,
+    metaDescription: truncateForMeta(gen.description),
+    status: 'translated',
+    error: null,
+    translatedAt: new Date(),
   }
+
+  return await (db as any).courseTranslation.upsert({
+    where: { courseId_locale: { courseId: course.id, locale: 'ar' } },
+    update: data,
+    create: { courseId: course.id, locale: 'ar', ...data },
+  })
 }
 
 // A course "needs translation" when it has no fully `translated` row for the

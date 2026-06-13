@@ -14,7 +14,9 @@ export async function GET(request: Request) {
     }
 
     const locale = normalizeLocale(searchParams.get('locale') || 'ar')
-    const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '5'), 1), 10)
+    // Generation is instant and cannot fail, so a single tick can drain a far
+    // larger batch than the old per-call AI translation allowed.
+    const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '20'), 1), 50)
 
     // English needs no translation step: /en and English Telegram read the
     // scraped Course rows directly. Keep the route for backward compatibility
@@ -30,14 +32,8 @@ export async function GET(request: Request) {
       })
     }
 
-    // Arabic needs a translation provider key. Fail fast with a clear message
-    // instead of marking every course as failed in the database.
-    if (locale === 'ar' && !(process.env.TRANSLATION_API_KEY || process.env.OPENAI_API_KEY)) {
-      return NextResponse.json(
-        { success: false, locale, processed: 0, error: 'Missing TRANSLATION_API_KEY or OPENAI_API_KEY' },
-        { status: 400 }
-      )
-    }
+    // Arabic no longer calls any translation provider — the Arabic rows are
+    // generated locally from the category-aware bank, so no API key is required.
 
     const startedAt = Date.now()
     const result = await processTranslationBatch(locale, limit)
