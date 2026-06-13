@@ -1,19 +1,19 @@
 import { NextResponse } from 'next/server';
 import { normalizeLocale } from '@/lib/i18n';
 import { db } from '@/lib/db';
-import { translateCourseToArabic, validateArabicEditorialQuality } from '@/lib/course-translations';
+import { translateCourseToArabic } from '@/lib/course-translations';
+import { revalidateCourses } from '@/lib/cache';
 
 // =============================================================================
-// Arabic retranslate endpoint — Learn Plus Courses
+// Arabic regenerate endpoint — Learn Plus Courses
 // -----------------------------------------------------------------------------
-// Re-runs the Arabic translation for rows that are technically status='translated'
-// or 'failed' but stylistically bad (e.g. they contain CJK/garbled characters or
-// machine-translated phrasing). Rows that fail the editorial quality gate are
-// prioritised. Improves Arabic WITHOUT deleting Course rows.
+// Re-generates the Arabic rows (oldest first) from the category-aware Arabic
+// bank. Useful after the bank is expanded so existing rows pick up the richer
+// copy. No AI/provider, instant, cannot fail.
 //
 // Does NOT touch English translations, does NOT touch Course rows, does NOT post.
 //
-// GET /api/cron/retranslate?secret=CRON_SECRET&locale=ar&limit=5
+// GET /api/cron/retranslate?secret=CRON_SECRET&locale=ar&limit=20
 // =============================================================================
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -32,37 +32,18 @@ export async function GET(request: Request) {
   const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '5'), 1), 50);
 
   try {
-    // Pull a window of existing Arabic rows, oldest-touched first.
+    // Regenerate a window of existing Arabic rows, oldest-touched first.
     const candidates = await (db as any).courseTranslation.findMany({
-      where: { locale: 'ar', status: { in: ['translated', 'failed'] }, course: { isPublished: true } },
+      where: { locale: 'ar', course: { isPublished: true } },
       include: { course: true },
       orderBy: { updatedAt: 'asc' },
-      take: Math.max(limit * 5, limit),
+      take: limit,
     });
-
-    // Prioritise rows that fail the editorial quality gate (bad Arabic first).
-    const ranked = (candidates as any[])
-      .map((r) => ({
-        row: r,
-        bad: validateArabicEditorialQuality({
-          title: r.title || '',
-          description: r.description || '',
-          requirements: r.requirements || '',
-          whoFor: r.whoFor || '',
-          whatLearn: r.whatLearn || '',
-          category: r.category || '',
-          metaTitle: r.metaTitle || '',
-          metaDescription: r.metaDescription || '',
-        }).length > 0,
-      }))
-      .sort((a, b) => Number(b.bad) - Number(a.bad));
-
-    const selected = ranked.slice(0, limit).map((x) => x.row);
 
     const results: Array<{ courseId: string; title: string; status: string; error?: string }> = [];
     const startedAt = Date.now();
 
-    for (const tr of selected) {
+    for (const tr of candidates as any[]) {
       const course = tr.course;
       if (!course) continue;
       // Stay within the serverless time budget; the rest are picked up next call.
@@ -74,6 +55,8 @@ export async function GET(request: Request) {
         results.push({ courseId: course.id, title: course.title, status: 'failed', error: String(err).slice(0, 220) });
       }
     }
+
+    if (results.some((r) => r.status === 'translated')) revalidateCourses();
 
     return NextResponse.json({
       success: true,

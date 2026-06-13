@@ -14,7 +14,7 @@
 // English and Arabic — so /en and /ar are both enriched in their own language.
 
 import { seeded01, seededPick, seededShuffle } from './course-display';
-import type { Locale } from './i18n';
+import { truncateForMeta, type Locale } from './i18n';
 
 interface CatPool {
   topics: string[];
@@ -41,6 +41,7 @@ const GENERIC_EN: CatPool = {
   topics: [
     'core concepts', 'real-world projects', 'practical workflows', 'industry best practices',
     'hands-on exercises', 'step-by-step techniques', 'time-saving shortcuts', 'professional fundamentals',
+    'real-world use cases', 'job-ready skills', 'guided practical examples',
   ],
   skills: [
     'Build real projects you can add to your portfolio',
@@ -49,13 +50,22 @@ const GENERIC_EN: CatPool = {
     'Follow a clear, structured path from basics to advanced',
     'Gain the confidence to keep learning on your own',
     'Understand the why behind every technique, not just the how',
+    'Build a solid foundation you can grow from',
+    'Solve real problems step by step',
+    'Gain practical experience you can use right away',
   ],
-  tools: ['a computer (Windows, macOS or Linux)', 'a stable internet connection', 'a free account where needed'],
+  tools: [
+    'a computer (Windows, macOS or Linux)', 'a stable internet connection',
+    'a free account where needed', 'a willingness to practice and a little time',
+    'no prior experience — we start from scratch',
+  ],
   roles: [
     'Complete beginners who want a structured starting point',
     'Self-learners who prefer practical, project-based teaching',
     'Anyone looking to refresh and modernise their skills',
     'Students who want results without unnecessary theory',
+    'Professionals who want to add a practical, in-demand skill',
+    'Career changers moving into the field',
   ],
 };
 
@@ -262,18 +272,24 @@ const EN: Bank = {
     'Welcome to {title} — a practical course built to take you from the basics to real confidence.',
     'In {title}, you’ll learn {topic} the practical way: by doing, not just watching.',
     '{title} is a step-by-step course designed around {topic} and real-world results.',
+    'Master {topic} from the ground up in {title}, with a clear and practical approach.',
+    'If you want to get good at {topic}, {title} is the perfect place to start.',
   ],
   descBody: [
     'You’ll start with the fundamentals and steadily move into {topic}, building real skills along the way.',
     'Each section is short, focused and followed by hands-on practice so the ideas actually stick.',
     'Instead of dry theory, every lesson is tied to {topic} you can use immediately.',
     'We keep things clear and practical, covering {topic} through guided, real examples.',
+    'The course blends simple explanations with real practice so you master {topic} with confidence.',
+    'It’s focused and to the point — no filler, just the {topic} you actually need.',
   ],
   descOutcome: [
     'By the end, you’ll be ready to {skill} and keep growing on your own.',
     'Finish the course able to {skill} with confidence — and a project to show for it.',
     'You’ll walk away knowing how to {skill} and where to go next.',
     'By the final lesson you’ll be able to {skill} and feel genuinely capable.',
+    'You’ll come away with a solid foundation to {skill} and move forward with confidence.',
+    'In the end you’ll be able to {skill} and apply it in real projects.',
   ],
   outcomeClause: (skill) => skill.replace(/^[A-Z]/, (c) => c.toLowerCase()),
 };
@@ -577,6 +593,60 @@ export function generateCourseContent(
   const whoFor = seededShuffle(p.roles, id, 'who').slice(0, Math.min(3, p.roles.length)).join('\n');
 
   return { description, whatLearn, requirements, whoFor };
+}
+
+// ---------------------------------------------------------------------------
+// SEO meta (title + description) — strong, localized, varied per course
+// ---------------------------------------------------------------------------
+
+const META_BENEFIT_EN = [
+  'enroll now before the coupon expires',
+  'learn at your own pace with lifetime access',
+  'start today and build practical, job-ready skills',
+  'beginner friendly — no experience required',
+  'a limited-time 100% off coupon',
+  'hands-on lessons with real projects',
+];
+
+const META_BENEFIT_AR = [
+  'سجّل الآن قبل انتهاء الكوبون',
+  'تعلّم بالوتيرة التي تناسبك مع وصول مدى الحياة',
+  'ابدأ اليوم واكتسب مهارات عملية مطلوبة في سوق العمل',
+  'مناسب للمبتدئين دون خبرة سابقة',
+  'كوبون خصم 100% لفترة محدودة',
+  'دروس عملية مع مشاريع حقيقية',
+];
+
+/**
+ * Build a strong, localized SEO title + description for a course. Varied per
+ * course (seeded) so search snippets don't look duplicated, and grounded in the
+ * real course title + category so they read like genuine listings.
+ */
+export function generateMeta(
+  input: { id: string; title: string; categoryLabel: string },
+  locale: Locale = 'en',
+): { metaTitle: string; metaDescription: string } {
+  const id = input.id || input.title || 'seed';
+  const title = (input.title || '').trim();
+  const cat = (input.categoryLabel || '').trim();
+
+  if (locale === 'ar') {
+    const benefit = seededPick(META_BENEFIT_AR, id, 'meta-benefit');
+    return {
+      metaTitle: `${title} — كورس يودمي مجاني`,
+      metaDescription: truncateForMeta(
+        `سجّل مجانًا في كورس «${title}»${cat ? ` ضمن ${cat}` : ''} على يودمي بكوبون خصم 100% — ${benefit}.`,
+      ),
+    };
+  }
+
+  const benefit = seededPick(META_BENEFIT_EN, id, 'meta-benefit');
+  return {
+    metaTitle: `${title} — Free Udemy Course`,
+    metaDescription: truncateForMeta(
+      `Enroll free in "${title}"${cat ? `, a ${cat} course` : ''} on Udemy with a 100% off coupon — ${benefit}.`,
+    ),
+  };
 }
 
 // Re-exported so callers can vary copy without importing the helper directly.
