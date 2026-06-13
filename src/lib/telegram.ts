@@ -168,15 +168,32 @@ export async function postCourseToTelegramChannels(
   const sentChannelIds: string[] = [];
   const failedChannels: string[] = [];
 
-  for (const channel of channels.filter((c) => c.active && c.id)) {
-    const channelMessage = formatCourseMessageHtml(course, template);
-    const ok = await sendMessage(botToken, channel.id, channelMessage, 'HTML', keyboard);
+  // The message body is identical for every channel of this locale, so build it
+  // once. Then fan the sends out in parallel batches: Telegram allows ~30
+  // messages/sec to different chats, so we send CHUNK at a time and pace between
+  // batches. This keeps posting to hundreds/thousands of channels fast while
+  // staying under the rate limit.
+  const channelMessage = formatCourseMessageHtml(course, template);
+  const active = channels.filter((c) => c.active && c.id);
+  const CHUNK = 25;
+  const PACE_MS = 1100;
 
-    if (ok) {
-      sentChannels.push(channel.name || channel.id);
-      sentChannelIds.push(channel.id);
-    } else {
-      failedChannels.push(channel.name || channel.id);
+  for (let i = 0; i < active.length; i += CHUNK) {
+    const batch = active.slice(i, i + CHUNK);
+    const results = await Promise.allSettled(
+      batch.map((channel) => sendMessage(botToken, channel.id, channelMessage, 'HTML', keyboard)),
+    );
+    results.forEach((r, j) => {
+      const channel = batch[j];
+      if (r.status === 'fulfilled' && r.value) {
+        sentChannels.push(channel.name || channel.id);
+        sentChannelIds.push(channel.id);
+      } else {
+        failedChannels.push(channel.name || channel.id);
+      }
+    });
+    if (i + CHUNK < active.length) {
+      await new Promise((r) => setTimeout(r, PACE_MS));
     }
   }
 
