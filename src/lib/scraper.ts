@@ -2,7 +2,7 @@ import * as cheerio from 'cheerio';
 import { db } from '@/lib/db';
 import {
   logScraperRun,
-  createCourseIfNotExists,
+  createCourseDirect,
   upsertCourseCoupon,
   cleanupInvalidCourses,
   type ScraperLogEntry,
@@ -1087,26 +1087,16 @@ async function saveScrapedCourse(
 
     const baseUrl = normalizeUdemyUrl(courseData.udemyUrl);
 
-    // --- DEDUP UPDATE: If existing course found, update its coupon ---
+    // --- DEDUP: course already stored → no DB write at all ---
+    // Sources hand us links already carrying their coupon, so an existing course
+    // never needs a coupon refresh. Skipping the write here is the single biggest
+    // operation saving: an already-known course costs zero database operations.
     if (existingUrls.has(baseUrl)) {
-      const couponExpiry = estimateCouponExpiry(courseData.couponCode);
-      const upsertResult = await upsertCourseCoupon(baseUrl, {
-        couponCode: courseData.couponCode,
-        couponUrl: courseData.couponUrl,
-        couponExpiresAt: couponExpiry,
-        couponVerified: false,
-      });
-
-      if (upsertResult.updated) {
-        console.log(`[Scraper] Updated coupon for existing course: "${courseData.title.substring(0, 40)}" → ${courseData.couponCode}`);
-        return { saved: false, updated: true };
-      }
-
       return { saved: false, skipped: 'duplicate-url' };
     }
 
     // --- NEW COURSE ---
-    const dbResult = await createCourseIfNotExists({
+    const dbResult = await createCourseDirect({
       title: courseData.title,
       slug: slugify(courseData.title),
       description: courseData.description,
@@ -1621,35 +1611,8 @@ async function processUdemyFreebiesCourse(
     const baseUrl = normalizeUdemyUrl(udemyUrl);
     const couponUrl = udemyUrl;
 
-    // --- DEDUP UPDATE ---
+    // --- DEDUP: already stored → skip, no DB write ---
     if (existingUrls.has(baseUrl)) {
-      const couponExpiry = estimateCouponExpiry(couponCode);
-      const upsertResult = await upsertCourseCoupon(baseUrl, {
-        couponCode,
-        couponUrl,
-        couponExpiresAt: couponExpiry,
-        couponVerified: false,
-      });
-
-      if (upsertResult.updated) {
-        console.log(`[Scraper] Updated coupon for existing course: "${course.title.substring(0, 40)}" → ${couponCode}`);
-
-        const pageIndex = course.pageIndex ?? 99;
-        if (!skipVerification && shouldVerifyCoupon(pageIndex, couponCode)) {
-          const verifyResult = await verifyCouponOnUdemy(couponUrl);
-          if (verifyResult.verified) {
-            await upsertCourseCoupon(baseUrl, {
-              couponCode,
-              couponUrl,
-              couponExpiresAt: couponExpiry,
-              couponVerified: verifyResult.isFree,
-            });
-          }
-        }
-
-        return { saved: false, updated: true };
-      }
-
       return { saved: false, skipped: 'duplicate-url' };
     }
 
@@ -2259,34 +2222,8 @@ async function processStudyBulletCourse(
     const baseUrl = normalizeUdemyUrl(udemyUrl);
     const couponUrl = udemyUrl;
 
-    // --- DEDUP UPDATE: If existing course found, update its coupon ---
+    // --- DEDUP: already stored → skip, no DB write ---
     if (existingUrls.has(baseUrl)) {
-      const couponExpiry = estimateCouponExpiry(couponCode);
-      const upsertResult = await upsertCourseCoupon(baseUrl, {
-        couponCode,
-        couponUrl,
-        couponExpiresAt: couponExpiry,
-        couponVerified: false,
-      });
-
-      if (upsertResult.updated) {
-        console.log(`[Scraper/StudyBullet] Updated coupon for existing course: "${detail.title.substring(0, 40)}" → ${couponCode}`);
-
-        if (!skipVerification && shouldVerifyCoupon(pageIndex, couponCode)) {
-          const verifyResult = await verifyCouponOnUdemy(couponUrl);
-          if (verifyResult.verified) {
-            await upsertCourseCoupon(baseUrl, {
-              couponCode,
-              couponUrl,
-              couponExpiresAt: couponExpiry,
-              couponVerified: verifyResult.isFree,
-            });
-          }
-        }
-
-        return { saved: false, updated: true };
-      }
-
       return { saved: false, skipped: 'duplicate-url' };
     }
 

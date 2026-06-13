@@ -1,10 +1,15 @@
 import { NextResponse } from 'next/server';
+import { unstable_cache } from 'next/cache';
 import { countCourses, countCoursesBySource, countNewToday, getLastScrapeTime } from '@/lib/queries';
 import { db } from '@/lib/db';
+import { COURSES_TAG, COURSES_REVALIDATE } from '@/lib/cache';
 
-// GET /api/stats - Dashboard statistics
-export async function GET() {
-  try {
+// Stats is the heaviest read (≈8 aggregate operations). It changes only when
+// courses are scraped/posted, so it is served from the Data Cache and refreshed
+// on demand via revalidateCourses() — a single visitor or a thousand cost the
+// same: at most one recompute per revalidation window.
+const getStatsCached = unstable_cache(
+  async () => {
     const [total, published, unpublished, bySource, newToday, lastScrapeTime] = await Promise.all([
       countCourses({}),
       countCourses({ isPublished: true }),
@@ -24,7 +29,7 @@ export async function GET() {
     const telegramPosted = await countCourses({ telegramPosted: true });
 
     // Count by source with friendly names
-    const sourceBreakdown = bySource.map(s => ({
+    const sourceBreakdown = bySource.map((s) => ({
       source: s._id,
       count: s.count,
       label: s._id === 'udemyfreebies' ? 'UdemyFreebies'
@@ -32,7 +37,7 @@ export async function GET() {
         : s._id === 'manual' ? 'Manual' : s._id,
     }));
 
-    return NextResponse.json({
+    return {
       success: true,
       courses: {
         total,
@@ -49,7 +54,16 @@ export async function GET() {
         pending: published - telegramPosted,
       },
       lastScrape: lastScrapeTime ? lastScrapeTime.toISOString() : null,
-    });
+    };
+  },
+  ['stats'],
+  { tags: [COURSES_TAG], revalidate: COURSES_REVALIDATE },
+);
+
+// GET /api/stats - Dashboard statistics
+export async function GET() {
+  try {
+    return NextResponse.json(await getStatsCached());
   } catch (e) {
     console.error('Stats API error:', e);
     return NextResponse.json(

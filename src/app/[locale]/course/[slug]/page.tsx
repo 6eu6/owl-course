@@ -21,6 +21,19 @@ import { ShareButtons } from '@/components/share-buttons'
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.learn-plus.uk'
 const PLACEHOLDER_IMG = 'https://img-b.udemycdn.com/course/480x270/placeholder.jpg'
 
+// Render each course page once and serve it from the cache (ISR), regenerating
+// at most every 5 minutes. Course content is effectively static after scraping,
+// so this keeps detail-page database reads independent of visitor count.
+export const revalidate = 300
+
+// Opt the dynamic [slug] segment into the full-route cache without enumerating
+// every course at build time: params are filled on first request, then the
+// rendered page is cached and revalidated on the window above. dynamicParams
+// stays true (the default), so any not-yet-seen slug still renders on demand.
+export function generateStaticParams() {
+  return []
+}
+
 interface PageProps {
   params: Promise<{ locale: string; slug: string }>
 }

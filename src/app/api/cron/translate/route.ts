@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { normalizeLocale } from '@/lib/i18n'
 import { processTranslationBatch } from '@/lib/course-translations'
+import { revalidateCourses } from '@/lib/cache'
 
 export async function GET(request: Request) {
   try {
@@ -40,6 +41,11 @@ export async function GET(request: Request) {
 
     const startedAt = Date.now()
     const result = await processTranslationBatch(locale, limit)
+
+    // Newly translated Arabic rows change the /ar listing → refresh its cache.
+    if (result.processed > 0) {
+      revalidateCourses()
+    }
 
     return NextResponse.json({
       success: true,

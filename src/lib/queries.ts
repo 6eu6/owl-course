@@ -124,6 +124,46 @@ export async function createCourseIfNotExists(data: {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Lean create used by the scraper. The caller has already proven the course is
+// new via an in-memory Set (a single findMany snapshot loaded once per run), so
+// the preliminary getCourseByUrl() lookup of createCourseIfNotExists is skipped
+// entirely. Uniqueness is still guaranteed by the DB: `udemyUrl` and `slug` are
+// @unique, so a stale snapshot can only ever raise P2002 — never insert a
+// duplicate row. P2002 is resolved precisely by inspecting the conflicting
+// target: a slug clash is retried with a unique suffix (course preserved); a
+// udemyUrl clash is a genuine duplicate and is skipped (no row lost).
+// ---------------------------------------------------------------------------
+export async function createCourseDirect(data: Parameters<typeof createCourseIfNotExists>[0]): Promise<{ created: boolean }> {
+  const base = { ...data, couponCode: data.couponCode ?? '', couponUrl: data.couponUrl ?? '' };
+  try {
+    await db.course.create({ data: base });
+    return { created: true };
+  } catch (err: unknown) {
+    const e = err as { code?: string; meta?: { target?: string[] | string } };
+    if (e?.code !== 'P2002') throw err;
+
+    const target = Array.isArray(e.meta?.target)
+      ? e.meta!.target.join(',')
+      : String(e.meta?.target ?? '');
+
+    // udemyUrl collision → the snapshot was stale; this is a real duplicate.
+    if (target.includes('udemyUrl')) return { created: false };
+
+    // slug collision (or unspecified target) → retry once with a unique slug so
+    // a legitimately new course is never dropped over a title-slug clash.
+    try {
+      await db.course.create({ data: { ...base, slug: `${data.slug}-${Date.now()}` } });
+      return { created: true };
+    } catch (retryErr: unknown) {
+      const re = retryErr as { code?: string; meta?: { target?: string[] | string } };
+      // A second P2002 on retry means the udemyUrl is taken → genuine duplicate.
+      if (re?.code === 'P2002') return { created: false };
+      throw retryErr;
+    }
+  }
+}
+
 export async function getAllCategories() {
   const results = await db.course.groupBy({
     by: ['category'],

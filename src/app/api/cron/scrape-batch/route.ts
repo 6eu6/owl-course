@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { scrapeSourcePage, type ScrapeSource } from '@/lib/scraper';
 import { getSetting, setSetting } from '@/lib/queries';
+import { revalidateCourses } from '@/lib/cache';
 import {
   computeHeadFingerprints,
   headMatchesPrevious as computeHeadMatch,
@@ -91,6 +92,12 @@ export async function GET(request: Request) {
       skipVerification: true,
       skipCleanup: true,
     });
+
+    // New courses were stored → refresh the public listing cache so the next
+    // visitor sees them immediately (reads stay decoupled from visitor count).
+    if (result.stats.newCount > 0) {
+      revalidateCourses();
+    }
 
     const headFingerprints = computeHeadFingerprints(source, result.items);
 

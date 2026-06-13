@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { scrapeSourcePage, type ScrapeSource } from '@/lib/scraper';
+import { revalidateCourses } from '@/lib/cache';
 
 // This endpoint used to run a 5-page, multi-source scrape in a single request,
 // which risked Vercel's 60s function timeout. Scraping is now batched per
@@ -47,6 +48,11 @@ export async function GET(request: Request) {
         parsedCount: result.parsedCount,
         ...result.stats,
       };
+    }
+
+    // New courses were stored → refresh the public listing cache immediately.
+    if (totalNew > 0) {
+      revalidateCourses();
     }
 
     const totalDuration = Date.now() - startedAt;
