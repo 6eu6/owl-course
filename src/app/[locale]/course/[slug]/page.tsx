@@ -127,7 +127,7 @@ export default async function LocalizedCoursePage({ params }: PageProps) {
   return (
     <div className="min-h-screen bg-background text-foreground" lang={locale} dir={dir}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      <SiteHeader homeHref={base} backHref={base} backLabel={t('home')} backShort={t('home')} />
+      <SiteHeader homeHref={base} backHref={base} backLabel={t('home')} backShort={t('home')} locale={locale} />
 
       <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
         <div className="relative aspect-[16/7] bg-muted rounded-xl overflow-hidden">

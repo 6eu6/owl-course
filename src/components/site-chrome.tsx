@@ -2,6 +2,7 @@ import Link from "next/link"
 import { ArrowRight } from "lucide-react"
 import { LogoMark } from "@/components/logo"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { LocaleSwitch } from "@/components/locale-switch"
 import { makeT } from "@/lib/locale-text"
 import { localeDir, type Locale } from "@/lib/i18n"
 
@@ -10,11 +11,13 @@ export function SiteHeader({
   backLabel = "Home",
   homeHref = "/",
   backShort = "Back",
+  locale = "en",
 }: {
   backHref?: string
   backLabel?: string
   homeHref?: string
   backShort?: string
+  locale?: Locale
 }) {
   return (
     <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-sm">
@@ -24,6 +27,7 @@ export function SiteHeader({
           <span className="truncate">Learn Plus Courses</span>
         </Link>
         <div className="flex shrink-0 items-center gap-2">
+          <LocaleSwitch locale={locale} />
           <ThemeToggle />
           <Link
             href={backHref}

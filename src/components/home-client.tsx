@@ -35,6 +35,7 @@ import {
   Gift,
 } from 'lucide-react'
 import { LogoMark } from '@/components/logo'
+import { LocaleSwitch } from '@/components/locale-switch'
 import { makeT, getLocalizedCategory } from '@/lib/locale-text'
 import { localeDir, type Locale } from '@/lib/i18n'
 
@@ -335,6 +336,7 @@ export function HomeClient({ locale, basePath }: { locale: Locale; basePath: str
           </button>
 
           <div className="flex items-center gap-1.5">
+            <LocaleSwitch locale={locale} />
             <Button
               variant="ghost"
               size="icon"

@@ -61,7 +61,7 @@ export default async function LocalizedEnrollPage({ params }: PageProps) {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col" lang={locale} dir={dir}>
-      <SiteHeader homeHref={base} backHref={`${base}/course/${data.localizedSlug}`} backLabel={t('courseDetails')} backShort={t('courseDetails')} />
+      <SiteHeader homeHref={base} backHref={`${base}/course/${data.localizedSlug}`} backLabel={t('courseDetails')} backShort={t('courseDetails')} locale={locale} />
 
       <main className="max-w-3xl mx-auto w-full px-4 py-6 space-y-5">
         <div className="relative aspect-[1600/746] rounded-xl border bg-card p-1 shadow-sm overflow-hidden">
