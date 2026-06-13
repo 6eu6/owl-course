@@ -2743,6 +2743,10 @@ export async function scrapeSourcePage(
 ): Promise<SourcePageResult> {
   const start = Date.now();
   const skipVerification = options.skipVerification ?? true;
+  // Stop processing new listings once we approach the serverless budget so the
+  // function always returns cleanly (well under Vercel's 60s maxDuration) instead
+  // of being killed mid-page. Whatever is left is picked up on the next tick.
+  const DEADLINE_MS = 45_000;
 
   let newCount = 0;
   let dupCount = 0;
@@ -2787,6 +2791,7 @@ export async function scrapeSourcePage(
         items.push({ canonicalUrl: course.detailUrl, title: course.title });
       }
       for (const course of courses) {
+        if (Date.now() - start > DEADLINE_MS) break;
         try {
           const result = await processUdemyFreebiesCourse(
             course,
@@ -2806,6 +2811,7 @@ export async function scrapeSourcePage(
         items.push({ canonicalUrl: listing.detailUrl || listing.slug, title: listing.title });
       }
       for (const listing of listings) {
+        if (Date.now() - start > DEADLINE_MS) break;
         try {
           const result = await processStudyBulletCourse(
             listing,
