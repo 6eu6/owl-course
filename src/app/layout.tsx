@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from "next-themes";
 import { CookieConsent } from "@/components/cookie-consent";
+import { ThemeSync } from "@/components/theme-sync";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -65,6 +66,7 @@ export default function RootLayout({
           {children}
           <Toaster />
           <CookieConsent />
+          <ThemeSync />
         </ThemeProvider>
       </body>
     </html>
