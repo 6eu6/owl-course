@@ -438,7 +438,7 @@ export function HomeClient({ locale, basePath }: { locale: Locale; basePath: str
               {totalPages > 1 && (
                 <div className="flex items-center justify-center gap-1 pt-4">
                   <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)} className="h-8 text-xs">
-                    <ChevronLeft className="h-3.5 w-3.5" /> {t('prev')}
+                    {locale === 'ar' ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />} {t('prev')}
                   </Button>
                   <div className="flex items-center gap-0.5">
                     {getPaginationNumbers().map((pn) => (
@@ -454,7 +454,7 @@ export function HomeClient({ locale, basePath }: { locale: Locale; basePath: str
                     ))}
                   </div>
                   <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="h-8 text-xs">
-                    {t('next')} <ChevronRight className="h-3.5 w-3.5" />
+                    {t('next')} {locale === 'ar' ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
                   </Button>
                 </div>
               )}

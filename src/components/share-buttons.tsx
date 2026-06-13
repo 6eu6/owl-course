@@ -72,13 +72,23 @@ export function ShareButtons({ url, title }: { url: string; title: string }) {
     <div className="rounded-lg border bg-card p-3 text-center">
       <p className="mb-2.5 text-[11px] font-semibold text-muted-foreground">Share this course</p>
       <div className="flex flex-wrap items-center justify-center gap-2">
-        {targets.map((t) => (
-          <a key={t.label} href={t.href} target="_blank" rel="noopener noreferrer" title={`Share on ${t.label}`} className={iconBtn}>
-            <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill={t.color} aria-hidden="true">
-              {t.icon}
-            </svg>
-          </a>
-        ))}
+        {targets.map((t) => {
+          // X's glyph is black; on a dark card it would disappear, so let it
+          // follow the theme foreground (black in light mode, white in dark).
+          const isX = t.label === 'X'
+          return (
+            <a key={t.label} href={t.href} target="_blank" rel="noopener noreferrer" title={`Share on ${t.label}`} className={iconBtn}>
+              <svg
+                viewBox="0 0 24 24"
+                className={isX ? 'h-[18px] w-[18px] text-foreground' : 'h-[18px] w-[18px]'}
+                fill={isX ? 'currentColor' : t.color}
+                aria-hidden="true"
+              >
+                {t.icon}
+              </svg>
+            </a>
+          )
+        })}
         <button onClick={nativeShare} title="Share…" className={iconBtn}>
           <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />

@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { ArrowRight, ExternalLink } from "lucide-react"
+import { ArrowRight, ArrowLeft } from "lucide-react"
 import { LogoMark } from "@/components/logo"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LocaleSwitch } from "@/components/locale-switch"
@@ -33,9 +33,21 @@ export function SiteHeader({
             href={backHref}
             className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md border px-2 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
-            <ArrowRight className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">{backLabel}</span>
-            <span className="sm:hidden">{backShort}</span>
+            {locale === "ar" ? (
+              <>
+                <span className="hidden sm:inline">{backLabel}</span>
+                <span className="sm:hidden">{backShort}</span>
+                {/* RTL: back points right, placed after the label */}
+                <ArrowRight className="h-3.5 w-3.5" />
+              </>
+            ) : (
+              <>
+                {/* LTR: back points left, placed before the label */}
+                <ArrowLeft className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">{backLabel}</span>
+                <span className="sm:hidden">{backShort}</span>
+              </>
+            )}
           </Link>
         </div>
       </div>
@@ -120,7 +132,6 @@ export function SiteFooter({ locale = "en" }: { locale?: Locale }) {
           >
             <span>{t("builtBy")}</span>
             <span className="text-sm font-extrabold tracking-tight text-foreground">Ahmed<span className="text-emerald-500">.</span></span>
-            <ExternalLink className="h-3 w-3" />
           </a>
         </div>
       </div>
