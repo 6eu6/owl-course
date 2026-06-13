@@ -36,6 +36,7 @@ import {
 } from 'lucide-react'
 import { LogoMark } from '@/components/logo'
 import { LocaleSwitch } from '@/components/locale-switch'
+import { SiteFooter } from '@/components/site-chrome'
 import { makeT, getLocalizedCategory } from '@/lib/locale-text'
 import { localeDir, type Locale } from '@/lib/i18n'
 
@@ -179,26 +180,22 @@ function CourseCard(props: { course: Course; t: TxFn; locale: Locale; onClick: (
         </div>
       </div>
 
-      <CardContent className="p-3 space-y-1.5">
+      <CardContent className="p-3 space-y-2">
         <h3 className="font-medium text-[13px] line-clamp-2 group-hover:text-muted-foreground dark:group-hover:text-muted-foreground transition-colors leading-snug">
           {course.title}
         </h3>
-        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+        <div className="flex items-center justify-between gap-1.5 text-[11px] text-muted-foreground">
           {course.instructor && (
             <span className="flex items-center gap-1 truncate">
               <User className="h-3 w-3 shrink-0" />
               <span className="truncate">{course.instructor}</span>
             </span>
           )}
+          <CouponBadge isFreeForever={course.isFreeForever} couponExpiresAt={course.couponExpiresAt} t={t} />
         </div>
-        <div className="flex items-center justify-between pt-0.5">
-          <div className="flex items-center gap-1">
-            <CouponBadge isFreeForever={course.isFreeForever} couponExpiresAt={course.couponExpiresAt} t={t} />
-          </div>
-          <span className="text-[11px] text-muted-foreground dark:text-muted-foreground font-medium">
-            {t('details')} <ArrowLeft className={arrowClass} />
-          </span>
-        </div>
+        <span className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg bg-foreground py-2 text-xs font-semibold text-background transition-opacity group-hover:opacity-90">
+          {t('details')} <ArrowLeft className={arrowClass} />
+        </span>
       </CardContent>
     </Card>
   )
@@ -468,33 +465,7 @@ export function HomeClient({ locale, basePath }: { locale: Locale; basePath: str
         </div>
       </main>
 
-      <footer className="border-t bg-card/50 mt-auto">
-        <div className="max-w-5xl mx-auto px-4 py-5 flex flex-col items-center gap-2">
-          <div className="flex items-center gap-1.5">
-            <LogoMark className="h-4 w-4" />
-            <span className="font-bold text-xs">
-              Learn<span className="text-muted-foreground"> Plus</span>
-            </span>
-          </div>
-          <p className="text-[11px] text-muted-foreground text-center max-w-sm">{t('footerDesc')}</p>
-          <a
-            href="https://t.me/+AU8JJ85DUswzOGNi"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-md border px-4 py-2 text-[11px] font-medium hover:bg-muted transition-colors"
-          >
-            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor" aria-hidden="true"><path d="M11.944 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0a12 12 0 00-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 01.171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.479.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" /></svg>
-            {t('joinCommunity')}
-          </a>
-          <div className="flex items-center gap-3 text-[11px] text-muted-foreground pt-1">
-            <a href="/about" className="hover:text-foreground">{t('about')}</a>
-            <a href="/privacy" className="hover:text-foreground">{t('privacy')}</a>
-            <a href="/terms" className="hover:text-foreground">{t('terms')}</a>
-            <a href="https://t.me/FreeLearningHub_P_bot" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">{t('contact')}</a>
-            <a href="https://x.com/learnplusfree" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">{t('x')}</a>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter locale={locale} />
     </div>
   )
 }

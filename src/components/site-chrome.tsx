@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { ArrowRight } from "lucide-react"
+import { ArrowRight, ExternalLink } from "lucide-react"
 import { LogoMark } from "@/components/logo"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LocaleSwitch } from "@/components/locale-switch"
@@ -66,35 +66,63 @@ function TgIcon() {
   )
 }
 
+// Single shared footer used on every page (home + inner) so the layout is
+// always identical. Each channel is labelled so its purpose is unambiguous.
 export function SiteFooter({ locale = "en" }: { locale?: Locale }) {
   const t = makeT(locale)
-  const iconBtn =
-    "inline-flex h-9 w-9 items-center justify-center rounded-full border hover:bg-muted transition-colors"
+  const base = `/${locale}`
+  const channel =
+    "inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
   return (
     <footer className="border-t mt-auto" dir={localeDir(locale)}>
-      <div className="max-w-3xl mx-auto px-4 py-7 text-center text-xs text-muted-foreground space-y-4">
-        <a
-          href={SOCIAL.community}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 rounded-md border px-4 py-2 font-medium hover:bg-muted transition-colors"
-        >
-          <TgIcon /> {t("joinCommunity")}
-        </a>
-
-        <div className="flex items-center justify-center gap-2">
-          <a href={SOCIAL.channel} target="_blank" rel="noopener noreferrer" title="Telegram channel" className={iconBtn}><TgIcon /></a>
-          <a href={SOCIAL.bot} target="_blank" rel="noopener noreferrer" title="Contact / add to your channel" className={iconBtn}><TgIcon /></a>
-          <a href={SOCIAL.x} target="_blank" rel="noopener noreferrer" title="X (Twitter)" className={iconBtn}><XIcon /></a>
+      <div className="max-w-3xl mx-auto px-4 py-8 text-center text-xs text-muted-foreground space-y-5">
+        {/* Brand */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-center gap-1.5">
+            <LogoMark className="h-4 w-4" />
+            <span className="font-bold text-sm text-foreground">Learn<span className="text-muted-foreground"> Plus</span></span>
+          </div>
+          <p className="text-[11px] max-w-sm mx-auto">{t("footerDesc")}</p>
         </div>
 
-        <div className="space-x-3">
-          <Link href="/about" className="hover:text-foreground">{t("about")}</Link>
-          <Link href="/privacy" className="hover:text-foreground">{t("privacy")}</Link>
-          <Link href="/terms" className="hover:text-foreground">{t("terms")}</Link>
-          <a href={SOCIAL.bot} target="_blank" rel="noopener noreferrer" className="hover:text-foreground">{t("contact")}</a>
+        {/* Channels — each labelled so users know what it is */}
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <a href={SOCIAL.channel} target="_blank" rel="noopener noreferrer" className={channel}>
+            <TgIcon /> {t("telegramChannel")}
+          </a>
+          <a href={SOCIAL.community} target="_blank" rel="noopener noreferrer" className={channel}>
+            <TgIcon /> {t("joinCommunity")}
+          </a>
+          <a href={SOCIAL.bot} target="_blank" rel="noopener noreferrer" className={channel}>
+            <TgIcon /> {t("contactBot")}
+          </a>
+          <a href={SOCIAL.x} target="_blank" rel="noopener noreferrer" className={channel}>
+            <XIcon /> {t("x")}
+          </a>
         </div>
+
+        {/* Pages — locale-aware so /ar opens Arabic content */}
+        <div className="flex items-center justify-center gap-3">
+          <Link href={`${base}/about`} className="hover:text-foreground">{t("about")}</Link>
+          <Link href={`${base}/privacy`} className="hover:text-foreground">{t("privacy")}</Link>
+          <Link href={`${base}/terms`} className="hover:text-foreground">{t("terms")}</Link>
+        </div>
+
         <p>© {new Date().getFullYear()} Learn Plus Courses. {t("siteTagline")}</p>
+
+        {/* Build credit */}
+        <div className="pt-4 border-t">
+          <a
+            href="https://www.ahmed-alshaibani.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <span>{t("builtBy")}</span>
+            <span className="font-semibold text-foreground">Ahmed Alshaibani</span>
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        </div>
       </div>
     </footer>
   )

@@ -243,7 +243,7 @@ export default async function LocalizedCoursePage({ params }: PageProps) {
         )}
 
         <div className="text-center pt-4 pb-8">
-          <Link href={base} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">{t('browseAll')}</Link>
+          <Link href={base} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-black bg-black px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-zinc-800 dark:border-white dark:bg-white dark:text-black dark:hover:bg-zinc-200">{t('browseAll')}</Link>
         </div>
       </main>
 

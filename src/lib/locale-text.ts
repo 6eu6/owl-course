@@ -63,6 +63,9 @@ const en: Dict = {
   terms: 'Terms',
   contact: 'Contact',
   x: 'X',
+  telegramChannel: 'Channel',
+  contactBot: 'Contact bot',
+  builtBy: 'Designed & built by',
 }
 
 const ar: Dict = {
@@ -126,6 +129,9 @@ const ar: Dict = {
   terms: 'الشروط',
   contact: 'تواصل',
   x: 'X',
+  telegramChannel: 'القناة',
+  contactBot: 'بوت التواصل',
+  builtBy: 'تصميم وتطوير',
 }
 
 const dictionaries: Record<Locale, Dict> = { en, ar }

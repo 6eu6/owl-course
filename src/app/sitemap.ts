@@ -62,9 +62,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Root (/) permanently redirects to /en, so /en is the canonical home.
     { url: `${BASE}/en`, lastModified: new Date(), changeFrequency: 'hourly', priority: 1 },
     { url: `${BASE}/ar`, lastModified: new Date(), changeFrequency: 'hourly', priority: 0.9 },
-    { url: `${BASE}/about`, changeFrequency: 'monthly', priority: 0.3 },
-    { url: `${BASE}/privacy`, changeFrequency: 'yearly', priority: 0.2 },
-    { url: `${BASE}/terms`, changeFrequency: 'yearly', priority: 0.2 },
+    { url: `${BASE}/en/about`, changeFrequency: 'monthly', priority: 0.3 },
+    { url: `${BASE}/ar/about`, changeFrequency: 'monthly', priority: 0.3 },
+    { url: `${BASE}/en/privacy`, changeFrequency: 'yearly', priority: 0.2 },
+    { url: `${BASE}/ar/privacy`, changeFrequency: 'yearly', priority: 0.2 },
+    { url: `${BASE}/en/terms`, changeFrequency: 'yearly', priority: 0.2 },
+    { url: `${BASE}/ar/terms`, changeFrequency: 'yearly', priority: 0.2 },
   ]
 
   return [...staticEntries, ...courseEntries]
