@@ -26,7 +26,6 @@ import {
   User,
   Star,
   Users,
-  ArrowLeft,
   Tag,
   Moon,
   Sun,
@@ -123,7 +122,6 @@ function CourseCard(props: { course: Course; t: TxFn; locale: Locale; onClick: (
 
   const topLeftClass = 'absolute top-2 left-2 flex flex-col gap-1'
   const topRightClass = 'absolute top-2 right-2 flex flex-col gap-1 items-end'
-  const arrowClass = 'inline h-2.5 w-2.5 rotate-180'
 
   const studentsLabel =
     course.students_count != null && course.students_count > 0
@@ -193,8 +191,8 @@ function CourseCard(props: { course: Course; t: TxFn; locale: Locale; onClick: (
           )}
           <CouponBadge isFreeForever={course.isFreeForever} couponExpiresAt={course.couponExpiresAt} t={t} />
         </div>
-        <span className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg bg-foreground py-2 text-xs font-semibold text-background transition-opacity group-hover:opacity-90">
-          {t('details')} <ArrowLeft className={arrowClass} />
+        <span className="mt-1 flex w-full items-center justify-center rounded-lg bg-foreground py-2 text-xs font-semibold text-background transition-opacity group-hover:opacity-90">
+          {t('details')}
         </span>
       </CardContent>
     </Card>

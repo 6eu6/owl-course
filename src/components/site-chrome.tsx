@@ -119,7 +119,7 @@ export function SiteFooter({ locale = "en" }: { locale?: Locale }) {
             className="inline-flex items-center gap-2 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
           >
             <span>{t("builtBy")}</span>
-            <span className="font-semibold text-foreground">Ahmed Alshaibani</span>
+            <span className="text-sm font-extrabold tracking-tight text-foreground">Ahmed<span className="text-emerald-500">.</span></span>
             <ExternalLink className="h-3 w-3" />
           </a>
         </div>
