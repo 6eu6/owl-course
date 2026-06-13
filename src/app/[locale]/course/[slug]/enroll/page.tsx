@@ -58,6 +58,9 @@ export default async function LocalizedEnrollPage({ params }: PageProps) {
   const course = found.course
   const data = localizedCourseData(course, found.translation, locale)
   const udemyUrl = buildUdemyUrl(course)
+  // Route the outbound click through /api/go, which decides per-visitor whether
+  // to go direct or via the (ad-bearing) shortener, per the admin settings.
+  const startUrl = `/api/go?u=${encodeURIComponent(udemyUrl)}`
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col" lang={locale} dir={dir}>
@@ -107,7 +110,7 @@ export default async function LocalizedEnrollPage({ params }: PageProps) {
             seconds={25}
             loadingText={t('preparingLink')}
             buttonText={t('startOnUdemy')}
-            href={udemyUrl}
+            href={startUrl}
             external
           />
           <TelegramChannelButton label={t('followChannel')} />

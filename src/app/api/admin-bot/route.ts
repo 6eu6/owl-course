@@ -121,6 +121,7 @@ const mainMenu: Keyboard = {
     [{ text: '📡 Channels', callback_data: 'nav:chan' }, { text: '📤 Posting', callback_data: 'nav:post' }],
     [{ text: '📝 Templates', callback_data: 'nav:tpl' }, { text: '🧹 Cleanup', callback_data: 'nav:clean' }],
     [{ text: '📨 Broadcast', callback_data: 'ask:bcast' }, { text: '⚙️ Settings', callback_data: 'nav:set' }],
+    [{ text: '🔗 Link Ads', callback_data: 'nav:short' }],
   ],
 };
 
@@ -134,7 +135,8 @@ const mainReplyKeyboard: ReplyKeyboard = {
     [{ text: '📡 Channels' }, { text: '🔄 Scraper' }],
     [{ text: '📝 Templates' }, { text: '🧹 Cleanup' }],
     [{ text: '➕ Add Channel' }, { text: '📨 Broadcast' }],
-    [{ text: '⚙️ Settings' }, { text: '📖 Help' }],
+    [{ text: '⚙️ Settings' }, { text: '🔗 Link Ads' }],
+    [{ text: '📖 Help' }],
   ],
   resize_keyboard: true,
   is_persistent: true,
@@ -412,6 +414,38 @@ async function broadcast(chatId: string, msg: string) {
   await sendMessage(chatId, `📨 <b>Broadcast done</b>\n✅ ${sent} · ❌ ${fail}`);
 }
 
+async function viewShortener(): Promise<{ text: string; keyboard: Keyboard }> {
+  const { getShortenerSettings } = await import('@/lib/shortener');
+  const s = await getShortenerSettings();
+  const hasToken = !!(process.env.SHRINKME_API_TOKEN || '').trim();
+  const status = s.enabled ? '🟢 ON' : '🔴 OFF';
+  const freqLabel = s.everyN <= 1 ? 'every link' : `every ${s.everyN}ᵗʰ click`;
+  const sel = (n: number) => (s.enabled && s.everyN === n ? '✅ ' : '');
+  return {
+    text:
+      `🔗 <b>Link Ads (ShrinkMe)</b>\n\n` +
+      `Status: <b>${status}</b>\n` +
+      `Ad frequency: <b>${freqLabel}</b>\n\n` +
+      `Visitors open ${Math.max(s.everyN - 1, 0)} course links normally, then the ${s.everyN <= 1 ? 'next' : `${s.everyN}ᵗʰ`} opens through an ad — so it earns without annoying.\n` +
+      (hasToken ? '' : `\n⚠️ <b>SHRINKME_API_TOKEN is not set</b> — links stay direct until you add it in the Vercel env.`),
+    keyboard: {
+      inline_keyboard: [
+        [{ text: s.enabled ? '🔕 Turn ads OFF' : '🔔 Turn ads ON', callback_data: 'act:short:toggle' }],
+        [
+          { text: `${sel(8)}Low (8)`, callback_data: 'act:short:freq:8' },
+          { text: `${sel(5)}Medium (5)`, callback_data: 'act:short:freq:5' },
+          { text: `${sel(3)}High (3)`, callback_data: 'act:short:freq:3' },
+        ],
+        [
+          { text: `${sel(1)}Every link`, callback_data: 'act:short:freq:1' },
+          { text: '✏️ Custom every N', callback_data: 'ask:shortfreq' },
+        ],
+        backRow(),
+      ],
+    },
+  };
+}
+
 // --------------------------------------------------------------------
 // Callback (inline button) handler
 // --------------------------------------------------------------------
@@ -428,6 +462,28 @@ async function handleCallback(chatId: string, messageId: number, data: string, c
   if (data === 'nav:post') { await answerCallback(cbId); const v = await viewPosting(); return editMessage(chatId, messageId, v.text, v.keyboard); }
   if (data === 'nav:tpl') { await answerCallback(cbId); const v = await viewTemplates(); return editMessage(chatId, messageId, v.text, v.keyboard); }
   if (data === 'nav:set') { await answerCallback(cbId); const v = await viewSettings(); return editMessage(chatId, messageId, v.text, v.keyboard); }
+  if (data === 'nav:short') { await answerCallback(cbId); const v = await viewShortener(); return editMessage(chatId, messageId, v.text, v.keyboard); }
+
+  if (data === 'act:short:toggle') {
+    const { getShortenerSettings, saveShortenerSettings } = await import('@/lib/shortener');
+    const s = await getShortenerSettings();
+    s.enabled = !s.enabled;
+    await saveShortenerSettings(s);
+    await answerCallback(cbId, s.enabled ? 'Ads ON' : 'Ads OFF');
+    const v = await viewShortener();
+    return editMessage(chatId, messageId, v.text, v.keyboard);
+  }
+  if (data.startsWith('act:short:freq:')) {
+    const n = parseInt(data.split(':')[3], 10);
+    const { getShortenerSettings, saveShortenerSettings } = await import('@/lib/shortener');
+    const s = await getShortenerSettings();
+    s.everyN = n;
+    s.enabled = true; // choosing a frequency implies enabling ads
+    await saveShortenerSettings(s);
+    await answerCallback(cbId, `Ad on every ${s.everyN}ᵗʰ click`);
+    const v = await viewShortener();
+    return editMessage(chatId, messageId, v.text, v.keyboard);
+  }
 
   // Scrape (parse act:scrape:<pages>:<which>)
   if (data.startsWith('act:scrape:')) {
@@ -546,6 +602,7 @@ function cancelTarget(action: string): string {
   if (action === 'delay') return 'nav:post';
   if (action.startsWith('tpl')) return 'nav:tpl';
   if (action.startsWith('site') || action === 'perpage') return 'nav:set';
+  if (action === 'shortfreq') return 'nav:short';
   return 'nav:main';
 }
 
@@ -558,6 +615,7 @@ function promptText(action: string): string {
     case 'sitename': return `🏷️ <b>Site name</b>\nSend the new site name.`;
     case 'sitedesc': return `🧾 <b>Site description</b>\nSend the new description.`;
     case 'perpage': return `📄 <b>Courses per page</b>\nSend a number (1–60). Example: <code>12</code>`;
+    case 'shortfreq': return `🔗 <b>Ad frequency</b>\nSend a number N (1–100). An ad shows on every Nᵗʰ course click — the other clicks go direct. Example: <code>5</code> means 4 clean opens then 1 ad.`;
     default: return 'Send the value:';
   }
 }
@@ -641,6 +699,15 @@ async function processInput(chatId: string, action: string, extra: string, text:
     await setSetting('courses_per_page', String(n));
     return reply(chatId, `✅ Courses per page set to ${n}.`, 'nav:set');
   }
+  if (action === 'shortfreq') {
+    const n = parseInt(text);
+    if (isNaN(n) || n < 1 || n > 100) return reply(chatId, '❌ Send a number 1–100.', 'nav:short');
+    const { getShortenerSettings, saveShortenerSettings } = await import('@/lib/shortener');
+    const s = await getShortenerSettings();
+    s.everyN = n; s.enabled = true;
+    await saveShortenerSettings(s);
+    return reply(chatId, `✅ Ad shows on every ${n}ᵗʰ course click.`, 'nav:short');
+  }
 }
 
 function reply(chatId: string, text: string, back: string) {
@@ -694,6 +761,12 @@ async function handleMenuLabel(chatId: string, text: string): Promise<boolean> {
     case '⚙️ Settings': {
       await clearState(chatId);
       const v = await viewSettings();
+      await sendMessage(chatId, v.text, v.keyboard);
+      return true;
+    }
+    case '🔗 Link Ads': {
+      await clearState(chatId);
+      const v = await viewShortener();
       await sendMessage(chatId, v.text, v.keyboard);
       return true;
     }
