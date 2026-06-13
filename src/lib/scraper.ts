@@ -7,7 +7,7 @@ import {
   cleanupInvalidCourses,
   type ScraperLogEntry,
 } from './queries';
-import { translateCourseToArabic } from './course-translations';
+import { createArabicTranslations } from './course-translations';
 
 // ============================================
 // Types
@@ -1125,7 +1125,7 @@ async function saveScrapedCourse(
   courseData: ScrapedCourseData,
   existingUrls: Set<string>,
   existingTitles: Set<string>,
-): Promise<{ saved: boolean; updated?: boolean; skipped?: string; data?: ScrapedCourseData }> {
+): Promise<{ saved: boolean; updated?: boolean; skipped?: string; data?: ScrapedCourseData; course?: any }> {
   try {
     const normTitle = normalizeTitle(courseData.title);
     if (existingTitles.has(normTitle)) {
@@ -1172,17 +1172,9 @@ async function saveScrapedCourse(
     if (dbResult.created) {
       existingUrls.add(baseUrl);
       existingTitles.add(normTitle);
-      // Generate the Arabic row immediately (no AI, instant) so the course
-      // appears on /ar the moment it is scraped — no waiting for the translate
-      // cron. Never let an Arabic-generation hiccup fail the scrape itself.
-      if (dbResult.course) {
-        try {
-          await translateCourseToArabic(dbResult.course);
-        } catch (err) {
-          console.error(`[Scraper] Arabic generation failed for "${courseData.title.substring(0, 40)}":`, err);
-        }
-      }
-      return { saved: true, data: courseData };
+      // Return the created row so the caller can generate all new courses' Arabic
+      // rows in ONE batched write after the page loop (instead of per course).
+      return { saved: true, data: courseData, course: dbResult.course };
     }
 
     return { saved: false, skipped: 'db-duplicate' };
@@ -1650,7 +1642,7 @@ async function processUdemyFreebiesCourse(
   existingUrls: Set<string>,
   existingTitles: Set<string>,
   skipVerification: boolean = false,
-): Promise<{ saved: boolean; updated?: boolean; skipped?: string; data?: ScrapedCourseData }> {
+): Promise<{ saved: boolean; updated?: boolean; skipped?: string; data?: ScrapedCourseData; course?: any }> {
   try {
     const normTitle = normalizeTitle(course.title);
     if (existingTitles.has(normTitle)) {
@@ -2258,7 +2250,7 @@ async function processStudyBulletCourse(
   existingTitles: Set<string>,
   pageIndex: number,
   skipVerification: boolean = false,
-): Promise<{ saved: boolean; updated?: boolean; skipped?: string; data?: ScrapedCourseData }> {
+): Promise<{ saved: boolean; updated?: boolean; skipped?: string; data?: ScrapedCourseData; course?: any }> {
   try {
     const normTitle = normalizeTitle(listing.title);
     if (existingTitles.has(normTitle)) {
@@ -2756,6 +2748,9 @@ export async function scrapeSourcePage(
   let errCount = 0;
   let success = true;
   const items: SourcePageItem[] = [];
+  // New courses created this run — their Arabic rows are generated in one
+  // batched write after the loop (keeps DB operation usage minimal).
+  const createdCourses: any[] = [];
 
   // Fresh Cloudflare circuit state per request.
   resetUdemyCircuit();
@@ -2800,6 +2795,7 @@ export async function scrapeSourcePage(
             skipVerification,
           );
           tally(result);
+          if (result.saved && result.course) createdCourses.push(result.course);
         } catch (err) {
           errCount++;
           console.error(`[Scraper/Batch] udemyfreebies p${page} error:`, err);
@@ -2821,6 +2817,7 @@ export async function scrapeSourcePage(
             skipVerification,
           );
           tally(result);
+          if (result.saved && result.course) createdCourses.push(result.course);
           // Light rate limit between detail fetches (matches full scraper).
           await new Promise((r) => setTimeout(r, 200 + Math.random() * 100));
         } catch (err) {
@@ -2834,6 +2831,17 @@ export async function scrapeSourcePage(
     success = false;
     errCount++;
     console.error(`[Scraper/Batch] ${source} p${page} listing fetch failed:`, err);
+  }
+
+  // Generate Arabic rows for all new courses in ONE batched write, so the course
+  // is live on /ar right away. Never let it fail the scrape (the translate cron
+  // also backfills any course that has no Arabic row yet).
+  if (createdCourses.length > 0) {
+    try {
+      await createArabicTranslations(createdCourses);
+    } catch (err) {
+      console.error(`[Scraper/Batch] ${source} p${page} Arabic batch generation failed:`, err);
+    }
   }
 
   const durationMs = Date.now() - start;

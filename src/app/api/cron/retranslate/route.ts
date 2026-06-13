@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { normalizeLocale } from '@/lib/i18n';
 import { db } from '@/lib/db';
-import { translateCourseToArabic } from '@/lib/course-translations';
+import { regenerateArabicTranslations } from '@/lib/course-translations';
 import { revalidateCourses } from '@/lib/cache';
 
 // =============================================================================
@@ -40,29 +40,16 @@ export async function GET(request: Request) {
       take: limit,
     });
 
-    const results: Array<{ courseId: string; title: string; status: string; error?: string }> = [];
-    const startedAt = Date.now();
+    // Regenerate the whole window in one batched operation (delete + createMany).
+    const courses = (candidates as any[]).map((tr) => tr.course).filter(Boolean);
+    const processed = await regenerateArabicTranslations(courses);
 
-    for (const tr of candidates as any[]) {
-      const course = tr.course;
-      if (!course) continue;
-      // Stay within the serverless time budget; the rest are picked up next call.
-      if (Date.now() - startedAt > 45_000) break;
-      try {
-        await translateCourseToArabic(course);
-        results.push({ courseId: course.id, title: course.title, status: 'translated' });
-      } catch (err) {
-        results.push({ courseId: course.id, title: course.title, status: 'failed', error: String(err).slice(0, 220) });
-      }
-    }
-
-    if (results.some((r) => r.status === 'translated')) revalidateCourses();
+    if (processed > 0) revalidateCourses();
 
     return NextResponse.json({
       success: true,
       locale: 'ar',
-      processed: results.length,
-      results,
+      processed,
       timestamp: new Date().toISOString(),
     });
   } catch (e) {

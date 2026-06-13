@@ -1,5 +1,5 @@
 import { db } from '@/lib/db'
-import { slugifyArabic, slugifyLatin, truncateForMeta, type Locale } from './i18n'
+import type { Locale } from './i18n'
 import { getLocalizedCategory } from './locale-text'
 import { generateCourseContent, generateMeta } from './content-bank'
 
@@ -23,105 +23,23 @@ type CourseLike = {
   category?: string | null
 }
 
-type TranslationPayload = {
-  title: string
-  description: string
-  requirements: string
-  whoFor: string
-  whatLearn: string
-  category: string
-  metaTitle: string
-  metaDescription: string
-}
 
-function clean(value: unknown): string {
-  return String(value ?? '').replace(/\r/g, '\n').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim()
-}
-
-function originalPayload(course: CourseLike): TranslationPayload {
-  return {
-    title: clean(course.title),
-    description: clean(course.description),
-    requirements: clean(course.requirements),
-    whoFor: clean(course.whoFor),
-    whatLearn: clean(course.whatLearn),
-    category: clean(course.category) || 'Other',
-    metaTitle: clean(course.title),
-    metaDescription: truncateForMeta(clean(course.description) || `Free Udemy course: ${course.title}`),
-  }
-}
-
-async function uniqueTranslationSlug(locale: Locale, desired: string, courseId: string): Promise<string> {
-  const base = (desired || 'course').slice(0, 120)
-  let slug = base
-  let i = 2
-
-  while (true) {
-    const existing = await (db as any).courseTranslation.findFirst({
-      where: { locale, slug, courseId: { not: courseId } },
-      select: { id: true },
-    })
-    if (!existing) return slug
-    slug = `${base.slice(0, 112)}-${i++}`
-  }
-}
-
-export async function ensureEnglishTranslation(course: CourseLike) {
-  const payload = originalPayload(course)
-  const slug = await uniqueTranslationSlug('en', slugifyLatin(course.slug || payload.title), course.id)
-
-  return (db as any).courseTranslation.upsert({
-    where: { courseId_locale: { courseId: course.id, locale: 'en' } },
-    update: {
-      title: payload.title,
-      slug,
-      description: payload.description,
-      requirements: payload.requirements,
-      whoFor: payload.whoFor,
-      whatLearn: payload.whatLearn,
-      category: payload.category,
-      metaTitle: payload.metaTitle,
-      metaDescription: payload.metaDescription,
-      status: 'translated',
-      error: null,
-      translatedAt: new Date(),
-    },
-    create: {
-      courseId: course.id,
-      locale: 'en',
-      title: payload.title,
-      slug,
-      description: payload.description,
-      requirements: payload.requirements,
-      whoFor: payload.whoFor,
-      whatLearn: payload.whatLearn,
-      category: payload.category,
-      metaTitle: payload.metaTitle,
-      metaDescription: payload.metaDescription,
-      status: 'translated',
-      translatedAt: new Date(),
-    },
-  })
-}
-
-// Build the Arabic course row WITHOUT any AI/translation provider. The written
-// body is generated from the category-aware Arabic bank (stable, on-topic, never
-// fails, instant), and the title is kept as the course's real name so it stays
-// accurate. This replaced an LLM pipeline that was slow, hit rate limits
-// (429/409), required sleeps to dodge timeouts, and left many courses untranslated.
-export async function translateCourseToArabic(course: CourseLike) {
+// Build one Arabic CourseTranslation row WITHOUT any AI/translation provider.
+// The written body is generated from the category-aware Arabic bank (stable,
+// on-topic, instant, never fails) and the title is kept as the course's real
+// name (most accurate). Pure/in-memory — no DB query. The slug is the course's
+// own unique slug, so a whole batch can be inserted with createMany and never
+// collide on the @@unique([locale, slug]) constraint.
+function arabicRowData(course: CourseLike) {
   const category = course.category || 'Other'
-  const gen = generateCourseContent(
-    { id: course.id, title: course.title, category },
-    'ar',
-  )
-  const slug = await uniqueTranslationSlug('ar', slugifyArabic(course.title, course.slug || course.id), course.id)
+  const gen = generateCourseContent({ id: course.id, title: course.title, category }, 'ar')
   const arCategory = getLocalizedCategory('ar', category)
   const meta = generateMeta({ id: course.id, title: course.title, categoryLabel: arCategory }, 'ar')
-
-  const data = {
+  return {
+    courseId: course.id,
+    locale: 'ar',
     title: course.title,
-    slug,
+    slug: course.slug || course.id,
     description: gen.description,
     requirements: gen.requirements,
     whoFor: gen.whoFor,
@@ -133,12 +51,32 @@ export async function translateCourseToArabic(course: CourseLike) {
     error: null,
     translatedAt: new Date(),
   }
+}
 
-  return await (db as any).courseTranslation.upsert({
-    where: { courseId_locale: { courseId: course.id, locale: 'ar' } },
-    update: data,
-    create: { courseId: course.id, locale: 'ar', ...data },
+// Insert Arabic rows for brand-new courses in a SINGLE operation. Rows that
+// already exist (courseId+locale or locale+slug) are skipped. Used at scrape
+// time so a whole page's new courses cost one DB write instead of two per course.
+export async function createArabicTranslations(courses: CourseLike[]): Promise<number> {
+  if (courses.length === 0) return 0
+  const res = await (db as any).courseTranslation.createMany({
+    data: courses.map(arabicRowData),
+    skipDuplicates: true,
   })
+  return res.count ?? 0
+}
+
+// Regenerate Arabic rows for the given courses: drop any existing Arabic rows
+// for them, then insert fresh — two operations total regardless of batch size.
+// Used by the translate (backfill) and retranslate (refresh) crons.
+export async function regenerateArabicTranslations(courses: CourseLike[]): Promise<number> {
+  if (courses.length === 0) return 0
+  const ids = courses.map((c) => c.id)
+  await (db as any).courseTranslation.deleteMany({ where: { locale: 'ar', courseId: { in: ids } } })
+  const res = await (db as any).courseTranslation.createMany({
+    data: courses.map(arabicRowData),
+    skipDuplicates: true,
+  })
+  return res.count ?? 0
 }
 
 // A course "needs translation" when it has no fully `translated` row for the
@@ -153,23 +91,11 @@ export async function translateCourseToArabic(course: CourseLike) {
 const FAILED_BACKOFF_MS = 30 * 60 * 1000
 const PENDING_BACKOFF_MS = 10 * 60 * 1000
 
-export async function getCoursesMissingTranslation(locale: Locale, limit: number) {
+async function getCoursesMissingArabic(limit: number) {
   // Generation is instant and cannot fail, so a single tick can safely drain a
-  // much larger batch than the old AI path (the 45s deadline still guards the
-  // function timeout). This drains the Arabic backlog far faster.
+  // large batch (the scrape generates Arabic inline anyway, so this is mostly a
+  // backfill/safety net). Drains the Arabic backlog fast.
   const take = Math.min(Math.max(limit, 1), 50)
-
-  // English keeps the simple, fast selection — there is no model call to fail.
-  if (locale !== 'ar') {
-    return (db as any).course.findMany({
-      where: {
-        isPublished: true,
-        translations: { none: { locale, status: 'translated' } },
-      },
-      orderBy: { scrapedAt: 'desc' },
-      take,
-    })
-  }
 
   // Arabic: prioritized tiers, each queried directly so older missing rows are
   // never starved by a window full of newer translated/failed rows (which caused
@@ -227,27 +153,15 @@ export async function getCoursesMissingTranslation(locale: Locale, limit: number
   return selected
 }
 
-export async function processTranslationBatch(locale: Locale, limit: number, deadlineMs = 45_000) {
-  const courses = await getCoursesMissingTranslation(locale, limit)
-  const results: Array<{ courseId: string; title: string; status: string; error?: string }> = []
-  const startedAt = Date.now()
-
-  for (const course of courses) {
-    // Stop starting new courses once we are close to the function time budget;
-    // the rest are picked up on the next cron tick.
-    if (Date.now() - startedAt > deadlineMs) break
-    try {
-      if (locale === 'en') await ensureEnglishTranslation(course)
-      else await translateCourseToArabic(course)
-      results.push({ courseId: course.id, title: course.title, status: 'translated' })
-    } catch (err) {
-      // Generation never calls a network provider, so the only errors here are
-      // unexpected DB issues — record and continue (never blocks the batch).
-      results.push({ courseId: course.id, title: course.title, status: 'failed', error: String(err).slice(0, 220) })
-    }
-  }
-
-  return { processed: results.length, results }
+// English needs no translation rows (the /en site reads Course rows directly),
+// so this only ever generates Arabic — as a single batch (two DB writes total)
+// to keep database operation usage minimal.
+export async function processTranslationBatch(locale: Locale, limit: number) {
+  if (locale !== 'ar') return { processed: 0, results: [] as Array<{ courseId: string; title: string }> }
+  const courses = await getCoursesMissingArabic(limit)
+  if (courses.length === 0) return { processed: 0, results: [] as Array<{ courseId: string; title: string }> }
+  const processed = await regenerateArabicTranslations(courses)
+  return { processed, results: courses.map((c: CourseLike) => ({ courseId: c.id, title: c.title })) }
 }
 
 // Resolve a course for a localized page. The slug param from Next.js may be
