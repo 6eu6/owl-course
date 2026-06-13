@@ -211,14 +211,60 @@ function keywordMatches(text: string, keyword: string): boolean {
   return new RegExp(`(?:^|[^a-z0-9])${escaped}(?:$|[^a-z0-9])`, 'i').test(text);
 }
 
-export function categorize(title: string, originalCategory: string = ''): string {
-  const text = title.toLowerCase();
+/**
+ * Turn a URL into matchable words. Course links carry strong category signals in
+ * their slug (e.g. /course/the-complete-python-bootcamp), so when the title is
+ * vague the URL still reveals the topic. Prefers the Udemy `/course/<slug>` part;
+ * otherwise falls back to the path. Hyphens/underscores become spaces so
+ * keywordMatches (which treats non-alphanumerics as word boundaries) can hit.
+ */
+function urlKeywords(url: string): string {
+  const raw = String(url || '');
+  const courseSlug = raw.match(/\/course\/([^/?#]+)/i)?.[1];
+  let words = courseSlug;
+  if (!words) {
+    try { words = new URL(raw).pathname; } catch { words = raw; }
+  }
+  return words.replace(/[-_/.]+/g, ' ');
+}
+
+/**
+ * Pick a category from the course title, the link's slug, and any category the
+ * source already reported. Falls back to 'Other' only when none of these reveal
+ * a topic.
+ */
+export function categorize(title: string, url: string = '', originalCategory: string = ''): string {
+  const text = `${title} ${urlKeywords(url)} ${originalCategory}`.toLowerCase();
   for (const [category, keywords] of Object.entries(CATEGORY_MAP)) {
     if (keywords.some(k => keywordMatches(text, k))) {
       return category;
     }
   }
   return 'Other';
+}
+
+/**
+ * Backfill: re-categorize already-stored courses that landed in 'Other'. Re-runs
+ * the (now URL-aware) categorizer against each one's title + Udemy link and only
+ * writes the rows whose category actually changes — so a course mis-filed as
+ * 'Other' before the link was considered gets moved under its real category.
+ * Bounded by the number of 'Other' rows; writes only on a real change.
+ */
+export async function recategorizeUncategorized(): Promise<{ scanned: number; updated: number }> {
+  const rows = await db.course.findMany({
+    where: { category: 'Other' },
+    select: { id: true, title: true, udemyUrl: true },
+  });
+
+  let updated = 0;
+  for (const row of rows) {
+    const next = categorize(row.title, row.udemyUrl);
+    if (next !== 'Other') {
+      await db.course.update({ where: { id: row.id }, data: { category: next } });
+      updated++;
+    }
+  }
+  return { scanned: rows.length, updated };
 }
 
 export { CATEGORY_ICONS };
@@ -958,7 +1004,7 @@ function extractAllUdemyCouponEntries(html: string): Array<{ udemyUrl: string; c
     const cleanedUrl = match[0].replace(/['"<>\\]/g, '');
     const title = extractTitleNearHtmlPosition(html, match.index, slug);
     const imageUrl = extractImageNearHtmlPosition(html, match.index);
-    const category = categorize(title);
+    const category = categorize(title, cleanedUrl);
 
     entries.push({ udemyUrl: cleanedUrl, couponCode, title, imageUrl, category });
   }
@@ -1287,7 +1333,7 @@ function extractCoursesFromPage(html: string, pageNum: number): ListingCourse[] 
       title,
       detailUrl: detailUrl.startsWith('http') ? detailUrl : `https://www.udemyfreebies.com${detailUrl}`,
       imageUrl,
-      category: categorize(title, category),
+      category: categorize(title, detailUrl, category),
       language,
       instructor,
       rating,
@@ -2261,9 +2307,9 @@ async function processStudyBulletCourse(
 
     const courseData: ScrapedCourseData = {
       title: detail.title,
-      description: detail.description || `Learn ${detail.title} with this comprehensive free course. Covers ${categorize(detail.title)} skills and real-world applications.`,
+      description: detail.description || `Learn ${detail.title} with this comprehensive free course. Covers ${categorize(detail.title, detail.udemyUrl)} skills and real-world applications.`,
       instructor: detail.instructor,
-      category: categorize(detail.title),
+      category: categorize(detail.title, detail.udemyUrl),
       imageUrl: detail.imageUrl,
       udemyUrl: baseUrl,
       couponUrl,
