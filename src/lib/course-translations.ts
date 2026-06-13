@@ -940,17 +940,21 @@ export function localizedCourseData(course: any, translation: any | null, locale
     }
   }
 
+  // When a translated section is empty, fill it with stable, category-matched
+  // copy generated in the target language — so the localized (e.g. Arabic) pages
+  // are enriched just like English, never blank.
+  const genLoc = generateCourseContent({ id: course.id, title: translation.title || course.title, category: course.category }, locale)
   return {
     ...course,
     locale,
     localizedSlug: translation.slug,
     localizedTitle: translation.title,
-    localizedDescription: translation.description || '',
-    localizedRequirements: translation.requirements || '',
-    localizedWhoFor: translation.whoFor || '',
-    localizedWhatLearn: translation.whatLearn || '',
+    localizedDescription: translation.description || genLoc.description,
+    localizedRequirements: translation.requirements || genLoc.requirements,
+    localizedWhoFor: translation.whoFor || genLoc.whoFor,
+    localizedWhatLearn: translation.whatLearn || genLoc.whatLearn,
     localizedCategory: translation.category || getLocalizedCategory(locale, course.category),
     metaTitle: translation.metaTitle || translation.title,
-    metaDescription: translation.metaDescription || truncateForMeta(translation.description || course.description || ''),
+    metaDescription: translation.metaDescription || truncateForMeta(translation.description || genLoc.description || course.description || ''),
   }
 }

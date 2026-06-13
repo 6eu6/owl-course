@@ -126,3 +126,19 @@ export function localizeDuration(duration: string | null | undefined, locale: Lo
   if (minutes) parts.push(formatArabicMinutes(minutes))
   return parts.join(' و')
 }
+
+const LANGUAGE_AR: Record<string, string> = {
+  english: 'الإنجليزية', arabic: 'العربية', spanish: 'الإسبانية', french: 'الفرنسية',
+  german: 'الألمانية', italian: 'الإيطالية', portuguese: 'البرتغالية', dutch: 'الهولندية',
+  hindi: 'الهندية', urdu: 'الأردية', chinese: 'الصينية', japanese: 'اليابانية',
+  korean: 'الكورية', russian: 'الروسية', turkish: 'التركية', indonesian: 'الإندونيسية',
+}
+
+/** Show the course language in Arabic on /ar; English (cleaned) elsewhere. */
+export function localizeLanguage(language: string | null | undefined, locale: Locale): string {
+  const raw = String(language ?? '').trim()
+  if (!raw) return ''
+  if (locale !== 'ar') return raw
+  if (/[؀-ۿ]/.test(raw)) return raw
+  return LANGUAGE_AR[raw.toLowerCase()] || raw
+}

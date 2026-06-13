@@ -1,34 +1,43 @@
 // ============================================
-// Category-aware text bank (no AI)
+// Category-aware text bank (no AI) — English + Arabic
 // ============================================
 //
-// When the scraper cannot pull a course's written sections (description, what
-// you'll learn, requirements, who it's for), we compose believable, varied text
-// from a large bank of phrases keyed by the course's category. The category is
-// already known (categorize() stores it at scrape time), so the generated copy
-// stays on-topic — a Python course never reads like a marketing course.
+// When the scraper (or the translation) could not capture a course's written
+// sections — description, what you'll learn, requirements, who it's for — we
+// compose believable, varied copy from a large bank of phrases keyed by the
+// course's category. The category is already known (categorize() stores it at
+// scrape time), so the generated copy stays on-topic.
 //
-// Everything is seeded by the course id, so each course gets stable, distinct
-// copy (same approach as course-display.ts): no flicker under caching, and
-// neighbouring/recent courses don't read identically — the seeded shuffle draws
-// different phrases and orders for each one. No external service is involved.
+// Everything is seeded by the course id (same approach as course-display.ts), so
+// each course gets stable, distinct copy: no flicker under caching, and
+// neighbouring courses don't read identically. There are two parallel banks —
+// English and Arabic — so /en and /ar are both enriched in their own language.
 
 import { seeded01, seededPick, seededShuffle } from './course-display';
+import type { Locale } from './i18n';
 
 interface CatPool {
-  /** Short domain nouns used inside description sentences. */
   topics: string[];
-  /** Full "what you'll learn" bullet phrases. */
   skills: string[];
-  /** Tools/technologies referenced in requirements. */
   tools: string[];
-  /** Audience descriptors for "who this is for". */
   roles: string[];
 }
 
-// Shared phrases merged under every category so each pool stays rich even when a
-// category only specialises a few fields.
-const GENERIC: CatPool = {
+interface Bank {
+  generic: CatPool;
+  categories: Record<string, Partial<CatPool>>;
+  descIntro: string[];
+  descBody: string[];
+  descOutcome: string[];
+  /** Adapt a "what you'll learn" phrase for mid-sentence use in the outcome line. */
+  outcomeClause: (skill: string) => string;
+}
+
+// ---------------------------------------------------------------------------
+// English bank
+// ---------------------------------------------------------------------------
+
+const GENERIC_EN: CatPool = {
   topics: [
     'core concepts', 'real-world projects', 'practical workflows', 'industry best practices',
     'hands-on exercises', 'step-by-step techniques', 'time-saving shortcuts', 'professional fundamentals',
@@ -50,7 +59,7 @@ const GENERIC: CatPool = {
   ],
 };
 
-const CATEGORIES: Record<string, Partial<CatPool>> = {
+const CATEGORIES_EN: Record<string, Partial<CatPool>> = {
   'Web Development': {
     topics: ['responsive websites', 'modern front-end development', 'REST APIs', 'full-stack apps', 'the DOM', 'component-based UIs'],
     skills: [
@@ -245,45 +254,281 @@ const CATEGORIES: Record<string, Partial<CatPool>> = {
   },
 };
 
-// Description sentence frames. {title}/{topic}/{skill_lc}/{category} are filled
-// from the course and the category pool.
-const DESC_INTRO = [
-  'This hands-on course is your complete, beginner-friendly guide to {title}.',
-  'Welcome to {title} — a practical course built to take you from the basics to real confidence.',
-  'In {title}, you’ll learn {topic} the practical way: by doing, not just watching.',
-  '{title} is a step-by-step course designed around {topic} and real-world results.',
-];
-const DESC_BODY = [
-  'You’ll start with the fundamentals and steadily move into {topic}, building real skills along the way.',
-  'Each section is short, focused and followed by hands-on practice so the ideas actually stick.',
-  'Instead of dry theory, every lesson is tied to {topic} you can use immediately.',
-  'We keep things clear and practical, covering {topic} through guided, real examples.',
-];
-const DESC_OUTCOME = [
-  'By the end, you’ll be ready to {skill_lc} and keep growing on your own.',
-  'Finish the course able to {skill_lc} with confidence — and a project to show for it.',
-  'You’ll walk away knowing how to {skill_lc} and where to go next.',
-  'By the final lesson you’ll {skill_lc} and feel genuinely capable.',
-];
+const EN: Bank = {
+  generic: GENERIC_EN,
+  categories: CATEGORIES_EN,
+  descIntro: [
+    'This hands-on course is your complete, beginner-friendly guide to {title}.',
+    'Welcome to {title} — a practical course built to take you from the basics to real confidence.',
+    'In {title}, you’ll learn {topic} the practical way: by doing, not just watching.',
+    '{title} is a step-by-step course designed around {topic} and real-world results.',
+  ],
+  descBody: [
+    'You’ll start with the fundamentals and steadily move into {topic}, building real skills along the way.',
+    'Each section is short, focused and followed by hands-on practice so the ideas actually stick.',
+    'Instead of dry theory, every lesson is tied to {topic} you can use immediately.',
+    'We keep things clear and practical, covering {topic} through guided, real examples.',
+  ],
+  descOutcome: [
+    'By the end, you’ll be ready to {skill} and keep growing on your own.',
+    'Finish the course able to {skill} with confidence — and a project to show for it.',
+    'You’ll walk away knowing how to {skill} and where to go next.',
+    'By the final lesson you’ll be able to {skill} and feel genuinely capable.',
+  ],
+  outcomeClause: (skill) => skill.replace(/^[A-Z]/, (c) => c.toLowerCase()),
+};
 
-function pool(category: string): CatPool {
-  const cat = CATEGORIES[category] ?? {};
+// ---------------------------------------------------------------------------
+// Arabic bank (mirrors the English structure, in Arabic)
+// ---------------------------------------------------------------------------
+
+const GENERIC_AR: CatPool = {
+  topics: [
+    'المفاهيم الأساسية', 'مشاريع واقعية', 'سير عمل عملي', 'أفضل ممارسات المجال',
+    'تمارين تطبيقية', 'تقنيات خطوة بخطوة', 'اختصارات توفّر الوقت', 'الأساسيات الاحترافية',
+  ],
+  skills: [
+    'بناء مشاريع حقيقية تضيفها إلى معرض أعمالك',
+    'تطبيق ما تتعلّمه عبر تمارين عملية مباشرة',
+    'تجنّب الأخطاء الشائعة التي يقع فيها المبتدئون',
+    'اتّباع مسار واضح ومنظّم من الأساسيات إلى المستوى المتقدّم',
+    'اكتساب الثقة لمواصلة التعلّم بنفسك',
+    'فهم سبب كل تقنية لا طريقة تنفيذها فقط',
+  ],
+  tools: [
+    'جهاز حاسوب (ويندوز أو ماك أو لينكس)',
+    'اتصال إنترنت مستقر',
+    'حساب مجاني عند الحاجة',
+    'رغبة في التطبيق وبعض الوقت للتمرّن',
+  ],
+  roles: [
+    'المبتدئون الراغبون في بداية منظّمة',
+    'المتعلّمون ذاتيًا الذين يفضّلون التعليم العملي القائم على المشاريع',
+    'كل من يريد تحديث مهاراته ومواكبة الجديد',
+    'الطلاب الذين يريدون نتائج دون نظريات زائدة',
+    'الموظفون الراغبون في تطوير مهاراتهم عمليًا',
+  ],
+};
+
+const CATEGORIES_AR: Record<string, Partial<CatPool>> = {
+  'Web Development': {
+    topics: ['مواقع متجاوبة', 'تطوير الواجهات الحديثة', 'واجهات برمجية REST', 'تطبيقات متكاملة', 'المكوّنات وإدارة الحالة'],
+    skills: [
+      'بناء مواقع متجاوبة من الصفر',
+      'كتابة HTML وCSS وجافاسكربت حديثة بأسلوب نظيف',
+      'العمل مع المكوّنات والحالة وإعادة الاستخدام',
+      'ربط الواجهة بواجهات برمجية وبيانات حقيقية',
+      'نشر مشاريعك مباشرة على الإنترنت',
+    ],
+    roles: ['الطامحون لاحتراف تطوير الويب وبناء أول معرض أعمال', 'المصمّمون الراغبون في برمجة أفكارهم بأنفسهم'],
+  },
+  'Mobile Development': {
+    topics: ['تطبيقات متعددة المنصّات', 'واجهات الجوال', 'التنقّل داخل التطبيق', 'واجهات الأجهزة', 'النشر على المتاجر'],
+    skills: [
+      'بناء تطبيقات تعمل على أندرويد و iOS',
+      'تصميم واجهات جوال سلسة ومتجاوبة',
+      'إدارة التنقّل والحالة والتخزين المحلي',
+      'ربط التطبيق بواجهات برمجية بعيدة',
+      'تجهيز التطبيق ونشره على المتاجر',
+    ],
+    roles: ['المطوّرون المتّجهون إلى تطوير الجوال', 'المبتدئون الراغبون في إطلاق أول تطبيق لهم'],
+  },
+  'Data Science & AI': {
+    topics: ['تعلّم الآلة', 'تحليل البيانات', 'تدريب النماذج', 'الشبكات العصبية', 'بيانات حقيقية'],
+    skills: [
+      'استكشاف وتنظيف وتحليل بيانات حقيقية',
+      'تدريب نماذج تعلّم الآلة وتقييمها',
+      'فهم الرياضيات وراء الخوارزميات بحدس',
+      'تحويل البيانات الخام إلى رؤى واضحة وقابلة للتطبيق',
+      'بناء مشروع بيانات متكامل من الصفر',
+    ],
+    roles: ['الطامحون ليصبحوا علماء ومحلّلي بيانات', 'المطوّرون المهتمّون بالذكاء الاصطناعي وتعلّم الآلة'],
+  },
+  'Python': {
+    topics: ['أساسيات بايثون', 'سكربتات الأتمتة', 'البرمجة كائنية التوجّه', 'معالجة البيانات', 'مشاريع بايثون عملية'],
+    skills: [
+      'كتابة بايثون نظيفة وسهلة القراءة من اليوم الأول',
+      'أتمتة المهام المتكرّرة بسكربتات قصيرة',
+      'إتقان الدوال والأصناف والوحدات',
+      'العمل مع الملفات وواجهات API والمكتبات',
+      'بناء مشاريع عملية تعزّز كل مفهوم',
+    ],
+    roles: ['المبتدئون تمامًا في البرمجة', 'المحترفون الراغبون في أتمتة أعمالهم'],
+  },
+  'Cloud & DevOps': {
+    topics: ['البنية السحابية', 'الحاويات', 'خطوط CI/CD', 'الأتمتة', 'عمليات نشر قابلة للتوسّع'],
+    skills: [
+      'نشر التطبيقات وتوسيعها في السحابة',
+      'تعبئة التطبيقات باستخدام Docker',
+      'أتمتة البناء والإصدار عبر CI/CD',
+      'إدارة البنية التحتية ككود',
+      'مراقبة الأنظمة الحقيقية وحلّ مشكلاتها',
+    ],
+    roles: ['المطوّرون المتّجهون إلى DevOps', 'مديرو الأنظمة الراغبون في تحديث أسلوب عملهم'],
+  },
+  'Cybersecurity': {
+    topics: ['أمن الشبكات', 'الاختراق الأخلاقي', 'تقييم الثغرات', 'تقنيات الدفاع', 'أدوات الأمن'],
+    skills: [
+      'فهم كيفية حدوث الهجمات وكيفية إيقافها',
+      'استخدام أدوات الأمن المعيارية بأمان',
+      'تحديد الثغرات الشائعة وتقييمها',
+      'تحصين الأنظمة والشبكات ضد التهديدات',
+      'التفكير كمهاجم لتدافع كالمحترفين',
+    ],
+    roles: ['الطامحون ليصبحوا محلّلي أمن واختبار اختراق', 'موظفو التقنية المسؤولون عن أمان الأنظمة'],
+  },
+  'Design': {
+    topics: ['التصميم البصري', 'مبادئ UI/UX', 'أنظمة التصميم', 'الخطوط والألوان', 'مشاريع تصميم حقيقية'],
+    skills: [
+      'تصميم واجهات حديثة ونظيفة يحبّها المستخدمون',
+      'تطبيق التخطيط واللون والخط بوعي',
+      'بناء معرض أعمال تصميمي احترافي',
+      'تحويل الأفكار إلى نماذج أولية',
+      'تقديم ملاحظات تصميم عملية والاستفادة منها',
+    ],
+    roles: ['الطامحون لاحتراف تصميم UI/UX والجرافيك', 'المطوّرون الراغبون في مهارات تصميم أقوى'],
+  },
+  'Digital Marketing': {
+    topics: ['تحسين محركات البحث', 'التسويق عبر السوشيال ميديا', 'الإعلانات المدفوعة', 'استراتيجية المحتوى', 'التحويل'],
+    skills: [
+      'تخطيط وتنفيذ حملات تسويقية تحقّق نتائج فعلية',
+      'الظهور أعلى في نتائج البحث بطرق سليمة',
+      'إنشاء محتوى يجذب الجمهور ويتفاعل معه',
+      'إدارة الإعلانات المدفوعة دون هدر الميزانية',
+      'قياس النتائج ومضاعفة ما ينجح',
+    ],
+    roles: ['أصحاب الأعمال الذين يسوّقون لعلامتهم بأنفسهم', 'الطامحون لبناء مسار مهني في التسويق'],
+  },
+  'Business': {
+    topics: ['أساسيات الإدارة', 'تخطيط المشاريع', 'القيادة', 'أنظمة الإنتاجية', 'دراسات حالة حقيقية'],
+    skills: [
+      'تخطيط المشاريع وتنفيذها وتسليمها بثقة',
+      'قيادة الفريق وتحفيزه بفعالية',
+      'اتخاذ قرارات أفضل بأطر عمل بسيطة',
+      'التواصل بوضوح مع أصحاب المصلحة',
+      'تطبيق مناهج مجرّبة على مشكلات أعمال واقعية',
+    ],
+    roles: ['المديرون الجدد والطامحون للإدارة', 'روّاد الأعمال الذين يديرون مشاريعهم الخاصة'],
+  },
+  'Programming & IT': {
+    topics: ['أساسيات البرمجة', 'قواعد البيانات', 'الخوارزميات', 'الكود النظيف', 'تطبيقات حقيقية'],
+    skills: [
+      'كتابة كود نظيف وقابل للصيانة بثقة',
+      'فهم هياكل البيانات والخوارزميات الأساسية',
+      'العمل مع قواعد البيانات وSQL بكفاءة',
+      'تنقيح الأخطاء وحلّ المشكلات بمنهجية',
+      'بناء تطبيقات كاملة من البداية إلى النهاية',
+    ],
+    roles: ['المبتدئون في بداية مسار تقني', 'المطوّرون الراغبون في تقوية أساسياتهم'],
+  },
+  'Photography & Video': {
+    topics: ['التكوين', 'الإضاءة', 'تحرير الفيديو', 'السرد القصصي', 'المعالجة اللاحقة'],
+    skills: [
+      'التقاط صور حادّة ومتقنة التكوين في أي إضاءة',
+      'إتقان الضوء والتعريض واللون',
+      'تحرير الصور والفيديو باحترافية',
+      'رواية قصة مؤثّرة بلقطاتك',
+      'بناء معرض أعمال يلفت الأنظار',
+    ],
+    roles: ['الهواة الراغبون في نتائج احترافية', 'صنّاع المحتوى الذين ينمّون قناة أو علامة'],
+  },
+  'Personal Development': {
+    topics: ['الإنتاجية', 'التواصل', 'العقلية', 'العادات', 'التطبيق في الحياة'],
+    skills: [
+      'بناء عادات تدوم فعلًا',
+      'التواصل بوضوح وثقة',
+      'إدارة وقتك وتركيزك بشكل أفضل',
+      'وضع أهداف والالتزام بتحقيقها',
+      'تطبيق كل درس مباشرة في حياتك اليومية',
+    ],
+    roles: ['كل من يريد التطوّر شخصيًا أو مهنيًا', 'المشغولون الباحثون عن طرق عملية مباشرة'],
+  },
+  'Music': {
+    topics: ['نظرية الموسيقى', 'الأداء', 'إنتاج الموسيقى', 'تدريب الأذن', 'أغانٍ حقيقية'],
+    skills: [
+      'العزف والتمرّن بالتقنية الصحيحة من البداية',
+      'فهم النظرية خلف الموسيقى التي تحبّها',
+      'إنتاج وتوزيع مقطوعاتك الخاصة',
+      'تدريب أذنك على تمييز النغمات والأوتار',
+      'التعلّم عبر أغانٍ حقيقية لا تمارين جافة',
+    ],
+    roles: ['المبتدئون تمامًا في الموسيقى', 'العازفون العصاميّون الراغبون في سدّ الثغرات'],
+  },
+  'Languages': {
+    topics: ['المفردات', 'أساسيات القواعد', 'محادثات حقيقية', 'النطق', 'عبارات عملية'],
+    skills: [
+      'إجراء محادثات يومية بثقة',
+      'بناء مفردات تستخدمها فعلًا',
+      'فهم القواعد دون تعقيد',
+      'تحسين نطقك واستماعك',
+      'التدرّب على أمثلة واقعية عملية',
+    ],
+    roles: ['المبتدئون في تعلّم لغة جديدة', 'المسافرون والمحترفون الباحثون عن طلاقة عملية'],
+  },
+  'Finance & Accounting': {
+    topics: ['الاستثمار', 'التحليل المالي', 'أساسيات المحاسبة', 'إدارة المال', 'أمثلة واقعية'],
+    skills: [
+      'فهم كيف يعمل المال والأسواق والمخاطر فعلًا',
+      'قراءة القوائم المالية وتفسيرها',
+      'بناء نهج استثماري بسيط ومتزن',
+      'إدارة الميزانيات والتدفّق النقدي بثقة',
+      'تطبيق كل مفهوم على أمثلة واقعية',
+    ],
+    roles: ['المبتدئون الراغبون في التحكّم بأموالهم', 'المحترفون الراغبون في إضافة مهارات مالية'],
+  },
+  'Health & Fitness': {
+    topics: ['أساسيات التمرين', 'التغذية', 'العافية', 'عادات مستدامة', 'برامج حقيقية'],
+    skills: [
+      'التمرّن بأمان وفعالية نحو أهدافك',
+      'فهم التغذية دون حميات زائفة',
+      'بناء روتين يمكنك الالتزام به',
+      'تحسين الطاقة والقوة والعافية',
+      'تطبيق مبادئ بسيطة قائمة على العلم',
+    ],
+    roles: ['المبتدئون في نمط حياة أكثر صحة', 'كل من يريد نتائج عملية ومستدامة'],
+  },
+};
+
+const AR: Bank = {
+  generic: GENERIC_AR,
+  categories: CATEGORIES_AR,
+  descIntro: [
+    'هذه الدورة العملية دليلك الكامل والمبسّط إلى {title}.',
+    'مرحبًا بك في {title} — دورة عملية تأخذك من الأساسيات إلى الإتقان خطوة بخطوة.',
+    'في {title} ستتعلّم {topic} بالطريقة العملية: بالتطبيق لا بالمشاهدة فقط.',
+    '{title} دورة متدرّجة مصمّمة حول {topic} ونتائج واقعية.',
+  ],
+  descBody: [
+    'تبدأ من الأساسيات ثم تنتقل تدريجيًا إلى {topic}، مع بناء مهارات حقيقية في كل خطوة.',
+    'كل قسم قصير ومركّز ويتبعه تطبيق عملي لتترسّخ الأفكار فعلًا.',
+    'بدل النظريات الجافة، كل درس مرتبط بـ{topic} يمكنك استخدامه فورًا.',
+    'نبقي الأمور واضحة وعملية، ونغطّي {topic} عبر أمثلة واقعية موجّهة.',
+  ],
+  descOutcome: [
+    'في النهاية ستكون قادرًا على {skill} ومواصلة التعلّم بنفسك.',
+    'تُنهي الدورة وأنت قادر على {skill} بثقة، ومعك مشروع تعرضه.',
+    'ستخرج وأنت تعرف كيف يمكنك {skill} وإلى أين تتجه بعدها.',
+    'مع الدرس الأخير ستصبح قادرًا على {skill} وتشعر بكفاءة حقيقية.',
+  ],
+  outcomeClause: (skill) => skill,
+};
+
+// ---------------------------------------------------------------------------
+
+const BANKS: Record<Locale, Bank> = { en: EN, ar: AR };
+
+function pool(bank: Bank, category: string): CatPool {
+  const cat = bank.categories[category] ?? {};
   return {
-    topics: [...(cat.topics ?? []), ...GENERIC.topics],
-    skills: [...(cat.skills ?? []), ...GENERIC.skills],
-    tools: [...(cat.tools ?? []), ...GENERIC.tools],
-    roles: [...(cat.roles ?? []), ...GENERIC.roles],
+    topics: [...(cat.topics ?? []), ...bank.generic.topics],
+    skills: [...(cat.skills ?? []), ...bank.generic.skills],
+    tools: [...(cat.tools ?? []), ...bank.generic.tools],
+    roles: [...(cat.roles ?? []), ...bank.generic.roles],
   };
 }
 
 function fill(frame: string, vars: Record<string, string>): string {
   return frame.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? '');
-}
-
-/** Lower-case the first word of a "What you'll learn" phrase for mid-sentence use. */
-function toClause(skill: string): string {
-  const s = skill.replace(/^[A-Z]/, (c) => c.toLowerCase());
-  return s;
 }
 
 export interface GeneratedContent {
@@ -294,34 +539,29 @@ export interface GeneratedContent {
 }
 
 /**
- * Compose stable, category-appropriate copy for a course. Pass the course's id
- * (seed), title and category. Bullet fields are newline-separated to match the
- * BulletList renderer.
+ * Compose stable, category-appropriate copy for a course in the given locale.
+ * Bullet fields are newline-separated to match the BulletList renderer.
  */
-export function generateCourseContent(input: { id: string; title: string; category: string }): GeneratedContent {
+export function generateCourseContent(
+  input: { id: string; title: string; category: string },
+  locale: Locale = 'en',
+): GeneratedContent {
+  const bank = BANKS[locale] ?? EN;
   const id = input.id || input.title || 'seed';
-  const title = (input.title || 'this course').trim();
-  const p = pool(input.category || 'Other');
+  const title = (input.title || '').trim() || (locale === 'ar' ? 'هذه الدورة' : 'this course');
+  const p = pool(bank, input.category || 'Other');
 
   const topic = seededPick(p.topics, id, 'desc-topic');
-  const skillForOutcome = seededPick(p.skills, id, 'desc-skill');
+  const outcomeSkill = bank.outcomeClause(seededPick(p.skills, id, 'desc-skill'));
   const description = [
-    fill(seededPick(DESC_INTRO, id, 'desc-intro'), { title, topic, category: input.category }),
-    fill(seededPick(DESC_BODY, id, 'desc-body'), { topic }),
-    fill(seededPick(DESC_OUTCOME, id, 'desc-outcome'), { skill_lc: toClause(skillForOutcome) }),
+    fill(seededPick(bank.descIntro, id, 'desc-intro'), { title, topic }),
+    fill(seededPick(bank.descBody, id, 'desc-body'), { topic }),
+    fill(seededPick(bank.descOutcome, id, 'desc-outcome'), { skill: outcomeSkill }),
   ].join(' ');
 
-  const whatLearn = seededShuffle(p.skills, id, 'learn')
-    .slice(0, Math.min(5, p.skills.length))
-    .join('\n');
-
-  const requirements = seededShuffle(p.tools, id, 'req')
-    .slice(0, Math.min(3, p.tools.length))
-    .join('\n');
-
-  const whoFor = seededShuffle(p.roles, id, 'who')
-    .slice(0, Math.min(3, p.roles.length))
-    .join('\n');
+  const whatLearn = seededShuffle(p.skills, id, 'learn').slice(0, Math.min(5, p.skills.length)).join('\n');
+  const requirements = seededShuffle(p.tools, id, 'req').slice(0, Math.min(3, p.tools.length)).join('\n');
+  const whoFor = seededShuffle(p.roles, id, 'who').slice(0, Math.min(3, p.roles.length)).join('\n');
 
   return { description, whatLearn, requirements, whoFor };
 }

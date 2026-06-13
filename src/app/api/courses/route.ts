@@ -3,7 +3,7 @@ import { unstable_cache } from 'next/cache';
 import { db } from '@/lib/db';
 import { getAllCourses, getAllCategories, countCourses } from '@/lib/queries';
 import { getSiteSettings } from '@/lib/settings';
-import { normalizeLocale, localizeDuration } from '@/lib/i18n';
+import { normalizeLocale, localizeDuration, localizeLanguage } from '@/lib/i18n';
 import { withCourseDefaults } from '@/lib/course-display';
 import { COURSES_TAG, COURSES_REVALIDATE } from '@/lib/cache';
 
@@ -227,7 +227,7 @@ async function arabicCoursesPayload(opts: {
         rating: c.rating || null,
         students_count: c.studentsCount || null,
         original_price: c.originalPrice || null,
-        language: c.language || null,
+        language: localizeLanguage(c.language, 'ar') || null,
         duration: c.duration ? localizeDuration(c.duration, 'ar') : null,
         couponExpiresAt: c.couponExpiresAt?.toISOString() || null,
         isFreeForever: c.isFreeForever || false,
