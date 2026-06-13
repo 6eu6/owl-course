@@ -28,8 +28,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: false, error: 'retranslate only supports locale=ar' }, { status: 400 });
   }
   // No translation provider key needed: rows are regenerated locally from the
-  // Arabic bank. The window is larger since regeneration is instant and cannot fail.
-  const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '5'), 1), 50);
+  // Arabic bank as one batched delete+createMany, so a large window is cheap
+  // (lets the whole set be unified in a single call).
+  const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '50'), 1), 2000);
 
   try {
     // Regenerate a window of existing Arabic rows, oldest-touched first.

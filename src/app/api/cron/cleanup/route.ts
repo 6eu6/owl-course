@@ -43,22 +43,23 @@ export async function GET(request: Request) {
   const graceCutoff = new Date(now.getTime() - GRACE_DAYS * DAY_MS);
   const staleCutoff = new Date(now.getTime() - STALE_DAYS * DAY_MS);
 
-  // Delete only past the grace window, AND when the course is genuinely finished:
-  //   - its coupon has expired, OR
-  //   - it is a (limited-time) coupon course older than STALE_DAYS.
-  // "Free forever" courses are NOT limited-time offers, so they are never removed
-  // by the stale branch (and they carry no couponExpiresAt, so the expired branch
-  // never matches them either) — this prevents dropping permanent free courses.
+  // Every course is treated as a time-limited offer. The "free forever" flag is
+  // NOT reliable (the scraper cannot truly tell from Udemy whether a course is
+  // permanently free or coupon-based), so we never base deletion on it. A course
+  // is removed past the 2-day grace when its (estimated) coupon has expired OR it
+  // is older than STALE_DAYS.
   //
-  // Note: since a re-scrape now skips already-stored courses (to save DB ops),
-  // scrapedAt is the course's first-seen time and is not refreshed. The stale
-  // branch therefore enforces a clean "remove coupon courses ~a week after they
-  // were added" policy, which matches how temporary coupons behave.
+  // Self-healing: a deleted course that is still listed at the source is simply
+  // re-added on the next scrape (it is gone from the DB, so it is no longer a
+  // duplicate). So nothing still-available is lost permanently, and we don't rely
+  // on any unreliable signal. Since a re-scrape skips already-stored courses
+  // (DB-ops optimisation), scrapedAt is first-seen time, so the stale branch is a
+  // clean "≈ a week max lifetime" that matches how temporary coupons behave.
   const where: Prisma.CourseWhereInput = {
     scrapedAt: { lt: graceCutoff },
     OR: [
       { couponExpiresAt: { lt: now } },
-      { isFreeForever: false, scrapedAt: { lt: staleCutoff } },
+      { scrapedAt: { lt: staleCutoff } },
     ],
   };
 
