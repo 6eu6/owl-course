@@ -41,7 +41,9 @@ const GENERIC_EN: CatPool = {
   topics: [
     'core concepts', 'real-world projects', 'practical workflows', 'industry best practices',
     'hands-on exercises', 'step-by-step techniques', 'time-saving shortcuts', 'professional fundamentals',
-    'real-world use cases', 'job-ready skills', 'guided practical examples',
+    'real-world use cases', 'job-ready skills', 'guided practical examples', 'the essential foundations',
+    'proven, practical methods', 'real scenarios you will actually meet', 'the skills employers look for',
+    'a clear mental model of how it all fits together',
   ],
   skills: [
     'Build real projects you can add to your portfolio',
@@ -53,11 +55,14 @@ const GENERIC_EN: CatPool = {
     'Build a solid foundation you can grow from',
     'Solve real problems step by step',
     'Gain practical experience you can use right away',
+    'Learn the shortcuts and best practices the pros rely on',
+    'Turn theory into results with guided practice',
+    'Finish with the confidence to tackle real tasks on your own',
   ],
   tools: [
     'a computer (Windows, macOS or Linux)', 'a stable internet connection',
     'a free account where needed', 'a willingness to practice and a little time',
-    'no prior experience — we start from scratch',
+    'no prior experience — we start from scratch', 'curiosity and a few minutes a day',
   ],
   roles: [
     'Complete beginners who want a structured starting point',
@@ -66,6 +71,8 @@ const GENERIC_EN: CatPool = {
     'Students who want results without unnecessary theory',
     'Professionals who want to add a practical, in-demand skill',
     'Career changers moving into the field',
+    'Busy people who want a clear, no-fluff path',
+    'Anyone who learns best by building real things',
   ],
 };
 
@@ -274,6 +281,9 @@ const EN: Bank = {
     '{title} is a step-by-step course designed around {topic} and real-world results.',
     'Master {topic} from the ground up in {title}, with a clear and practical approach.',
     'If you want to get good at {topic}, {title} is the perfect place to start.',
+    'Whether you’re starting fresh or filling gaps, {title} makes {topic} simple and practical.',
+    '{title} cuts the fluff and focuses on {topic} that actually moves the needle.',
+    'Join thousands of learners and master {topic} the practical way in {title}.',
   ],
   descBody: [
     'You’ll start with the fundamentals and steadily move into {topic}, building real skills along the way.',
@@ -282,6 +292,9 @@ const EN: Bank = {
     'We keep things clear and practical, covering {topic} through guided, real examples.',
     'The course blends simple explanations with real practice so you master {topic} with confidence.',
     'It’s focused and to the point — no filler, just the {topic} you actually need.',
+    'Every concept is shown step by step, then reinforced with {topic} you build yourself.',
+    'You’ll learn at a comfortable pace, with clear examples and {topic} drawn from real work.',
+    'Lessons are bite-sized and practical, so {topic} feels easy even if you’re brand new.',
   ],
   descOutcome: [
     'By the end, you’ll be ready to {skill} and keep growing on your own.',
@@ -290,6 +303,8 @@ const EN: Bank = {
     'By the final lesson you’ll be able to {skill} and feel genuinely capable.',
     'You’ll come away with a solid foundation to {skill} and move forward with confidence.',
     'In the end you’ll be able to {skill} and apply it in real projects.',
+    'By the finish line you’ll {skill} without second-guessing yourself.',
+    'You’ll leave ready to {skill} and to keep building on what you’ve learned.',
   ],
   outcomeClause: (skill) => skill.replace(/^[A-Z]/, (c) => c.toLowerCase()),
 };
@@ -303,6 +318,8 @@ const GENERIC_AR: CatPool = {
     'المفاهيم الأساسية', 'مشاريع واقعية', 'سير عمل عملي', 'أفضل ممارسات المجال',
     'تمارين تطبيقية', 'تقنيات خطوة بخطوة', 'اختصارات توفّر الوقت', 'الأساسيات الاحترافية',
     'حالات استخدام من الواقع', 'مهارات مطلوبة في سوق العمل', 'أمثلة تطبيقية موجّهة',
+    'الأسس الجوهرية', 'طرق عملية مجرّبة', 'مواقف حقيقية ستواجهها فعلًا',
+    'المهارات التي يبحث عنها أصحاب العمل', 'صورة واضحة لكيفية ترابط كل شيء',
   ],
   skills: [
     'بناء مشاريع حقيقية تضيفها إلى معرض أعمالك',
@@ -314,6 +331,9 @@ const GENERIC_AR: CatPool = {
     'بناء أساس متين تنطلق منه باحتراف',
     'حلّ مشكلات حقيقية خطوة بخطوة',
     'اكتساب خبرة عملية قابلة للتطبيق فورًا',
+    'تعلّم الاختصارات وأفضل الممارسات التي يعتمدها المحترفون',
+    'تحويل النظرية إلى نتائج عبر التطبيق الموجّه',
+    'إنهاء الدورة بثقة تؤهّلك لمهام حقيقية بمفردك',
   ],
   tools: [
     'جهاز حاسوب (ويندوز أو ماك أو لينكس)',
@@ -321,6 +341,7 @@ const GENERIC_AR: CatPool = {
     'حساب مجاني عند الحاجة',
     'رغبة في التطبيق وبعض الوقت للتمرّن',
     'لا حاجة لخبرة سابقة — نبدأ من الصفر',
+    'فضول وبضع دقائق يوميًا',
   ],
   roles: [
     'المبتدئون الراغبون في بداية منظّمة',
@@ -330,6 +351,8 @@ const GENERIC_AR: CatPool = {
     'الموظفون الراغبون في تطوير مهاراتهم عمليًا',
     'الخريجون الباحثون عن مهارات عملية مطلوبة',
     'الراغبون في تغيير مسارهم المهني نحو هذا المجال',
+    'المشغولون الباحثون عن مسار واضح بلا حشو',
+    'كل من يتعلّم أفضل عبر بناء أشياء حقيقية',
   ],
 };
 
@@ -522,6 +545,9 @@ const AR: Bank = {
     '{title} دورة متدرّجة مصمّمة حول {topic} ونتائج واقعية.',
     'تعلّم {topic} من الصفر إلى الاحتراف في {title} بأسلوب عملي ومباشر.',
     'إن أردت إتقان {topic} فإن {title} نقطة انطلاقتك المثالية.',
+    'سواء كنت تبدأ من الصفر أو تسدّ ثغرات معرفتك، يجعل {title} تعلّم {topic} بسيطًا وعمليًا.',
+    'يبتعد {title} عن الحشو ويركّز على {topic} الذي يُحدث فرقًا حقيقيًا.',
+    'انضمّ إلى آلاف المتعلّمين وأتقِن {topic} عمليًا في {title}.',
   ],
   descBody: [
     'تبدأ من الأساسيات ثم تنتقل تدريجيًا إلى {topic}، مع بناء مهارات حقيقية في كل خطوة.',
@@ -530,6 +556,9 @@ const AR: Bank = {
     'نبقي الأمور واضحة وعملية، ونغطّي {topic} عبر أمثلة واقعية موجّهة.',
     'تجمع الدورة بين الشرح المبسّط والتطبيق العملي لتتقن {topic} بثقة.',
     'محتوى مركّز خالٍ من الحشو، يركّز على {topic} وما تحتاجه فعلًا.',
+    'يُشرح كل مفهوم خطوة بخطوة ثم تعزّزه بـ{topic} تبنيه بنفسك.',
+    'تتعلّم بوتيرة مريحة مع أمثلة واضحة و{topic} مأخوذ من العمل الحقيقي.',
+    'الدروس قصيرة وعملية، فيبدو {topic} سهلًا حتى لو كنت مبتدئًا تمامًا.',
   ],
   descOutcome: [
     'في النهاية ستكون قادرًا على {skill} ومواصلة التعلّم بنفسك.',
@@ -538,6 +567,8 @@ const AR: Bank = {
     'مع الدرس الأخير ستصبح قادرًا على {skill} وتشعر بكفاءة حقيقية.',
     'وستمتلك أساسًا متينًا يؤهّلك لـ{skill} والتقدّم بثقة.',
     'لتصبح قادرًا على {skill} وتطبيق ما تعلّمته في مشاريع حقيقية.',
+    'وبنهاية الدورة ستتمكّن من {skill} دون تردّد.',
+    'ستنهيها وأنت جاهز لـ{skill} ولمواصلة البناء على ما تعلّمت.',
   ],
   outcomeClause: (skill) => skill,
 };
