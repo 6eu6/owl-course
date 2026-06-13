@@ -134,11 +134,15 @@ export async function createCourseIfNotExists(data: {
 // target: a slug clash is retried with a unique suffix (course preserved); a
 // udemyUrl clash is a genuine duplicate and is skipped (no row lost).
 // ---------------------------------------------------------------------------
-export async function createCourseDirect(data: Parameters<typeof createCourseIfNotExists>[0]): Promise<{ created: boolean }> {
+type CreatedCourse = Prisma.PromiseReturnType<typeof db.course.create>;
+
+export async function createCourseDirect(
+  data: Parameters<typeof createCourseIfNotExists>[0],
+): Promise<{ created: boolean; course?: CreatedCourse }> {
   const base = { ...data, couponCode: data.couponCode ?? '', couponUrl: data.couponUrl ?? '' };
   try {
-    await db.course.create({ data: base });
-    return { created: true };
+    const course = await db.course.create({ data: base });
+    return { created: true, course };
   } catch (err: unknown) {
     const e = err as { code?: string; meta?: { target?: string[] | string } };
     if (e?.code !== 'P2002') throw err;
@@ -153,8 +157,8 @@ export async function createCourseDirect(data: Parameters<typeof createCourseIfN
     // slug collision (or unspecified target) → retry once with a unique slug so
     // a legitimately new course is never dropped over a title-slug clash.
     try {
-      await db.course.create({ data: { ...base, slug: `${data.slug}-${Date.now()}` } });
-      return { created: true };
+      const course = await db.course.create({ data: { ...base, slug: `${data.slug}-${Date.now()}` } });
+      return { created: true, course };
     } catch (retryErr: unknown) {
       const re = retryErr as { code?: string; meta?: { target?: string[] | string } };
       // A second P2002 on retry means the udemyUrl is taken → genuine duplicate.

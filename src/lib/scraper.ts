@@ -7,6 +7,7 @@ import {
   cleanupInvalidCourses,
   type ScraperLogEntry,
 } from './queries';
+import { translateCourseToArabic } from './course-translations';
 
 // ============================================
 // Types
@@ -1171,6 +1172,16 @@ async function saveScrapedCourse(
     if (dbResult.created) {
       existingUrls.add(baseUrl);
       existingTitles.add(normTitle);
+      // Generate the Arabic row immediately (no AI, instant) so the course
+      // appears on /ar the moment it is scraped — no waiting for the translate
+      // cron. Never let an Arabic-generation hiccup fail the scrape itself.
+      if (dbResult.course) {
+        try {
+          await translateCourseToArabic(dbResult.course);
+        } catch (err) {
+          console.error(`[Scraper] Arabic generation failed for "${courseData.title.substring(0, 40)}":`, err);
+        }
+      }
       return { saved: true, data: courseData };
     }
 
