@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { getShortenerSettings, shouldServeAd, shortenUrl } from '@/lib/shortener'
+import { getShortenerSettings, shouldServeAd, shortenByMode } from '@/lib/shortener'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,25 +29,28 @@ export async function GET(req: NextRequest) {
 
   const settings = await getShortenerSettings()
 
-  // Disabled → straight to Udemy, no cookie churn.
-  if (!settings.enabled) {
+  // Off → straight to Udemy, no cookie churn.
+  if (settings.mode === 'off') {
     return NextResponse.redirect(u)
   }
 
+  // Clean mode → always a no-ads short link (is.gd). No rotation needed.
+  if (settings.mode === 'clean') {
+    const short = await shortenByMode(u, 'clean')
+    return NextResponse.redirect(short || u)
+  }
+
+  // Ads mode → serve the ad link only on every Nth click; the rest go direct.
   const current = parseInt(req.cookies.get(COOKIE)?.value || '0', 10)
   const clickNumber = (Number.isFinite(current) ? current : 0) + 1
 
   let dest = u
   if (shouldServeAd(clickNumber, settings)) {
-    const short = await shortenUrl(u)
+    const short = await shortenByMode(u, 'ads')
     if (short) dest = short
   }
 
   const res = NextResponse.redirect(dest)
-  res.cookies.set(COOKIE, String(clickNumber), {
-    maxAge: YEAR,
-    sameSite: 'lax',
-    path: '/',
-  })
+  res.cookies.set(COOKIE, String(clickNumber), { maxAge: YEAR, sameSite: 'lax', path: '/' })
   return res
 }

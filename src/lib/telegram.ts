@@ -90,7 +90,8 @@ function formatCourseMessageHtml(
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
   const slug = String(course.slug || '');
   const locale = (String(course.locale || 'en') === 'ar' ? 'ar' : 'en') as Locale;
-  const courseUrl = (siteUrl && slug) ? `${siteUrl}${localizedCoursePath(locale, slug)}` : String(course.udemy_url || '');
+  // Prefer a pre-built (possibly shortened) link supplied by the caller.
+  const courseUrl = String(course.link || '') || ((siteUrl && slug) ? `${siteUrl}${localizedCoursePath(locale, slug)}` : String(course.udemy_url || ''));
 
   const ratingNum = Number(course.rating);
   const studentsNum = Number(course.students_count);
@@ -116,7 +117,7 @@ function formatCourseMessageHtml(
 function buildInlineKeyboard(course: Record<string, unknown>, locale: Locale = 'en'): Record<string, unknown> {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
   const slug = String(course.slug || '');
-  const courseUrl = (siteUrl && slug) ? `${siteUrl}${localizedCoursePath(locale, slug)}` : '';
+  const courseUrl = String(course.link || '') || ((siteUrl && slug) ? `${siteUrl}${localizedCoursePath(locale, slug)}` : '');
 
   if (!courseUrl) return {};
 

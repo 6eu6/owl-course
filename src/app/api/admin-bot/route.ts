@@ -121,7 +121,7 @@ const mainMenu: Keyboard = {
     [{ text: '📡 Channels', callback_data: 'nav:chan' }, { text: '📤 Posting', callback_data: 'nav:post' }],
     [{ text: '📝 Templates', callback_data: 'nav:tpl' }, { text: '🧹 Cleanup', callback_data: 'nav:clean' }],
     [{ text: '📨 Broadcast', callback_data: 'ask:bcast' }, { text: '⚙️ Settings', callback_data: 'nav:set' }],
-    [{ text: '🔗 Link Ads', callback_data: 'nav:short' }],
+    [{ text: '🔗 Links', callback_data: 'nav:short' }],
   ],
 };
 
@@ -135,7 +135,7 @@ const mainReplyKeyboard: ReplyKeyboard = {
     [{ text: '📡 Channels' }, { text: '🔄 Scraper' }],
     [{ text: '📝 Templates' }, { text: '🧹 Cleanup' }],
     [{ text: '➕ Add Channel' }, { text: '📨 Broadcast' }],
-    [{ text: '⚙️ Settings' }, { text: '🔗 Link Ads' }],
+    [{ text: '⚙️ Settings' }, { text: '🔗 Links' }],
     [{ text: '📖 Help' }],
   ],
   resize_keyboard: true,
@@ -418,32 +418,44 @@ async function viewShortener(): Promise<{ text: string; keyboard: Keyboard }> {
   const { getShortenerSettings } = await import('@/lib/shortener');
   const s = await getShortenerSettings();
   const hasToken = !!(process.env.SHRINKME_API_TOKEN || '').trim();
-  const status = s.enabled ? '🟢 ON' : '🔴 OFF';
-  const freqLabel = s.everyN <= 1 ? 'every link' : `every ${s.everyN}ᵗʰ click`;
-  const sel = (n: number) => (s.enabled && s.everyN === n ? '✅ ' : '');
-  return {
-    text:
-      `🔗 <b>Link Ads (ShrinkMe)</b>\n\n` +
-      `Status: <b>${status}</b>\n` +
-      `Ad frequency: <b>${freqLabel}</b>\n\n` +
-      `Visitors open ${Math.max(s.everyN - 1, 0)} course links normally, then the ${s.everyN <= 1 ? 'next' : `${s.everyN}ᵗʰ`} opens through an ad — so it earns without annoying.\n` +
-      (hasToken ? '' : `\n⚠️ <b>SHRINKME_API_TOKEN is not set</b> — links stay direct until you add it in the Vercel env.`),
-    keyboard: {
-      inline_keyboard: [
-        [{ text: s.enabled ? '🔕 Turn ads OFF' : '🔔 Turn ads ON', callback_data: 'act:short:toggle' }],
-        [
-          { text: `${sel(8)}Low (8)`, callback_data: 'act:short:freq:8' },
-          { text: `${sel(5)}Medium (5)`, callback_data: 'act:short:freq:5' },
-          { text: `${sel(3)}High (3)`, callback_data: 'act:short:freq:3' },
-        ],
-        [
-          { text: `${sel(1)}Every link`, callback_data: 'act:short:freq:1' },
-          { text: '✏️ Custom every N', callback_data: 'ask:shortfreq' },
-        ],
-        backRow(),
-      ],
-    },
-  };
+  const modeLabel = s.mode === 'clean' ? '🟢 Clean (short links, no ads)' : s.mode === 'ads' ? '🟠 Ads (ShrinkMe)' : '🔴 Off (direct links)';
+  const m = (x: string) => (s.mode === x ? '✅ ' : '');
+  const sel = (n: number) => (s.mode === 'ads' && s.everyN === n ? '✅ ' : '');
+
+  const rows: Btn[][] = [
+    [
+      { text: `${m('off')}Off`, callback_data: 'act:short:mode:off' },
+      { text: `${m('clean')}Clean`, callback_data: 'act:short:mode:clean' },
+      { text: `${m('ads')}Ads`, callback_data: 'act:short:mode:ads' },
+    ],
+  ];
+  if (s.mode === 'ads') {
+    rows.push([
+      { text: `${sel(8)}Low (8)`, callback_data: 'act:short:freq:8' },
+      { text: `${sel(5)}Medium (5)`, callback_data: 'act:short:freq:5' },
+      { text: `${sel(3)}High (3)`, callback_data: 'act:short:freq:3' },
+    ]);
+    rows.push([
+      { text: `${sel(1)}Every link`, callback_data: 'act:short:freq:1' },
+      { text: '✏️ Custom every N', callback_data: 'ask:shortfreq' },
+    ]);
+  }
+  rows.push(backRow());
+
+  let body =
+    `🔗 <b>Link Shortener</b>\n\n` +
+    `Mode: <b>${modeLabel}</b>\n`;
+  if (s.mode === 'clean') {
+    body += `\nAll course links are shortened with a clean, ad-free shortener (is.gd). Telegram posts use the short link too.`;
+  } else if (s.mode === 'ads') {
+    body += `Ad frequency: <b>${s.everyN <= 1 ? 'every link' : `every ${s.everyN}ᵗʰ click`}</b>\n\n` +
+      `On the site, visitors open ${Math.max(s.everyN - 1, 0)} links normally then hit one ad — earning without annoying. Telegram posts always use the short (ad) link.` +
+      (hasToken ? '' : `\n\n⚠️ <b>SHRINKME_API_TOKEN is not set</b> — Ads mode falls back to direct links until you add it in the Vercel env.`);
+  } else {
+    body += `\nLinks are direct. Choose <b>Clean</b> for ad-free short links now, or <b>Ads</b> (ShrinkMe) to monetize later.`;
+  }
+
+  return { text: body, keyboard: { inline_keyboard: rows } };
 }
 
 // --------------------------------------------------------------------
@@ -464,12 +476,13 @@ async function handleCallback(chatId: string, messageId: number, data: string, c
   if (data === 'nav:set') { await answerCallback(cbId); const v = await viewSettings(); return editMessage(chatId, messageId, v.text, v.keyboard); }
   if (data === 'nav:short') { await answerCallback(cbId); const v = await viewShortener(); return editMessage(chatId, messageId, v.text, v.keyboard); }
 
-  if (data === 'act:short:toggle') {
+  if (data.startsWith('act:short:mode:')) {
+    const mode = data.split(':')[3] as 'off' | 'clean' | 'ads';
     const { getShortenerSettings, saveShortenerSettings } = await import('@/lib/shortener');
     const s = await getShortenerSettings();
-    s.enabled = !s.enabled;
+    s.mode = mode === 'clean' || mode === 'ads' ? mode : 'off';
     await saveShortenerSettings(s);
-    await answerCallback(cbId, s.enabled ? 'Ads ON' : 'Ads OFF');
+    await answerCallback(cbId, mode === 'clean' ? 'Clean short links' : mode === 'ads' ? 'Ads (ShrinkMe)' : 'Off');
     const v = await viewShortener();
     return editMessage(chatId, messageId, v.text, v.keyboard);
   }
@@ -477,8 +490,7 @@ async function handleCallback(chatId: string, messageId: number, data: string, c
     const n = parseInt(data.split(':')[3], 10);
     const { getShortenerSettings, saveShortenerSettings } = await import('@/lib/shortener');
     const s = await getShortenerSettings();
-    s.everyN = n;
-    s.enabled = true; // choosing a frequency implies enabling ads
+    s.everyN = n; s.mode = 'ads';
     await saveShortenerSettings(s);
     await answerCallback(cbId, `Ad on every ${s.everyN}ᵗʰ click`);
     const v = await viewShortener();
@@ -704,7 +716,7 @@ async function processInput(chatId: string, action: string, extra: string, text:
     if (isNaN(n) || n < 1 || n > 100) return reply(chatId, '❌ Send a number 1–100.', 'nav:short');
     const { getShortenerSettings, saveShortenerSettings } = await import('@/lib/shortener');
     const s = await getShortenerSettings();
-    s.everyN = n; s.enabled = true;
+    s.everyN = n; s.mode = 'ads';
     await saveShortenerSettings(s);
     return reply(chatId, `✅ Ad shows on every ${n}ᵗʰ course click.`, 'nav:short');
   }
@@ -764,7 +776,7 @@ async function handleMenuLabel(chatId: string, text: string): Promise<boolean> {
       await sendMessage(chatId, v.text, v.keyboard);
       return true;
     }
-    case '🔗 Link Ads': {
+    case '🔗 Links': {
       await clearState(chatId);
       const v = await viewShortener();
       await sendMessage(chatId, v.text, v.keyboard);

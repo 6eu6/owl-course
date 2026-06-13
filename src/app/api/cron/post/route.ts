@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { normalizeLocale, type Locale } from '@/lib/i18n';
+import { normalizeLocale, localizedCoursePath, type Locale } from '@/lib/i18n';
 import { withCourseDefaults } from '@/lib/course-display';
+import { shortenForShare } from '@/lib/shortener';
 
 // Prisma raises P2021 when a table referenced by a query does not exist yet.
 // During the i18n rollout the CourseTranslation / TelegramPost tables may not
@@ -175,12 +176,18 @@ export async function GET(request: Request) {
     }
 
     // ---- Real posting loop ----
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
     let posted = 0;
     const failed: string[] = [];
 
     for (const item of pending) {
       const c = withCourseDefaults(item.course);
       const pendingChannels = item.pendingChannels;
+
+      // The link posted to Telegram is shortened when the shortener is enabled
+      // (clean = no-ads is.gd, ads = ShrinkMe), otherwise the full course page URL.
+      const fullCourseUrl = siteUrl ? `${siteUrl}${localizedCoursePath(locale, item.slug)}` : '';
+      const link = fullCourseUrl ? await shortenForShare(fullCourseUrl) : '';
 
       const data = {
         title: item.title,
@@ -194,6 +201,7 @@ export async function GET(request: Request) {
         udemy_url: c.couponUrl || c.udemyUrl || '',
         slug: item.slug,
         locale,
+        link,
       };
 
       const result = await postCourseToTelegramChannels(
