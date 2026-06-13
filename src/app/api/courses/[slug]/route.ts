@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCourseBySlug, getRelatedCourses, updateCourse } from '@/lib/queries';
+import { withCourseDefaults } from '@/lib/course-display';
 
 // GET /api/courses/[slug] - Get single course by slug
 export async function GET(
@@ -8,17 +9,18 @@ export async function GET(
 ) {
   try {
     const { slug } = await params;
-    const course = await getCourseBySlug(slug);
+    const raw = await getCourseBySlug(slug);
 
-    if (!course) {
+    if (!raw) {
       return NextResponse.json(
         { success: false, error: 'Course not found' },
         { status: 404 }
       );
     }
+    const course = withCourseDefaults(raw);
 
     // Get related courses from the same category
-    const related = await getRelatedCourses(course.category, slug, 4);
+    const related = (await getRelatedCourses(course.category, slug, 4)).map(withCourseDefaults);
 
     return NextResponse.json({
       success: true,

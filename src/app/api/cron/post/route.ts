@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { normalizeLocale, type Locale } from '@/lib/i18n';
+import { withCourseDefaults } from '@/lib/course-display';
 
 // Prisma raises P2021 when a table referenced by a query does not exist yet.
 // During the i18n rollout the CourseTranslation / TelegramPost tables may not
@@ -178,7 +179,7 @@ export async function GET(request: Request) {
     const failed: string[] = [];
 
     for (const item of pending) {
-      const c = item.course;
+      const c = withCourseDefaults(item.course);
       const pendingChannels = item.pendingChannels;
 
       const data = {

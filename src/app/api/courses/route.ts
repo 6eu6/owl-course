@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { getAllCourses, getAllCategories, countCourses } from '@/lib/queries';
 import { getSiteSettings } from '@/lib/settings';
 import { normalizeLocale, localizeDuration } from '@/lib/i18n';
+import { withCourseDefaults } from '@/lib/course-display';
 import { COURSES_TAG, COURSES_REVALIDATE } from '@/lib/cache';
 
 interface PayloadOpts {
@@ -97,25 +98,28 @@ async function buildCoursesPayload(opts: PayloadOpts) {
   return {
     success: true,
     locale,
-    courses: courses.map((c) => ({
-      id: c.id,
-      title: c.title,
-      slug: c.slug,
-      description: c.description?.slice(0, 200) || '',
-      instructor: c.instructor || '',
-      category: c.category,
-      imageUrl: c.imageUrl,
-      image_url: c.imageUrl,
-      rating: c.rating || null,
-      students_count: c.studentsCount || null,
-      original_price: c.originalPrice || null,
-      language: c.language || null,
-      duration: c.duration || null,
-      couponExpiresAt: c.couponExpiresAt?.toISOString() || null,
-      isFreeForever: c.isFreeForever || false,
-      couponVerified: c.couponVerified || false,
-      scraped_at: c.scrapedAt,
-    })),
+    courses: courses.map((raw) => {
+      const c = withCourseDefaults(raw);
+      return {
+        id: c.id,
+        title: c.title,
+        slug: c.slug,
+        description: c.description?.slice(0, 200) || '',
+        instructor: c.instructor || '',
+        category: c.category,
+        imageUrl: c.imageUrl,
+        image_url: c.imageUrl,
+        rating: c.rating || null,
+        students_count: c.studentsCount || null,
+        original_price: c.originalPrice || null,
+        language: c.language || null,
+        duration: c.duration || null,
+        couponExpiresAt: c.couponExpiresAt?.toISOString() || null,
+        isFreeForever: c.isFreeForever || false,
+        couponVerified: c.couponVerified || false,
+        scraped_at: c.scrapedAt,
+      };
+    }),
     pagination: { page, limit, total, total_pages: Math.ceil(total / limit) },
     filters: {
       categories,
@@ -210,7 +214,7 @@ async function arabicCoursesPayload(opts: {
     success: true,
     locale: 'ar',
     courses: rows.map((r) => {
-      const c = r.course;
+      const c = withCourseDefaults(r.course);
       return {
         id: c.id,
         title: r.title,

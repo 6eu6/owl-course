@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
 import { slugifyArabic, slugifyLatin, truncateForMeta, type Locale } from './i18n'
 import { getLocalizedCategory } from './locale-text'
+import { generateCourseContent } from './content-bank'
 
 // Translation statuses:
 //   pending    – row created, not translated yet
@@ -920,19 +921,22 @@ export function localizedCourseData(course: any, translation: any | null, locale
         metaDescription: '',
       }
     }
-    // For English: safe to fall back to original English fields.
+    // For English: safe to fall back to original English fields. When the
+    // scraper could not capture the written sections, fill them with stable,
+    // category-appropriate generated copy so the enrol page is never blank.
+    const gen = generateCourseContent({ id: course.id, title: course.title, category: course.category })
     return {
       ...course,
       locale,
       localizedSlug: course.slug,
       localizedTitle: course.title,
-      localizedDescription: course.description || '',
-      localizedRequirements: course.requirements || '',
-      localizedWhoFor: course.whoFor || '',
-      localizedWhatLearn: course.whatLearn || '',
+      localizedDescription: course.description || gen.description,
+      localizedRequirements: course.requirements || gen.requirements,
+      localizedWhoFor: course.whoFor || gen.whoFor,
+      localizedWhatLearn: course.whatLearn || gen.whatLearn,
       localizedCategory: course.category,
       metaTitle: course.title,
-      metaDescription: truncateForMeta(course.description || `Free Udemy course: ${course.title}`),
+      metaDescription: truncateForMeta(course.description || gen.description || `Free Udemy course: ${course.title}`),
     }
   }
 

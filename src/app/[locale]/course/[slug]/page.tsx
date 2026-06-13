@@ -11,9 +11,9 @@ import {
 } from '@/lib/course-translations'
 import { makeT, getLocalizedCategory } from '@/lib/locale-text'
 import { isSupportedLocale, localeDir, localizeDuration, type Locale } from '@/lib/i18n'
+import { withCourseDefaults } from '@/lib/course-display'
 import { SiteHeader, SiteFooter } from '@/components/site-chrome'
 import { CourseImage } from '@/components/course-image'
-import { BulletList } from '@/components/bullet-list'
 import { TimedReveal } from '@/components/timed-reveal'
 import { TelegramChannelButton } from '@/components/telegram-cta'
 import { ShareButtons } from '@/components/share-buttons'
@@ -106,11 +106,11 @@ export default async function LocalizedCoursePage({ params }: PageProps) {
     redirect(`/${locale}/course/${encodeURIComponent(found.translation.slug)}`)
   }
 
-  const course = found.course
+  const course = withCourseDefaults(found.course)
   const data = localizedCourseData(course, found.translation, locale)
 
   const relatedRaw = await getRelatedCourses(course.category, course.slug, 4)
-  const related = await localizeCourseList(locale, relatedRaw)
+  const related = (await localizeCourseList(locale, relatedRaw)).map(withCourseDefaults)
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -189,36 +189,15 @@ export default async function LocalizedCoursePage({ params }: PageProps) {
             <div className="flex items-center gap-2 p-2.5 bg-card rounded-lg border text-xs">
               <div className="min-w-0">
                 <p className="text-muted-foreground text-[10px]">{t('was')}</p>
-                <p className="font-medium line-through text-muted-foreground">${course.originalPrice}</p>
+                <p className="font-medium line-through text-muted-foreground">{course.originalPrice}</p>
               </div>
             </div>
           )}
         </div>
 
-        {data.localizedDescription && (
-          <div className="p-4 rounded-lg border bg-card">
-            <h3 className="text-xs font-semibold mb-2">{t('description')}</h3>
-            <BulletList text={data.localizedDescription} />
-          </div>
-        )}
-        {data.localizedWhatLearn && (
-          <div className="p-4 rounded-lg border bg-card">
-            <h3 className="text-xs font-semibold mb-2">{t('whatLearn')}</h3>
-            <BulletList text={data.localizedWhatLearn} />
-          </div>
-        )}
-        {data.localizedRequirements && (
-          <div className="p-4 rounded-lg border bg-card">
-            <h3 className="text-xs font-semibold mb-2">{t('requirements')}</h3>
-            <BulletList text={data.localizedRequirements} />
-          </div>
-        )}
-        {data.localizedWhoFor && (
-          <div className="p-4 rounded-lg border bg-card">
-            <h3 className="text-xs font-semibold mb-2">{t('whoFor')}</h3>
-            <BulletList text={data.localizedWhoFor} />
-          </div>
-        )}
+        {/* Written sections (description, what you'll learn, requirements, who
+            it's for) are shown on the enrol page only, to avoid duplicating the
+            same long-form text across both pages. */}
 
         <div className="p-4 rounded-lg border bg-card space-y-2">
           <h3 className="text-xs font-semibold">{t('importantNotes')}</h3>
