@@ -43,15 +43,22 @@ export async function GET(request: Request) {
   const graceCutoff = new Date(now.getTime() - GRACE_DAYS * DAY_MS);
   const staleCutoff = new Date(now.getTime() - STALE_DAYS * DAY_MS);
 
-  // Past the grace window AND (coupon expired OR stale).
-  // staleCutoff is older than graceCutoff, so the stale branch already implies
-  // the grace condition; the top-level scrapedAt guard makes the coupon branch
-  // safe for recently re-scraped courses.
+  // Delete only past the grace window, AND when the course is genuinely finished:
+  //   - its coupon has expired, OR
+  //   - it is a (limited-time) coupon course older than STALE_DAYS.
+  // "Free forever" courses are NOT limited-time offers, so they are never removed
+  // by the stale branch (and they carry no couponExpiresAt, so the expired branch
+  // never matches them either) — this prevents dropping permanent free courses.
+  //
+  // Note: since a re-scrape now skips already-stored courses (to save DB ops),
+  // scrapedAt is the course's first-seen time and is not refreshed. The stale
+  // branch therefore enforces a clean "remove coupon courses ~a week after they
+  // were added" policy, which matches how temporary coupons behave.
   const where: Prisma.CourseWhereInput = {
     scrapedAt: { lt: graceCutoff },
     OR: [
       { couponExpiresAt: { lt: now } },
-      { scrapedAt: { lt: staleCutoff } },
+      { isFreeForever: false, scrapedAt: { lt: staleCutoff } },
     ],
   };
 
