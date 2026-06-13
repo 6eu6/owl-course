@@ -50,6 +50,7 @@ const SOCIAL = {
   x: "https://x.com/learnplusfree",
   bot: "https://t.me/FreeLearningHub_P_bot",
   channel: "https://t.me/LPCourse",
+  channelAr: "https://t.me/ArLearnPlus",
   community: "https://t.me/+AU8JJ85DUswzOGNi",
 }
 
@@ -74,6 +75,8 @@ function TgIcon() {
 export function SiteFooter({ locale = "en" }: { locale?: Locale }) {
   const t = makeT(locale)
   const base = `/${locale}`
+  // The Telegram channel is per-language: Arabic visitors get the Arabic channel.
+  const channelHref = locale === "ar" ? SOCIAL.channelAr : SOCIAL.channel
   const channel =
     "inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
   return (
@@ -90,7 +93,7 @@ export function SiteFooter({ locale = "en" }: { locale?: Locale }) {
 
         {/* Channels — each labelled so users know what it is */}
         <div className="flex flex-wrap items-center justify-center gap-2">
-          <a href={SOCIAL.channel} target="_blank" rel="noopener noreferrer" className={channel}>
+          <a href={channelHref} target="_blank" rel="noopener noreferrer" className={channel}>
             <TgIcon /> {t("telegramChannel")}
           </a>
           <a href={SOCIAL.community} target="_blank" rel="noopener noreferrer" className={channel}>

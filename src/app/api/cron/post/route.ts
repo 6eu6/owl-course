@@ -40,19 +40,27 @@ type PendingPost = {
   pendingChannels: Channel[];
 };
 
-// Channels that have NOT yet received this course for this locale.
-async function channelsNotYetSent(
-  courseId: string,
+// Map each candidate courseId -> set of channelIds it has already been sent to,
+// using ONE batched query for the whole candidate window. This keeps database
+// reads at O(1) per posting run regardless of how many channels exist, instead
+// of one query per candidate course.
+async function sentChannelsByCourse(
+  courseIds: string[],
   locale: Locale,
-  activeChannels: Channel[],
   channelIds: string[],
-): Promise<Channel[]> {
-  const sentRows = await (db as any).telegramPost.findMany({
-    where: { courseId, locale, channelId: { in: channelIds }, status: 'sent' },
-    select: { channelId: true },
+): Promise<Map<string, Set<string>>> {
+  const map = new Map<string, Set<string>>();
+  if (courseIds.length === 0 || channelIds.length === 0) return map;
+  const rows = await (db as any).telegramPost.findMany({
+    where: { courseId: { in: courseIds }, locale, channelId: { in: channelIds }, status: 'sent' },
+    select: { courseId: true, channelId: true },
   });
-  const sentIds = new Set(sentRows.map((row: { channelId: string }) => row.channelId));
-  return activeChannels.filter((channel) => !sentIds.has(channel.id));
+  for (const r of rows as Array<{ courseId: string; channelId: string }>) {
+    let set = map.get(r.courseId);
+    if (!set) { set = new Set(); map.set(r.courseId, set); }
+    set.add(r.channelId);
+  }
+  return map;
 }
 
 // English: select straight from published Course rows (newest first).
@@ -63,10 +71,12 @@ async function findPendingEnglish(activeChannels: Channel[], limit: number): Pro
     orderBy: { scrapedAt: 'desc' },
     take: Math.max(limit * 30, 30),
   });
+  const sentMap = await sentChannelsByCourse(candidates.map((c) => c.id), 'en', channelIds);
 
   const selected: PendingPost[] = [];
   for (const course of candidates) {
-    const pendingChannels = await channelsNotYetSent(course.id, 'en', activeChannels, channelIds);
+    const sent = sentMap.get(course.id);
+    const pendingChannels = sent ? activeChannels.filter((ch) => !sent.has(ch.id)) : activeChannels;
     if (pendingChannels.length > 0) {
       selected.push({ course, title: course.title, slug: course.slug, category: course.category, pendingChannels });
       if (selected.length >= limit) break;
@@ -84,12 +94,18 @@ async function findPendingArabic(activeChannels: Channel[], limit: number): Prom
     orderBy: { course: { scrapedAt: 'desc' } },
     take: Math.max(limit * 30, 30),
   });
+  const sentMap = await sentChannelsByCourse(
+    (candidates as any[]).map((tr) => tr.course?.id).filter(Boolean),
+    'ar',
+    channelIds,
+  );
 
   const selected: PendingPost[] = [];
   for (const tr of candidates) {
     const course = tr.course;
     if (!course) continue;
-    const pendingChannels = await channelsNotYetSent(course.id, 'ar', activeChannels, channelIds);
+    const sent = sentMap.get(course.id);
+    const pendingChannels = sent ? activeChannels.filter((ch) => !sent.has(ch.id)) : activeChannels;
     if (pendingChannels.length > 0) {
       selected.push({ course, title: tr.title, slug: tr.slug, category: tr.category || course.category, pendingChannels });
       if (selected.length >= limit) break;
@@ -212,11 +228,13 @@ export async function GET(request: Request) {
 
       if (result.success) {
         posted++;
-        for (const channelId of result.channelIds) {
-          await (db as any).telegramPost.upsert({
-            where: { courseId_locale_channelId: { courseId: c.id, locale, channelId } },
-            update: { status: 'sent', error: null, sentAt: new Date() },
-            create: { courseId: c.id, locale, channelId, status: 'sent' },
+        // Record all successfully-sent channels in ONE write (regardless of how
+        // many channels there are). skipDuplicates makes it idempotent. Channels
+        // that failed simply aren't recorded, so they retry on the next run.
+        if (result.channelIds.length > 0) {
+          await (db as any).telegramPost.createMany({
+            data: result.channelIds.map((channelId) => ({ courseId: c.id, locale, channelId, status: 'sent' })),
+            skipDuplicates: true,
           });
         }
 
@@ -228,29 +246,7 @@ export async function GET(request: Request) {
         });
       } else {
         failed.push(item.title);
-        for (const channel of pendingChannels) {
-          await (db as any).telegramPost.upsert({
-            where: {
-              courseId_locale_channelId: {
-                courseId: c.id,
-                locale,
-                channelId: channel.id,
-              },
-            },
-            update: {
-              status: 'failed',
-              error: 'sendMessage failed',
-              sentAt: new Date(),
-            },
-            create: {
-              courseId: c.id,
-              locale,
-              channelId: channel.id,
-              status: 'failed',
-              error: 'sendMessage failed',
-            },
-          });
-        }
+        // No DB write on full failure — the course stays pending and is retried.
       }
     }
 
